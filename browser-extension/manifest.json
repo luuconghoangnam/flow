@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Rust Download Manager Integration",
+  "version": "1.0",
+  "description": "Native Messaging extension for Rust Download Manager",
+  "permissions": [
+    "downloads",
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}
