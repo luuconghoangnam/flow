@@ -1,5 +1,8 @@
 # Kế Hoạch Phát Triển: Rust Native Download Manager
 
+## 0. Nghiên cứu & Tham chiếu (Research & Reference)
+- **Tham khảo dự án cũ**: Đọc repository `D:\Repos\IDM` để phân tích cấu trúc dự án cũ và học hỏi cách chuyển đổi (migration) sang dự án mới bằng Rust hiệu quả nhất.
+
 ## 1. Mục Tiêu Dự Án (Project Goals)
 Xây dựng một phần mềm Hỗ trợ Tải xuống (Download Manager) thay thế hoàn toàn phiên bản Kotlin/Compose cũ. Dự án mới phải đạt được các tiêu chí:
 - **Siêu nhẹ & Nhanh**: Tối ưu hóa RAM và CPU, chạy ngầm không ảnh hưởng hệ thống.
@@ -36,12 +39,15 @@ Xây dựng một phần mềm Hỗ trợ Tải xuống (Download Manager) thay 
 - **Tải đa luồng (Multi-threading)**: Thuật toán cắt file (Chunking) thành 8/16/32 phần và tải song song.
 - **Quản lý file tạm**: Ghi các chunk vào disk và thuật toán ghép file (Merge) tối ưu I/O.
 - **Lưu trữ trạng thái**: Lưu lịch sử và trạng thái (Pause/Resume/Error) vào Database.
+- **Khôi phục tải xuống (Resume Capability)**: Quản lý file tạm và HTTP Range (`Range: bytes=X-Y`) để khôi phục tải khi rớt mạng/tắt app.
+- **Giới hạn tốc độ (Rate Limiting)**: Implement thuật toán Token Bucket ở tầng đọc stream để kiểm soát băng thông.
+- **Hỗ trợ Media Stream (M3U8/HLS)**: Lên kế hoạch nhúng/tích hợp FFmpeg để phân tích và tự động ghép (mux) file Audio/Video.
 
 ### Giai đoạn 2: Xây Dựng Kênh Giao Tiếp Native Messaging
 *Tiêu chí: Trình duyệt và App nói chuyện thành công, bắt link tự động.*
 - **App Rust**: Code luồng đọc/ghi 4-byte header từ `stdin/stdout`.
 - **Browser Extension**: Tạo extension cơ bản (Manifest V3), thêm tính năng chặn (intercept) request tải xuống.
-- **Setup Scripts**: Viết file `manifest.json` cho OS và các script `.bat`/`.sh` để đăng ký thử nghiệm (vào Registry Windows / Linux folder).
+- **Setup Scripts**: Viết file `manifest.json` cho OS và các script `.bat`/`.sh` để đăng ký thử nghiệm. *Lưu ý:* Phân tách rõ module đăng ký theo OS (Registry trên Windows, thư mục đặc thù trên Linux/macOS).
 - **Truyền dữ liệu**: Truyền cục JSON chứa URL, Headers, Cookies từ Extension sang App.
 
 ### Giai đoạn 3: Phát Triển Giao Diện Native (UI)
@@ -50,6 +56,7 @@ Xây dựng một phần mềm Hỗ trợ Tải xuống (Download Manager) thay 
 - Giao diện cửa sổ nhỏ (Dialog popup): Hiện ra khi Extension bắn link về để xác nhận (chọn thư mục lưu, tên file).
 - Tích hợp Core logic vào UI: Cập nhật UI theo thời gian thực dựa trên tiến độ tải của Core.
 - System Tray: Chạy ngầm dưới khay hệ thống, click đúp để mở.
+- **Theo dõi Clipboard (Clipboard Monitoring)**: Dùng thư viện `arboard` liên tục theo dõi để tự động pop-up khi copy các link có đuôi định dạng tải.
 
 ### Giai đoạn 4: Hoàn Thiện & Đóng Gói (Installer & Deployment)
 *Tiêu chí: Cài đặt dễ dàng (1-click), tự động cấu hình cho Native Messaging.*
@@ -57,6 +64,7 @@ Xây dựng một phần mềm Hỗ trợ Tải xuống (Download Manager) thay 
 - Khi cài đặt: Tự động ghi key vào Registry để Chrome/Edge nhận diện App.
 - Chức năng tự động khởi động cùng hệ thống.
 - Đóng gói Browser Extension đẩy lên Store.
+- **Tích hợp quét Virus (Antivirus Integration)**: Chạy lệnh quét file (vd: Windows Defender CLI) tự động ngay khi quá trình Merge file kết thúc.
 
 ---
 
@@ -72,8 +80,8 @@ Dựa trên phản hồi, dự án sẽ được xây dựng theo kiến trúc s
 
 1. **Framework UI Native**: **Slint**
    - *Lý do*: Hiệu suất cao, giao diện hiện đại, dễ viết hơn Iced và có hỗ trợ xem trước UI (Preview).
-2. **Cơ sở dữ liệu**: **SQLite**
-   - *Lý do*: Đảm bảo toàn vẹn dữ liệu, hỗ trợ truy vấn lịch sử tải xuống lớn một cách nhanh chóng.
+2. **Cơ sở dữ liệu**: **SQLite** (Thư viện `rusqlite` + cấu hình WAL)
+   - *Lý do*: Đảm bảo toàn vẹn dữ liệu, truy vấn lịch sử nhanh. *Lưu ý kiến trúc:* Để tránh lỗi nghẽn I/O (Database is locked), % tiến trình tải phải được giữ ở bộ nhớ RAM (In-memory) và chỉ đồng bộ xuống SQLite định kỳ (hoặc theo sự kiện Pause/Complete).
 3. **Mô hình chạy**: **Chạy ngầm (System Tray / Daemon)**
    - *Lý do*: Theo đúng tiêu chuẩn của một trình quản lý tải xuống chuyên nghiệp (như IDM), luôn sẵn sàng nhận lệnh từ trình duyệt.
 4. **Kết nối trình duyệt**: **Native Messaging API**

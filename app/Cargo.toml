@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "flow-core",
+    "flow-ui",
+    "flow-messaging"
+]
