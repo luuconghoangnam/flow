@@ -224,6 +224,7 @@ impl From<QueueJobRecord> for DownloadRequest {
             proxy_password: job.proxy_password,
             priority: job.priority,
             queue_id: job.queue_id,
+            speed_limit_bps: None,
         }
     }
 }

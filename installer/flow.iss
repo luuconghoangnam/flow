@@ -39,38 +39,3 @@ Filename: "{app}\flow-host.exe"; Parameters: "--health"; Flags: runhidden
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\native-messaging\windows\unregister-host.ps1"""; Flags: runhidden; RunOnceId: "FlowUnregisterNativeHost"
-
-[Code]
-var
-  NativeMessagingPage: TInputQueryWizardPage;
-
-procedure InitializeWizard;
-begin
-  NativeMessagingPage := CreateInputQueryPage(
-    wpSelectTasks,
-    'Browser Integration',
-    'Register Native Messaging Host',
-    'Enter the Chrome/Edge extension ID to register Flow automatically. Leave blank to register later.'
-  );
-  NativeMessagingPage.Add('Extension ID:', False);
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  ResultCode: Integer;
-  ExtensionId: String;
-begin
-  if CurStep = ssPostInstall then begin
-    ExtensionId := Trim(NativeMessagingPage.Values[0]);
-    if ExtensionId <> '' then begin
-      Exec(
-        'powershell.exe',
-        '-ExecutionPolicy Bypass -File "' + ExpandConstant('{app}') + '\native-messaging\windows\register-host.ps1" -ExtensionId "' + ExtensionId + '" -HostExe "' + ExpandConstant('{app}') + '\flow-host.exe"',
-        '',
-        SW_HIDE,
-        ewWaitUntilTerminated,
-        ResultCode
-      );
-    end;
-  end;
-end;

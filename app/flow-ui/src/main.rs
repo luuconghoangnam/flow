@@ -31,6 +31,7 @@ fn main() {
     app.set_queue_groups(ModelRc::new(VecModel::from(queue_state.queue_labels)));
     app.set_download_items(ModelRc::new(VecModel::from(queue_state.row_labels)));
     app.set_queue_config_summary(queue_state.queue_summary.into());
+    app.set_queue_name_text(load_selected_queue_name(*selected_queue.lock().expect("selected queue lock")).into());
     let (appearance, engine, browser) = load_settings_sections();
     app.set_appearance_summary(appearance.into());
     app.set_engine_summary(engine.into());
@@ -47,6 +48,7 @@ fn main() {
     app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
     app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
     app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
+    app.set_browser_extension_id_text(settings.browser_extension_id.unwrap_or_default().into());
 
     let _tray_context = setup_tray_if_enabled(&app);
 
@@ -174,6 +176,22 @@ fn main() {
             }
         })
     });
+    {
+        let selected_queue = Arc::clone(&selected_queue);
+        app.on_queue_name_changed(move |value| {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            let db_path = flow_db_path();
+            if let Ok(repo) = SqliteDownloadRepository::open(&db_path) {
+                let _ = repo.init_schema();
+                if let Ok(Some(mut group)) = repo.get_queue_group(queue_id) {
+                    if !value.trim().is_empty() {
+                        group.name = value.to_string();
+                        let _ = repo.upsert_queue_group(&group);
+                    }
+                }
+            }
+        });
+    }
     app.on_clipboard_queue(|| {
         if let Some(value) = load_clipboard_pending_json() {
             let mut decision = serde_json::Map::new();
@@ -203,6 +221,38 @@ fn main() {
         let mut decision = serde_json::Map::new();
         decision.insert("action".to_string(), serde_json::Value::String("dismiss".to_string()));
         let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
+    });
+
+    app.on_browser_extension_id_changed(|value| mutate_settings(|settings| {
+        settings.browser_extension_id = if value.trim().is_empty() { None } else { Some(value.to_string()) };
+    }));
+
+    app.on_register_browser_host(|| {
+        let settings = load_settings(&flow_data_dir().join("settings.json"));
+        let Some(extension_id) = settings.browser_extension_id else {
+            return;
+        };
+        let Some(script) = locate_register_script() else {
+            return;
+        };
+        let host_exe = std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(|dir| dir.join("flow-host.exe")))
+            .unwrap_or_else(|| std::path::PathBuf::from("flow-host.exe"))
+            .to_string_lossy()
+            .to_string();
+        let _ = std::process::Command::new("powershell")
+            .args([
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                script.as_str(),
+                "-ExtensionId",
+                extension_id.as_str(),
+                "-HostExe",
+                host_exe.as_str(),
+            ])
+            .status();
     });
 
     {
@@ -235,6 +285,7 @@ fn main() {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_queue_config_summary(state.queue_summary.into());
+                    app.set_queue_name_text(load_selected_queue_name(next_id).into());
                     let (appearance, engine, browser) = load_settings_sections();
                     app.set_appearance_summary(appearance.into());
                     app.set_engine_summary(engine.into());
@@ -298,6 +349,7 @@ fn main() {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_queue_config_summary(state.queue_summary.into());
+                    app.set_queue_name_text(load_selected_queue_name(0).into());
                     let (appearance, engine, browser) = load_settings_sections();
                     app.set_appearance_summary(appearance.into());
                     app.set_engine_summary(engine.into());
@@ -341,6 +393,7 @@ fn main() {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_queue_config_summary(state.queue_summary.into());
+                    app.set_queue_name_text(load_selected_queue_name(selected_now).into());
                 });
             }
         });
@@ -371,6 +424,7 @@ fn main() {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_queue_config_summary(state.queue_summary.into());
+                    app.set_queue_name_text(load_selected_queue_name(selected).into());
                     let (appearance, engine, browser) = load_settings_sections();
                     app.set_appearance_summary(appearance.into());
                     app.set_engine_summary(engine.into());
@@ -387,12 +441,26 @@ fn main() {
                     app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
                     app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
                     app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
+                    app.set_browser_extension_id_text(settings.browser_extension_id.unwrap_or_default().into());
                     app.set_selected_download_index(selected_index);
                 });
             }
         });
 
     app.run().expect("UI runtime error");
+}
+
+fn load_selected_queue_name(queue_id: i64) -> String {
+    let db_path = flow_db_path();
+    let Ok(repo) = SqliteDownloadRepository::open(&db_path) else {
+        return "Main".to_string();
+    };
+    let _ = repo.init_schema();
+    repo.get_queue_group(queue_id)
+        .ok()
+        .flatten()
+        .map(|group| group.name)
+        .unwrap_or_else(|| "Main".to_string())
 }
 
 fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
@@ -541,9 +609,10 @@ fn load_settings_sections() -> (String, String, String) {
         settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder),
     );
     let engine = format!(
-        "thread_count={} | max_concurrent={} | per_host={} ({}) | proxy={:?}@{}:{} auth={}",
+        "thread_count={} | max_concurrent={} | speed_limit_bps={} | per_host={} ({}) | proxy={:?}@{}:{} auth={}",
         settings.thread_count,
         settings.max_concurrent_downloads,
+        settings.global_speed_limit_bps.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()),
         settings.per_host.len(),
         settings.per_host.first().map(|v| v.host.as_str()).unwrap_or("no-rule"),
         settings.proxy.mode,
@@ -597,6 +666,24 @@ fn default_downloads_folder() -> String {
     std::env::var("USERPROFILE")
         .map(|home| std::path::PathBuf::from(home).join("Downloads").to_string_lossy().to_string())
         .unwrap_or_else(|_| "downloads".to_string())
+}
+
+fn locate_register_script() -> Option<String> {
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let installed = exe_dir.join("native-messaging").join("windows").join("register-host.ps1");
+    if installed.exists() {
+        return Some(installed.to_string_lossy().to_string());
+    }
+    let repo = exe_dir
+        .join("..")
+        .join("..")
+        .join("native-messaging")
+        .join("windows")
+        .join("register-host.ps1");
+    if repo.exists() {
+        return Some(repo.to_string_lossy().to_string());
+    }
+    None
 }
 
 fn load_clipboard_pending_json() -> Option<serde_json::Value> {

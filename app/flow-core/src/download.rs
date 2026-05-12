@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT_ENCODING, ACCEPT_RANGES, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_RANGE, RANGE, REFERER, USER_AGENT};
@@ -38,6 +38,7 @@ pub struct DownloadRequest {
     pub proxy_password: Option<String>,
     pub priority: i64,
     pub queue_id: i64,
+    pub speed_limit_bps: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +79,50 @@ impl DownloadControl {
 
 pub struct DownloadEngine {
     client: reqwest::Client,
+}
+
+#[derive(Clone)]
+struct SpeedLimiter {
+    inner: Arc<tokio::sync::Mutex<SpeedLimiterState>>,
+}
+
+struct SpeedLimiterState {
+    bps: u64,
+    tokens: f64,
+    last_refill: Instant,
+}
+
+impl SpeedLimiter {
+    fn new(bps: u64) -> Self {
+        Self {
+            inner: Arc::new(tokio::sync::Mutex::new(SpeedLimiterState {
+                bps,
+                tokens: bps as f64,
+                last_refill: Instant::now(),
+            })),
+        }
+    }
+
+    async fn consume(&self, bytes: usize) {
+        let need = bytes as f64;
+        loop {
+            let mut state = self.inner.lock().await;
+            let now = Instant::now();
+            let elapsed = now.duration_since(state.last_refill).as_secs_f64();
+            state.tokens = (state.tokens + elapsed * state.bps as f64).min(state.bps as f64);
+            state.last_refill = now;
+
+            if state.tokens >= need {
+                state.tokens -= need;
+                return;
+            }
+
+            let deficit = need - state.tokens;
+            let wait_seconds = deficit / state.bps as f64;
+            drop(state);
+            tokio::time::sleep(Duration::from_secs_f64(wait_seconds.max(0.001))).await;
+        }
+    }
 }
 
 impl DownloadEngine {
@@ -227,6 +272,7 @@ impl DownloadEngine {
             .open(&output_file)
             .await
             .map_err(|e| e.to_string())?;
+        let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
 
         while let Some(chunk) = stream.next().await {
             if let Err(reason) = wait_if_paused_or_cancelled(&control).await {
@@ -234,6 +280,9 @@ impl DownloadEngine {
                 return Err(reason);
             }
             let bytes = chunk.map_err(|e| e.to_string())?;
+            if let Some(limiter) = &limiter {
+                limiter.consume(bytes.len()).await;
+            }
             file.write_all(&bytes).await.map_err(|e| e.to_string())?;
             already_downloaded += bytes.len() as u64;
             task.downloaded_bytes = already_downloaded;
@@ -300,6 +349,7 @@ impl DownloadEngine {
         let aggregate = Arc::new(AtomicU64::new(persisted_total));
         let task_id = task.id.clone();
         let request_headers = request_header_map(Some(&request));
+        let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
         for (idx, plan) in plans.iter().enumerate() {
             let persisted = persisted_chunks.iter().find(|chunk| chunk.chunk_index == idx as i64);
             let persisted_downloaded = persisted.map(|v| v.downloaded).unwrap_or(0);
@@ -331,6 +381,7 @@ impl DownloadEngine {
             let request_headers = request_headers.clone();
             let username = request.username.clone();
             let password = request.password.clone();
+            let limiter = limiter.clone();
             handles.push(tokio::spawn(async move {
                 let response = send_with_retry(|| apply_credentials(apply_header_map(client.get(&url).header(RANGE, range_value.clone()), &request_headers), username.as_deref(), password.as_deref()), 3).await?;
                 validate_range_response(&response, resume_start, chunk_end)?;
@@ -340,6 +391,9 @@ impl DownloadEngine {
                 while let Some(chunk) = stream.next().await {
                     wait_if_paused_or_cancelled(&control2).await?;
                     let bytes = chunk.map_err(|e| e.to_string())?;
+                    if let Some(limiter) = &limiter {
+                        limiter.consume(bytes.len()).await;
+                    }
                     file.write_all(&bytes).await.map_err(|e| e.to_string())?;
                     written += bytes.len() as u64;
                     let _ = tx2

@@ -236,6 +236,14 @@ fn main() {
         Ok(serde_json::json!({ "requeued": payload.download_id }))
     };
 
+    let queue_swap = move |payload: flow_messaging::QueueJobOrderRequest| {
+        let repo = SqliteDownloadRepository::open(&flow_db_path()).map_err(|e| e.to_string())?;
+        repo.init_schema().map_err(|e| e.to_string())?;
+        let target_index = payload.target_index.ok_or_else(|| "BAD_REQUEST: target_index is required".to_string())?;
+        repo.move_queue_job_to_index(&payload.download_id, target_index).map_err(|e| e.to_string())?;
+        Ok(serde_json::json!({ "swapped": payload.download_id, "target_index": target_index }))
+    };
+
     let queue_events = move |payload: flow_messaging::QueueEventQueryRequest| {
         let repo = SqliteDownloadRepository::open(&flow_db_path()).map_err(|e| e.to_string())?;
         repo.init_schema().map_err(|e| e.to_string())?;
@@ -243,7 +251,7 @@ fn main() {
         serde_json::to_value(events).map_err(|e| e.to_string())
     };
 
-    let _ = run_native_host_loop(HostCommandHandlers { create, status, list, retry, cleanup, start, stop, queue_list, queue_create, queue_update, queue_delete, queue_move, queue_requeue, queue_events });
+    let _ = run_native_host_loop(HostCommandHandlers { create, status, list, retry, cleanup, start, stop, queue_list, queue_create, queue_update, queue_delete, queue_move, queue_requeue, queue_swap, queue_events });
 }
 
 fn handle_cli_probe() -> bool {
@@ -493,6 +501,7 @@ fn map_browser_message_to_request(payload: BrowserDownloadMessage) -> DownloadRe
         proxy_password: proxy.as_ref().and_then(|proxy| proxy.password.clone()),
         priority: payload.priority.unwrap_or(0),
         queue_id: payload.queue_id.unwrap_or(0),
+        speed_limit_bps: settings.global_speed_limit_bps,
     }
 }
 

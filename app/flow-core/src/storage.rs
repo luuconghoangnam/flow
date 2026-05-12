@@ -93,6 +93,7 @@ pub trait DownloadRepository {
     fn delete_download_job(&self, id: &str) -> Result<()>;
     fn reorder_queue_job(&self, id: &str, direction: i64) -> Result<()>;
     fn push_queue_job_to_end(&self, id: &str) -> Result<()>;
+    fn move_queue_job_to_index(&self, id: &str, target_index: usize) -> Result<()>;
     fn list_recoverable_jobs(&self) -> Result<Vec<QueueJobRecord>>;
 }
 
@@ -577,6 +578,41 @@ impl DownloadRepository for SqliteDownloadRepository {
             (id, max_order + 1),
         )?;
         normalize_queue_order(&self.connection, current.queue_id)?;
+        Ok(())
+    }
+
+    fn move_queue_job_to_index(&self, id: &str, target_index: usize) -> Result<()> {
+        let current = self.get_queue_job(id)?;
+        let Some(current) = current else { return Ok(()); };
+
+        let mut statement = self.connection.prepare(
+            "
+            SELECT id
+            FROM queue_jobs
+            WHERE queue_id = ?1
+            ORDER BY priority DESC, queue_order ASC, created_at ASC
+            ",
+        )?;
+        let mut ordered = statement
+            .query_map([current.queue_id], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>>>()?;
+
+        let Some(current_index) = ordered.iter().position(|job_id| job_id == &current.id) else {
+            return Ok(());
+        };
+        let target = target_index.min(ordered.len().saturating_sub(1));
+        if current_index == target {
+            return Ok(());
+        }
+
+        let item = ordered.remove(current_index);
+        ordered.insert(target, item);
+        for (index, job_id) in ordered.into_iter().enumerate() {
+            self.connection.execute(
+                "UPDATE queue_jobs SET queue_order = ?2 WHERE id = ?1",
+                (job_id, index as i64),
+            )?;
+        }
         Ok(())
     }
 

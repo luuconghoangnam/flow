@@ -52,6 +52,7 @@ pub struct QueueGroupRequest {
 pub struct QueueJobOrderRequest {
     pub download_id: String,
     pub direction: Option<String>,
+    pub target_index: Option<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,7 +113,7 @@ pub fn write_native_message(output: &mut impl Write, payload: &str) -> std::io::
     output.flush()
 }
 
-pub struct HostCommandHandlers<Create, Status, List, Retry, Cleanup, Start, Stop, QueueList, QueueCreate, QueueUpdate, QueueDelete, QueueMove, QueueRequeue, QueueEvents> {
+pub struct HostCommandHandlers<Create, Status, List, Retry, Cleanup, Start, Stop, QueueList, QueueCreate, QueueUpdate, QueueDelete, QueueMove, QueueRequeue, QueueSwap, QueueEvents> {
     pub create: Create,
     pub status: Status,
     pub list: List,
@@ -126,10 +127,11 @@ pub struct HostCommandHandlers<Create, Status, List, Retry, Cleanup, Start, Stop
     pub queue_delete: QueueDelete,
     pub queue_move: QueueMove,
     pub queue_requeue: QueueRequeue,
+    pub queue_swap: QueueSwap,
     pub queue_events: QueueEvents,
 }
 
-pub fn run_native_host_loop<Create, Status, List, Retry, Cleanup, Start, Stop, QueueList, QueueCreate, QueueUpdate, QueueDelete, QueueMove, QueueRequeue, QueueEvents>(mut handlers: HostCommandHandlers<Create, Status, List, Retry, Cleanup, Start, Stop, QueueList, QueueCreate, QueueUpdate, QueueDelete, QueueMove, QueueRequeue, QueueEvents>) -> Result<(), String>
+pub fn run_native_host_loop<Create, Status, List, Retry, Cleanup, Start, Stop, QueueList, QueueCreate, QueueUpdate, QueueDelete, QueueMove, QueueRequeue, QueueSwap, QueueEvents>(mut handlers: HostCommandHandlers<Create, Status, List, Retry, Cleanup, Start, Stop, QueueList, QueueCreate, QueueUpdate, QueueDelete, QueueMove, QueueRequeue, QueueSwap, QueueEvents>) -> Result<(), String>
 where
     Create: FnMut(BrowserDownloadMessage) -> Result<Option<String>, String>,
     Status: FnMut(DownloadStatusRequest) -> Result<Value, String>,
@@ -144,6 +146,7 @@ where
     QueueDelete: FnMut(QueueGroupRequest) -> Result<Value, String>,
     QueueMove: FnMut(QueueJobOrderRequest) -> Result<Value, String>,
     QueueRequeue: FnMut(QueueJobOrderRequest) -> Result<Value, String>,
+    QueueSwap: FnMut(QueueJobOrderRequest) -> Result<Value, String>,
     QueueEvents: FnMut(QueueEventQueryRequest) -> Result<Value, String>,
 {
     let mut input = stdin();
@@ -203,6 +206,10 @@ where
             "queue.requeue" => {
                 let payload: QueueJobOrderRequest = serde_json::from_value(envelope.payload).map_err(|e| e.to_string())?;
                 (handlers.queue_requeue)(payload).map(|data| (200, "ok".to_string(), None, Some(data)))
+            }
+            "queue.swap" => {
+                let payload: QueueJobOrderRequest = serde_json::from_value(envelope.payload).map_err(|e| e.to_string())?;
+                (handlers.queue_swap)(payload).map(|data| (200, "ok".to_string(), None, Some(data)))
             }
             "queue.events" => {
                 let payload: QueueEventQueryRequest = serde_json::from_value(envelope.payload).unwrap_or(QueueEventQueryRequest { limit: Some(50) });

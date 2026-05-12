@@ -176,6 +176,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return true;
     }
 
+    if (message?.type === "flow.queue.swap") {
+        sendCommand("queue.swap", message.payload || {})
+            .then(sendResponse)
+            .catch((error) => sendResponse({ status_code: 500, message: error.message }));
+        return true;
+    }
+
     if (message?.type === "flow.queue.events") {
         sendCommand("queue.events", message.payload || { limit: 50 })
             .then(sendResponse)

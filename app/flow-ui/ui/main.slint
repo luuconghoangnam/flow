@@ -10,9 +10,11 @@ export component MainWindow inherits Window {
     in property <[string]> queue-groups: ["Main"];
     in property <int> selected-queue-index: 0;
     in property <string> queue-config-summary: "Queue config";
+    in property <string> queue-name-text: "Main";
     in property <string> appearance-summary: "Appearance";
     in property <string> engine-summary: "Download Engine";
     in property <string> browser-summary: "Browser Integration";
+    in property <string> browser-extension-id-text: "";
     in property <string> queue-event-summary: "Queue events";
     in property <string> proxy-host-text: "127.0.0.1";
     in property <string> proxy-port-text: "2080";
@@ -38,6 +40,7 @@ export component MainWindow inherits Window {
     callback queue-max-minus();
     callback queue-max-plus();
     callback queue-toggle-stop-on-empty();
+    callback queue-name-changed(value: string);
     callback toggle-auto-start();
     callback toggle-system-tray();
     callback toggle-browser-integration();
@@ -65,6 +68,8 @@ export component MainWindow inherits Window {
     callback perhost-user-changed(value: string);
     callback perhost-pass-changed(value: string);
     callback default-folder-changed(value: string);
+    callback browser-extension-id-changed(value: string);
+    callback register-browser-host();
     callback clipboard-queue();
     callback clipboard-dismiss();
 
@@ -185,11 +190,19 @@ export component MainWindow inherits Window {
                 border-width: 1px;
                 border-color: #334155;
 
+                LineEdit {
+                    text: queue-name-text;
+                    x: 14px;
+                    y: 8px;
+                    width: 280px;
+                    edited(text) => { root.queue-name-changed(text); }
+                }
+
                 Text {
                     text: queue-config-summary;
                     color: #d1d5db;
                     x: 14px;
-                    y: 24px;
+                    y: 44px;
                     font-size: 13px;
                 }
             }
@@ -490,6 +503,27 @@ export component MainWindow inherits Window {
                     y: 44px;
                     width: 140px;
                     edited(text) => { root.perhost-pass-changed(text); }
+                }
+
+                LineEdit {
+                    text: browser-extension-id-text;
+                    x: 1332px;
+                    y: 44px;
+                    width: 240px;
+                    edited(text) => { root.browser-extension-id-changed(text); }
+                }
+
+                Rectangle {
+                    x: 1332px;
+                    y: 10px;
+                    width: 160px;
+                    height: 28px;
+                    border-radius: 8px;
+                    background: #1f2937;
+                    border-width: 1px;
+                    border-color: #475569;
+                    TouchArea { clicked => { root.register-browser-host(); } }
+                    Text { text: "Register Host"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
                 }
             }
 
