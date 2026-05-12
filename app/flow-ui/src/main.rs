@@ -19,6 +19,7 @@ struct QueueUiState {
     queue_labels: Vec<SharedString>,
     queue_ids: Vec<i64>,
     row_labels: Vec<SharedString>,
+    rows: Vec<DownloadRow>,
     row_ids: Vec<String>,
     queue_summary: String,
 }
@@ -31,6 +32,7 @@ fn main() {
     let queue_state = load_queue_ui_state(*selected_queue.lock().expect("selected queue lock"));
     app.set_queue_groups(ModelRc::new(VecModel::from(queue_state.queue_labels)));
     app.set_download_items(ModelRc::new(VecModel::from(queue_state.row_labels)));
+    app.set_download_rows(ModelRc::new(VecModel::from(queue_state.rows)));
     app.set_queue_config_summary(queue_state.queue_summary.into());
     app.set_queue_name_text(load_selected_queue_name(*selected_queue.lock().expect("selected queue lock")).into());
     let (appearance, engine, browser) = load_settings_sections();
@@ -266,6 +268,7 @@ fn main() {
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
+                    app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(next_id).into());
                     let (appearance, engine, browser) = load_settings_sections();
@@ -330,6 +333,7 @@ fn main() {
                     app.set_selected_queue_index(0);
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
+                    app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(0).into());
                     let (appearance, engine, browser) = load_settings_sections();
@@ -375,6 +379,7 @@ fn main() {
                     app.set_selected_queue_index(index);
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
+                    app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(selected_now).into());
                 });
@@ -406,6 +411,7 @@ fn main() {
             let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
                     app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
+                    app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(selected).into());
                     let (appearance, engine, browser) = load_settings_sections();
@@ -542,10 +548,10 @@ fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
 fn load_queue_ui_state(selected_queue_id: i64) -> QueueUiState {
     let db_path = flow_db_path();
     let Ok(repo) = SqliteDownloadRepository::open(&db_path) else {
-        return QueueUiState { queue_labels: vec!["Main".into()], queue_ids: vec![0], row_labels: vec!["Queue database not available".into()], row_ids: vec![], queue_summary: "Queue database not available".to_string() };
+        return QueueUiState { queue_labels: vec!["Main".into()], queue_ids: vec![0], row_labels: vec!["Queue database not available".into()], rows: vec![], row_ids: vec![], queue_summary: "Queue database not available".to_string() };
     };
     if repo.init_schema().is_err() {
-        return QueueUiState { queue_labels: vec!["Main".into()], queue_ids: vec![0], row_labels: vec!["Queue schema not available".into()], row_ids: vec![], queue_summary: "Queue schema not available".to_string() };
+        return QueueUiState { queue_labels: vec!["Main".into()], queue_ids: vec![0], row_labels: vec!["Queue schema not available".into()], rows: vec![], row_ids: vec![], queue_summary: "Queue schema not available".to_string() };
     }
     let groups_raw = repo
         .list_queue_groups()
@@ -558,33 +564,72 @@ fn load_queue_ui_state(selected_queue_id: i64) -> QueueUiState {
         .map(|g| format!("{} | max {} | stop_on_empty {} | {}", g.name, g.max_concurrent, g.stop_on_empty, if g.active { "active" } else { "paused" }))
         .unwrap_or_else(|| "Queue config unavailable".to_string());
     let Ok(jobs) = repo.list_queue_view_rows() else {
-        return QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: vec!["Unable to load queue".into()], row_ids: vec![], queue_summary: summary };
+        return QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: vec!["Unable to load queue".into()], rows: vec![], row_ids: vec![], queue_summary: summary };
     };
     let filtered_jobs = jobs
         .into_iter()
         .filter(|row| row.queue_id == selected_queue_id)
         .collect::<Vec<_>>();
     if filtered_jobs.is_empty() {
-        return QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: vec!["No downloads in this queue".into()], row_ids: vec![], queue_summary: summary };
+        return QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: vec!["No downloads in this queue".into()], rows: vec![], row_ids: vec![], queue_summary: summary };
     }
 
     let row_ids = filtered_jobs.iter().map(|row| row.id.clone()).collect::<Vec<_>>();
-    let rows = filtered_jobs.into_iter()
+    let rows = filtered_jobs.iter()
         .take(100)
         .map(|row| {
-            let progress = match row.total_bytes {
-                Some(total) if total > 0 => format!("{:.1}%", (row.downloaded_bytes as f64 / total as f64) * 100.0),
-                _ => "--".to_string(),
+            let progress_percent = match row.total_bytes {
+                Some(total) if total > 0 => ((row.downloaded_bytes as f64 / total as f64) * 100.0).round().clamp(0.0, 100.0) as i32,
+                _ => 0,
             };
-            let error = row.last_error.map(|e| format!(" - {e}")).unwrap_or_default();
-            format!(
-                "[{}] {} - {} - {} - attempt {}{}",
-                row.queue_name, row.file_name, row.status, progress, row.attempt_count, error
-            )
-            .into()
+            let size = match row.total_bytes {
+                Some(total) if total > 0 => format_bytes(total),
+                _ => "Unknown".to_string(),
+            };
+            DownloadRow {
+                checked: false,
+                name: row.file_name.clone().into(),
+                category: row.queue_name.clone().into(),
+                size: size.into(),
+                status: format_status(&row.status, progress_percent).into(),
+                speed: if row.status == "Downloading" { "calculating".into() } else { "--".into() },
+                time_left: "--".into(),
+                date_added: format!("attempt {}", row.attempt_count).into(),
+                description: row.last_error.clone().unwrap_or_default().into(),
+                progress: progress_percent,
+                has_progress: row.total_bytes.unwrap_or(0) > 0 && row.status != "Queued",
+                is_error: row.status == "Failed",
+            }
         })
+        .collect::<Vec<_>>();
+    let row_labels = filtered_jobs.into_iter()
+        .take(100)
+        .map(|row| format!("[{}] {} - {}", row.queue_name, row.file_name, row.status).into())
         .collect();
-    QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: rows, row_ids, queue_summary: summary }
+    QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels, rows, row_ids, queue_summary: summary }
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 { format!("{} {}", bytes, UNITS[unit]) } else { format!("{value:.1} {}", UNITS[unit]) }
+}
+
+fn format_status(status: &str, progress: i32) -> String {
+    match status {
+        "Queued" => "Added".to_string(),
+        "Paused" => if progress > 0 { format!("{progress}% Paused") } else { "Paused".to_string() },
+        "Downloading" => format!("{progress}% Downloading"),
+        "Completed" => "Finished".to_string(),
+        "Failed" => "Error".to_string(),
+        "Cancelled" => "Canceled".to_string(),
+        other => other.to_string(),
+    }
 }
 
 fn wire_queue_item_controls(app: &MainWindow, selected_queue: Arc<Mutex<i64>>, selected_download: Arc<Mutex<Option<String>>>) {
@@ -626,6 +671,7 @@ fn wire_queue_item_controls(app: &MainWindow, selected_queue: Arc<Mutex<i64>>, s
 fn wire_download_toolbar_actions(app: &MainWindow, selected_queue: Arc<Mutex<i64>>, selected_download: Arc<Mutex<Option<String>>>) {
     app.on_add_url({
         let selected_queue = Arc::clone(&selected_queue);
+        let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             if let Ok(dialog) = AddUrlDialog::new() {
@@ -635,48 +681,100 @@ fn wire_download_toolbar_actions(app: &MainWindow, selected_queue: Arc<Mutex<i64
                     if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
                 });
                 let dialog_weak = dialog.as_weak();
+                let weak_later = weak.clone();
                 dialog.on_download_later(move |url, file_name, output_dir| {
                     enqueue_manual_url(queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), false);
+                    set_status(&weak_later, "Download added to queue as Paused");
                     if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
                 });
                 let dialog_weak = dialog.as_weak();
+                let weak_now = weak.clone();
                 dialog.on_start_now(move |url, file_name, output_dir| {
                     enqueue_manual_url(queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), true);
+                    set_status(&weak_now, "Download queued to start");
                     if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
                 });
                 let _ = dialog.show();
+            } else {
+                set_status(&weak, "Unable to open Add URL dialog");
             }
         }
     });
     app.on_resume_selected({
         let selected_download = Arc::clone(&selected_download);
-        move || mutate_selected_job(selected_download.clone(), |repo, id| { let _ = repo.update_queue_job_status(id, "Queued"); })
+        let weak = app.as_weak();
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Download resumed", |repo, id| { let _ = repo.update_queue_job_status(id, "Queued"); })
     });
     app.on_stop_selected({
         let selected_download = Arc::clone(&selected_download);
-        move || mutate_selected_job(selected_download.clone(), |repo, id| {
+        let weak = app.as_weak();
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Download paused", |repo, id| {
             let _ = pause_active_job(id);
             let _ = repo.update_queue_job_status(id, "Paused");
         })
     });
     app.on_stop_all({
         let selected_queue = Arc::clone(&selected_queue);
-        move || pause_all_jobs(selected_queue.lock().map(|v| *v).unwrap_or(0))
+        let weak = app.as_weak();
+        move || {
+            pause_all_jobs(selected_queue.lock().map(|v| *v).unwrap_or(0));
+            set_status(&weak, "Stopped all downloads in selected queue");
+        }
+    });
+    app.on_request_delete_selected({
+        let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
+        move || {
+            if selected_download.lock().ok().and_then(|v| v.clone()).is_none() {
+                set_status(&weak, "No download selected");
+                return;
+            }
+            let _ = weak.upgrade_in_event_loop(|app| app.set_show_delete_confirm(true));
+        }
+    });
+    app.on_cancel_delete_selected({
+        let weak = app.as_weak();
+        move || {
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.set_show_delete_confirm(false);
+                app.set_status_message("Delete cancelled".into());
+            });
+        }
+    });
+    app.on_confirm_delete_selected({
+        let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
+        move || {
+            mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Deleted selected download", |repo, id| {
+                let _ = pause_active_job(id);
+                let _ = repo.delete_download_job(id);
+            });
+            let _ = weak.upgrade_in_event_loop(|app| app.set_show_delete_confirm(false));
+        }
     });
     app.on_delete_selected({
         let selected_download = Arc::clone(&selected_download);
-        move || mutate_selected_job(selected_download.clone(), |repo, id| {
+        let weak = app.as_weak();
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Deleted selected download", |repo, id| {
             let _ = pause_active_job(id);
             let _ = repo.delete_download_job(id);
         })
     });
     app.on_open_selected({
         let selected_download = Arc::clone(&selected_download);
-        move || open_selected_path(selected_download.clone(), false)
+        let weak = app.as_weak();
+        move || {
+            open_selected_path(selected_download.clone(), false);
+            set_status(&weak, "Opening selected file");
+        }
     });
     app.on_open_selected_folder({
         let selected_download = Arc::clone(&selected_download);
-        move || open_selected_path(selected_download.clone(), true)
+        let weak = app.as_weak();
+        move || {
+            open_selected_path(selected_download.clone(), true);
+            set_status(&weak, "Opening selected folder");
+        }
     });
 }
 
@@ -850,6 +948,30 @@ where
     if let Ok(repo) = SqliteDownloadRepository::open(&db_path) {
         let _ = repo.init_schema();
         op(&repo, &id);
+    }
+}
+
+fn set_status(weak: &slint::Weak<MainWindow>, message: &str) {
+    let message = SharedString::from(message);
+    let _ = weak.upgrade_in_event_loop(move |app| app.set_status_message(message));
+}
+
+fn mutate_selected_job_with_status<F>(selected_download: Arc<Mutex<Option<String>>>, weak: slint::Weak<MainWindow>, success: &str, op: F)
+where
+    F: Fn(&SqliteDownloadRepository, &str),
+{
+    let id = selected_download.lock().ok().and_then(|v| v.clone());
+    let Some(id) = id else {
+        set_status(&weak, "No download selected");
+        return;
+    };
+    match SqliteDownloadRepository::open(&flow_db_path()) {
+        Ok(repo) => {
+            let _ = repo.init_schema();
+            op(&repo, &id);
+            set_status(&weak, success);
+        }
+        Err(_) => set_status(&weak, "Queue database is not available"),
     }
 }
 

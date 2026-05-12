@@ -1,5 +1,20 @@
 import { LineEdit, ScrollView } from "std-widgets.slint";
 
+export struct DownloadRow {
+    checked: bool,
+    name: string,
+    category: string,
+    size: string,
+    status: string,
+    speed: string,
+    time-left: string,
+    date-added: string,
+    description: string,
+    progress: int,
+    has-progress: bool,
+    is-error: bool,
+}
+
 global Palette {
     out property <color> bg: #0A0A0A;
     out property <color> surface: #151515;
@@ -15,14 +30,15 @@ global Palette {
 component CyberButton inherits Rectangle {
     in property <string> text;
     in property <bool> active: false;
-    callback clicked <=> ta.clicked;
-    height: 34px;
-    min-width: 96px;
-    background: ta.pressed ? Palette.accent-primary : (active ? #2A2A2A : Palette.panel);
-    border-color: active ? Palette.accent-primary : Palette.border;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 28px;
+    min-width: 86px;
+    background: !enabled ? #C5C5C5 : (ta.pressed ? #B8D6F3 : (active ? #EAF4FF : #EFEFEF));
+    border-color: active ? #4A90D9 : #8C8C8C;
     border-width: 1px;
-    Text { text: root.text; color: Palette.text-primary; font-size: 12px; font-family: Palette.font-body; horizontal-alignment: center; vertical-alignment: center; width: parent.width; height: parent.height; }
-    ta := TouchArea { width: 100%; height: 100%; }
+    Text { text: root.text; color: enabled ? #202020 : #777777; font-size: 11px; font-family: "Segoe UI"; horizontal-alignment: center; vertical-alignment: center; width: parent.width; height: parent.height; }
+    ta := TouchArea { width: 100%; height: 100%; clicked => { if root.enabled { root.clicked(); } } }
 }
 
 component TreeItem inherits Rectangle {
@@ -55,6 +71,7 @@ export component MainWindow inherits Window {
     default-font-family: Palette.font-body;
 
     in property <string> hero-title: "Fast native downloads, clean control.";
+    in property <[DownloadRow]> download-rows: [];
     in property <[string]> download-items: ["No downloads yet"];
     in property <[string]> queue-groups: ["Main"];
     in property <int> selected-queue-index: 0;
@@ -77,12 +94,15 @@ export component MainWindow inherits Window {
     in property <string> global-speed-limit-text: "";
     in property <string> proxy-pac-text: "";
     in property <int> selected-download-index: -1;
+    in property <string> status-message: "Ready";
+    in property <bool> show-delete-confirm: false;
 
     callback retry-failed(); callback cleanup-finished(); callback select-queue(index: int); callback create-queue();
     callback toggle-queue(); callback delete-queue(); callback select-download(index: int); callback move-download-up();
     callback move-download-down(); callback requeue-download(); callback queue-max-minus(); callback queue-max-plus();
     callback queue-toggle-stop-on-empty(); callback queue-name-changed(value: string); callback toggle-auto-start();
     callback add-url(); callback resume-selected(); callback stop-selected(); callback stop-all(); callback delete-selected();
+    callback request-delete-selected(); callback confirm-delete-selected(); callback cancel-delete-selected();
     callback open-selected(); callback open-selected-folder();
     callback toggle-system-tray(); callback toggle-browser-integration(); callback toggle-clipboard-monitoring();
     callback settings-thread-minus(); callback settings-thread-plus(); callback settings-max-minus(); callback settings-max-plus();
@@ -117,13 +137,13 @@ export component MainWindow inherits Window {
             Rectangle { x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: #9A9A9A; }
             HorizontalLayout { padding-left: 8px; padding-right: 8px; spacing: 5px;
                 CyberButton { text: "Add URL"; clicked => { root.add-url(); current-tab = 0; } }
-                CyberButton { text: "Resume"; clicked => { root.resume-selected(); current-tab = 0; } }
-                CyberButton { text: "Stop"; clicked => { root.stop-selected(); current-tab = 0; } }
+                CyberButton { text: "Resume"; enabled: root.selected-download-index >= 0; clicked => { root.resume-selected(); current-tab = 0; } }
+                CyberButton { text: "Stop"; enabled: root.selected-download-index >= 0; clicked => { root.stop-selected(); current-tab = 0; } }
                 CyberButton { text: "Stop All"; clicked => { root.stop-all(); current-tab = 0; } }
-                CyberButton { text: "Delete"; clicked => { root.delete-selected(); current-tab = 0; } }
+                CyberButton { text: "Delete"; enabled: root.selected-download-index >= 0; clicked => { root.request-delete-selected(); current-tab = 0; } }
                 CyberButton { text: "Retry"; clicked => { root.retry-failed(); current-tab = 0; } }
-                CyberButton { text: "Open"; clicked => { root.open-selected(); current-tab = 0; } }
-                CyberButton { text: "Folder"; clicked => { root.open-selected-folder(); current-tab = 0; } }
+                CyberButton { text: "Open"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected(); current-tab = 0; } }
+                CyberButton { text: "Folder"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected-folder(); current-tab = 0; } }
                 CyberButton { text: "Scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
                 CyberButton { text: "Options"; active: current-tab == 2; clicked => { current-tab = 2; } }
                 Rectangle { width: 100%; }
@@ -162,21 +182,30 @@ export component MainWindow inherits Window {
                     }
                     ScrollView {
                         VerticalLayout { padding: 0px; spacing: 0px;
-                            for item[i] in root.download-items: Rectangle {
-                                height: 36px;
-                                background: i == root.selected-download-index ? #2A2A2A : Palette.panel;
+                            for row[i] in root.download-rows: Rectangle {
+                                height: 42px;
+                                background: i == root.selected-download-index ? #E7F1FF : (Math.mod(i, 2) == 0 ? #FFFFFF : #F7F7F7);
                                 border-width: 1px;
-                                border-color: i == root.selected-download-index ? Palette.accent-primary : Palette.border;
-                                if i == root.selected-download-index: Rectangle { x: 0; y: 0; width: 2px; height: parent.height; background: Palette.accent-primary; }
+                                border-color: i == root.selected-download-index ? #6AA7E8 : #D4D4D4;
+                                if i == root.selected-download-index: Rectangle { x: 0; y: 0; width: 3px; height: parent.height; background: #2B7FD0; }
                                 TouchArea { clicked => { root.select-download(i); } }
                                 HorizontalLayout { padding-left: 8px; padding-right: 8px; spacing: 0;
-                                    Text { text: item; color: Palette.text-primary; font-size: 12px; width: 320px; vertical-alignment: center; overflow: elide; }
-                                    Text { text: "-"; color: Palette.text-muted; font-size: 11px; width: 80px; vertical-alignment: center; }
-                                    Text { text: i == root.selected-download-index ? "Selected" : "Queued"; color: i == root.selected-download-index ? #22C55E : Palette.text-muted; font-size: 11px; width: 110px; vertical-alignment: center; }
-                                    Text { text: "--"; color: Palette.text-muted; font-size: 11px; width: 100px; vertical-alignment: center; }
-                                    Text { text: "--"; color: Palette.text-muted; font-size: 11px; width: 120px; vertical-alignment: center; }
-                                    Text { text: i == root.selected-download-index ? "now" : "--"; color: Palette.text-muted; font-size: 11px; width: 120px; vertical-alignment: center; }
-                                    Text { text: i == root.selected-download-index ? "Active focus" : ""; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                                    Text { text: row.checked ? "☑" : "☐"; color: #303030; font-size: 12px; width: 28px; vertical-alignment: center; }
+                                    VerticalLayout { width: 292px; spacing: 1px;
+                                        Text { text: row.name; color: #101010; font-size: 12px; vertical-alignment: center; overflow: elide; }
+                                        Text { text: row.category; color: #686868; font-size: 10px; overflow: elide; }
+                                    }
+                                    Text { text: row.size; color: #303030; font-size: 11px; width: 80px; vertical-alignment: center; overflow: elide; }
+                                    VerticalLayout { width: 110px; spacing: 2px;
+                                        Text { text: row.status; color: row.is-error ? #B00020 : #303030; font-size: 11px; overflow: elide; }
+                                        if row.has-progress: Rectangle { height: 5px; background: #E0E0E0; border-color: #B8B8B8; border-width: 1px;
+                                            Rectangle { x: 0; y: 0; height: parent.height; width: parent.width * row.progress / 100; background: row.is-error ? #D9534F : #3B82F6; }
+                                        }
+                                    }
+                                    Text { text: row.time-left; color: #303030; font-size: 11px; width: 100px; vertical-alignment: center; overflow: elide; }
+                                    Text { text: row.speed; color: #303030; font-size: 11px; width: 120px; vertical-alignment: center; overflow: elide; }
+                                    Text { text: row.date-added; color: #303030; font-size: 11px; width: 120px; vertical-alignment: center; overflow: elide; }
+                                    Text { text: row.description; color: #606060; font-size: 11px; vertical-alignment: center; overflow: elide; }
                                 }
                             }
                         }
@@ -193,9 +222,9 @@ export component MainWindow inherits Window {
                     }
                     Rectangle { height: 24px; background: #0F0F0F; border-color: Palette.border; border-width: 1px;
                         HorizontalLayout { padding-left: 8px; padding-right: 8px;
-                            Text { text: "Status: " + root.queue-event-summary; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                            Text { text: "Status: " + root.status-message; color: #202020; font-size: 11px; vertical-alignment: center; }
                             Rectangle { width: 100%; }
-                            Text { text: "Items: " + download-items.length; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                            Text { text: "Items: " + download-rows.length; color: #202020; font-size: 11px; vertical-alignment: center; }
                         }
                     }
                 }
@@ -261,6 +290,27 @@ export component MainWindow inherits Window {
                         }
                         Text { text: root.browser-summary; color: Palette.text-muted; font-size: 11px; }
                     }
+                }
+            }
+        }
+    }
+
+    if root.show-delete-confirm: Rectangle {
+        x: 0; y: 0; width: parent.width; height: parent.height;
+        background: #00000088;
+        Rectangle {
+            width: 360px; height: 150px;
+            x: (parent.width - 360px) / 2; y: (parent.height - 150px) / 2;
+            background: #F2F2F2;
+            border-color: #707070;
+            border-width: 1px;
+            VerticalLayout { padding: 14px; spacing: 10px;
+                Text { text: "Confirm Delete"; color: #202020; font-size: 15px; font-weight: 700; }
+                Text { text: "Delete the selected download from the list?"; color: #303030; font-size: 12px; }
+                Text { text: "Downloaded file on disk is not removed in this step."; color: #606060; font-size: 11px; }
+                HorizontalLayout { spacing: 8px; alignment: end;
+                    CyberButton { text: "Delete"; active: true; clicked => { root.confirm-delete-selected(); } }
+                    CyberButton { text: "Cancel"; clicked => { root.cancel-delete-selected(); } }
                 }
             }
         }
