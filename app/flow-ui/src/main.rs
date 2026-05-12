@@ -227,6 +227,8 @@ fn main() {
                 script.as_str(),
                 "-ExtensionId",
                 extension_id.as_str(),
+                "-FirefoxExtensionId",
+                "flow_download_manager@example.com",
                 "-HostExe",
                 host_exe.as_str(),
             ])
@@ -442,13 +444,23 @@ fn main() {
                         });
                         
                         let dialog_weak2 = dialog.as_weak();
-                        dialog.on_queue(move || {
+                        dialog.on_queue_later(move || {
                             let pending_data = load_clipboard_pending_json().unwrap_or_default();
                             let mut decision = pending_data.as_object().cloned().unwrap_or_default();
                             decision.insert("action".to_string(), serde_json::Value::String("queue".to_string()));
                             let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
                             let _ = std::fs::remove_file(flow_clipboard_pending_path());
                             if let Some(dlg) = dialog_weak2.upgrade() { dlg.hide().ok(); }
+                        });
+
+                        let dialog_weak3 = dialog.as_weak();
+                        dialog.on_start_now(move || {
+                            let pending_data = load_clipboard_pending_json().unwrap_or_default();
+                            let mut decision = pending_data.as_object().cloned().unwrap_or_default();
+                            decision.insert("action".to_string(), serde_json::Value::String("queue_start".to_string()));
+                            let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
+                            let _ = std::fs::remove_file(flow_clipboard_pending_path());
+                            if let Some(dlg) = dialog_weak3.upgrade() { dlg.hide().ok(); }
                         });
                         
                         dialog.show().unwrap();

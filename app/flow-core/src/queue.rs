@@ -221,12 +221,23 @@ async fn run_job_with_retry(
         }
 
         if let Err(reason) = &result {
+            if reason.starts_with("RESUME_SOURCE_CHANGED") {
+                if let Ok(repo) = SqliteDownloadRepository::open(&db_path) {
+                    let _ = repo.delete_chunk_progress(&job.id);
+                    let _ = repo.log_queue_event(job.queue_id, "resume_source_changed_reset", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                }
+                attempt -= 1;
+                continue;
+            }
             if let Ok(repo) = SqliteDownloadRepository::open(&db_path) {
                 let _ = repo.update_queue_job_attempt(&job.id, attempt as i64, Some(reason));
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(attempt as u64)).await;
+        let base_delay = 2u64.pow((attempt as u32).min(6));
+        let jitter = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() % (base_delay as u128 / 2).max(1)) as u64;
+        let delay_secs = (base_delay + jitter).min(300);
+        tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
     }
 }
 

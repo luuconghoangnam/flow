@@ -39,4 +39,9 @@ Filename: "{app}\flow-host.exe"; Parameters: "--health"; Flags: runhidden
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\native-messaging\windows\register-host.ps1"" -ExtensionId ""ndlghhcdbcemhhnggkmckhnnfbnigpka"" -FirefoxExtensionId ""flow_download_manager@example.com"""; Flags: runhidden
 
 [UninstallRun]
+Filename: "taskkill.exe"; Parameters: "/F /IM flow-ui.exe"; Flags: runhidden; RunOnceId: "KillFlowUI"
+Filename: "taskkill.exe"; Parameters: "/F /IM flow-host.exe"; Flags: runhidden; RunOnceId: "KillFlowHost"
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\native-messaging\windows\unregister-host.ps1"""; Flags: runhidden; RunOnceId: "FlowUnregisterNativeHost"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{localappdata}\Flow\NativeMessaging"

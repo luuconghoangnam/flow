@@ -75,6 +75,7 @@ pub trait DownloadRepository {
     fn upsert_task(&self, task: &DownloadTask) -> Result<()>;
     fn upsert_chunk_progress(&self, chunk: &ChunkProgress) -> Result<()>;
     fn list_chunk_progress(&self, download_id: &str) -> Result<Vec<ChunkProgress>>;
+    fn delete_chunk_progress(&self, download_id: &str) -> Result<()>;
     fn upsert_queue_job(&self, job: &QueueJobRecord) -> Result<()>;
     fn ensure_default_queue_group(&self) -> Result<()>;
     fn list_queue_groups(&self) -> Result<Vec<QueueGroupRecord>>;
@@ -265,6 +266,14 @@ impl DownloadRepository for SqliteDownloadRepository {
             chunks.push(row?);
         }
         Ok(chunks)
+    }
+
+    fn delete_chunk_progress(&self, download_id: &str) -> Result<()> {
+        self.connection.execute(
+            "DELETE FROM download_chunks WHERE download_id = ?1",
+            params![download_id],
+        )?;
+        Ok(())
     }
 
     fn upsert_queue_job(&self, job: &QueueJobRecord) -> Result<()> {

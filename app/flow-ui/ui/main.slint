@@ -1,72 +1,38 @@
-import { LineEdit, ScrollView, ListView } from "std-widgets.slint";
+import { LineEdit, ScrollView } from "std-widgets.slint";
 
 global Palette {
     out property <color> bg: #0A0A0A;
-    out property <color> surface: #1E1E1E;
+    out property <color> surface: #151515;
+    out property <color> panel: #1E1E1E;
     out property <color> border: #3A3A3A;
     out property <color> text-primary: #E5E7EB;
-    out property <color> text-muted: #6B7280;
+    out property <color> text-muted: #7A808A;
     out property <color> accent-primary: #E64A00;
-    out property <color> accent-success: #22C55E;
-    out property <color> accent-warning: #EAB308;
-    out property <color> accent-info: #3B82F6;
     out property <string> font-heading: "Orbitron";
     out property <string> font-body: "JetBrains Mono";
 }
 
 component CyberButton inherits Rectangle {
     in property <string> text;
-    in property <color> accent: Palette.accent-primary;
+    in property <bool> active: false;
     callback clicked <=> ta.clicked;
-    
-    background: ta.pressed ? accent : Palette.surface;
-    border-color: ta.pressed ? accent : Palette.border;
+    height: 34px;
+    min-width: 96px;
+    background: ta.pressed ? Palette.accent-primary : (active ? #2A2A2A : Palette.panel);
+    border-color: active ? Palette.accent-primary : Palette.border;
     border-width: 1px;
-    height: 32px;
-    min-width: 100px;
-    
-    Path {
-        x: 0; y: 0; width: 8px; height: 8px;
-        commands: "M 0 0 L 8 0 L 0 8 Z";
-        fill: Palette.bg;
-    }
-    
-    txt := Text {
-        text: root.text;
-        color: ta.pressed ? Palette.bg : Palette.text-primary;
-        font-family: Palette.font-heading;
-        font-weight: 700;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        x: 16px;
-        width: parent.width - 32px;
-    }
-    
+    Text { text: root.text; color: Palette.text-primary; font-size: 12px; font-family: Palette.font-body; horizontal-alignment: center; vertical-alignment: center; width: parent.width; height: parent.height; }
     ta := TouchArea { width: 100%; height: 100%; }
 }
 
-component CyberSidebarItem inherits Rectangle {
+component TreeItem inherits Rectangle {
     in property <string> text;
-    in property <bool> selected;
+    in property <bool> active: false;
     callback clicked <=> ta.clicked;
-    
-    height: 36px;
-    background: selected ? Palette.border : transparent;
-    
-    if selected: Rectangle {
-        x: 0; y: 0; width: 3px; height: 100%;
-        background: Palette.accent-primary;
-    }
-    
-    Text {
-        text: root.text;
-        color: selected ? Palette.accent-primary : Palette.text-primary;
-        font-family: Palette.font-body;
-        font-weight: selected ? 600 : 400;
-        x: 16px;
-        vertical-alignment: center;
-    }
-    
+    height: 28px;
+    background: active ? #252525 : transparent;
+    if active: Rectangle { x: 0; y: 0; width: 2px; height: parent.height; background: Palette.accent-primary; }
+    Text { text: root.text; x: 10px; color: active ? Palette.text-primary : Palette.text-muted; vertical-alignment: center; font-size: 12px; }
     ta := TouchArea { width: 100%; height: 100%; }
 }
 
@@ -74,24 +40,16 @@ component CyberInput inherits Rectangle {
     in property <string> text;
     in property <string> placeholder;
     callback edited(string);
-    
     height: 32px;
-    background: Palette.surface;
-    border-color: ta.has-focus ? Palette.accent-primary : Palette.border;
-    border-width: ta.has-focus ? 1.5px : 1px;
-    
-    ta := LineEdit {
-        text: root.text;
-        placeholder-text: root.placeholder;
-        x: 8px;
-        width: parent.width - 16px;
-        edited(t) => { root.edited(t); }
-    }
+    background: Palette.panel;
+    border-color: Palette.border;
+    border-width: 1px;
+    editor := LineEdit { x: 8px; width: parent.width - 16px; text: root.text; placeholder-text: root.placeholder; edited(t) => { root.edited(t); } }
 }
 
 export component MainWindow inherits Window {
-    width: 1100px;
-    height: 700px;
+    width: 1220px;
+    height: 760px;
     title: "Flow Download Manager";
     background: Palette.bg;
     default-font-family: Palette.font-body;
@@ -119,305 +77,133 @@ export component MainWindow inherits Window {
     in property <string> global-speed-limit-text: "";
     in property <string> proxy-pac-text: "";
     in property <int> selected-download-index: -1;
-    callback retry-failed();
-    callback cleanup-finished();
-    callback select-queue(index: int);
-    callback create-queue();
-    callback toggle-queue();
-    callback delete-queue();
-    callback select-download(index: int);
-    callback move-download-up();
-    callback move-download-down();
-    callback requeue-download();
-    callback queue-max-minus();
-    callback queue-max-plus();
-    callback queue-toggle-stop-on-empty();
-    callback queue-name-changed(value: string);
-    callback toggle-auto-start();
-    callback toggle-system-tray();
-    callback toggle-browser-integration();
-    callback toggle-clipboard-monitoring();
-    callback settings-thread-minus();
-    callback settings-thread-plus();
-    callback settings-max-minus();
-    callback settings-max-plus();
-    callback settings-use-downloads-folder();
-    callback toggle-proxy-mode();
-    callback proxy-port-minus();
-    callback proxy-port-plus();
-    callback proxy-set-localhost();
-    callback proxy-set-auth-sample();
-    callback proxy-clear-auth();
-    callback perhost-add-sample();
-    callback perhost-remove-last();
-    callback perhost-clear();
-    callback proxy-host-changed(value: string);
-    callback proxy-username-changed(value: string);
-    callback proxy-password-changed(value: string);
-    callback proxy-port-changed(value: string);
-    callback perhost-first-changed(value: string);
-    callback perhost-thread-changed(value: string);
-    callback perhost-user-changed(value: string);
-    callback perhost-pass-changed(value: string);
-    callback default-folder-changed(value: string);
-    callback global-speed-limit-changed(value: string);
-    callback proxy-pac-changed(value: string);
-    callback browser-extension-id-changed(value: string);
-    callback register-browser-host();
 
-    property <int> current-tab: 0;
+    callback retry-failed(); callback cleanup-finished(); callback select-queue(index: int); callback create-queue();
+    callback toggle-queue(); callback delete-queue(); callback select-download(index: int); callback move-download-up();
+    callback move-download-down(); callback requeue-download(); callback queue-max-minus(); callback queue-max-plus();
+    callback queue-toggle-stop-on-empty(); callback queue-name-changed(value: string); callback toggle-auto-start();
+    callback toggle-system-tray(); callback toggle-browser-integration(); callback toggle-clipboard-monitoring();
+    callback settings-thread-minus(); callback settings-thread-plus(); callback settings-max-minus(); callback settings-max-plus();
+    callback settings-use-downloads-folder(); callback toggle-proxy-mode(); callback proxy-port-minus(); callback proxy-port-plus();
+    callback proxy-set-localhost(); callback proxy-set-auth-sample(); callback proxy-clear-auth(); callback perhost-add-sample();
+    callback perhost-remove-last(); callback perhost-clear(); callback proxy-host-changed(value: string);
+    callback proxy-username-changed(value: string); callback proxy-password-changed(value: string); callback proxy-port-changed(value: string);
+    callback perhost-first-changed(value: string); callback perhost-thread-changed(value: string); callback perhost-user-changed(value: string);
+    callback perhost-pass-changed(value: string); callback default-folder-changed(value: string); callback global-speed-limit-changed(value: string);
+    callback proxy-pac-changed(value: string); callback browser-extension-id-changed(value: string); callback register-browser-host();
 
-    HorizontalLayout {
-        // Sidebar
-        VerticalLayout {
-            width: 220px;
+    property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
+
+    VerticalLayout {
+        spacing: 0;
+
+        Rectangle { // menu bar
+            height: 30px; background: #121212;
+            HorizontalLayout { padding-left: 10px; spacing: 18px;
+                Text { text: "Tasks"; color: Palette.text-primary; font-size: 12px; }
+                Text { text: "File"; color: Palette.text-primary; font-size: 12px; }
+                Text { text: "Downloads"; color: Palette.text-primary; font-size: 12px; }
+                Text { text: "View"; color: Palette.text-primary; font-size: 12px; }
+                Text { text: "Help"; color: Palette.text-primary; font-size: 12px; }
+            }
+        }
+
+        Rectangle { // command bar
+            height: 58px; background: Palette.surface;
+            Rectangle { x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
+            HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 8px;
+                CyberButton { text: "Add URL"; clicked => { current-tab = 0; } }
+                CyberButton { text: "Resume"; clicked => { root.toggle-queue(); current-tab = 0; } }
+                CyberButton { text: "Stop"; clicked => { root.toggle-queue(); current-tab = 0; } }
+                CyberButton { text: "Stop All"; clicked => { root.toggle-queue(); current-tab = 0; } }
+                CyberButton { text: "Delete"; clicked => { root.delete-queue(); current-tab = 0; } }
+                CyberButton { text: "Retry"; clicked => { root.retry-failed(); current-tab = 0; } }
+                CyberButton { text: "Scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
+                CyberButton { text: "Settings"; active: current-tab == 2; clicked => { current-tab = 2; } }
+                Rectangle { width: 100%; }
+                Text { text: root.queue-event-summary; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+            }
+        }
+
+        if current-tab == 0: HorizontalLayout { // IDM main workspace
             Rectangle {
-                background: Palette.surface;
-                Rectangle {
-                    x: parent.width - 1px; y: 0; width: 1px; height: 100%; background: Palette.border;
+                width: 220px; background: #111111; border-color: Palette.border; border-width: 1px;
+                VerticalLayout { padding: 8px; spacing: 4px;
+                    Text { text: "Categories"; color: Palette.text-primary; font-size: 12px; }
+                    TreeItem { text: "All Downloads"; active: true; }
+                    TreeItem { text: "Unfinished"; }
+                    TreeItem { text: "Finished"; }
+                    TreeItem { text: "Queues"; }
+                    Rectangle { height: 8px; }
+                    Text { text: "Queue Groups"; color: Palette.text-primary; font-size: 12px; }
+                    for q[i] in root.queue-groups: TreeItem { text: q; active: i == root.selected-queue-index; clicked => { root.select-queue(i); } }
+                    CyberButton { text: "+ New Queue"; clicked => { root.create-queue(); } }
                 }
+            }
+            Rectangle {
+                background: Palette.bg;
                 VerticalLayout {
-                    padding-top: 24px;
-                    padding-bottom: 24px;
-                    spacing: 12px;
-                    
-                    HorizontalLayout {
-                        padding-left: 20px;
-                        Text { 
-                            text: "FLOW"; 
-                            font-family: Palette.font-heading; 
-                            font-size: 28px; 
-                            color: Palette.accent-primary; 
-                            font-weight: 800; 
-                            letter-spacing: 4px;
+                    Rectangle { height: 30px; background: Palette.surface; border-color: Palette.border; border-width: 1px;
+                        HorizontalLayout { padding-left: 8px; spacing: 14px;
+                            Text { text: "File Name"; color: Palette.text-primary; font-size: 11px; }
+                            Text { text: "Size"; color: Palette.text-muted; font-size: 11px; }
+                            Text { text: "Status"; color: Palette.text-muted; font-size: 11px; }
+                            Text { text: "Time left"; color: Palette.text-muted; font-size: 11px; }
+                            Text { text: "Transfer rate"; color: Palette.text-muted; font-size: 11px; }
                         }
                     }
-
-                    Rectangle { height: 24px; }
-
-                    HorizontalLayout {
-                        padding-left: 20px;
-                        Text { text: "CATEGORIES"; font-family: Palette.font-body; color: Palette.text-muted; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-                    }
-                    CyberSidebarItem { text: "All Downloads"; selected: current-tab == 0; clicked => { current-tab = 0; } }
-                    CyberSidebarItem { text: "Settings"; selected: current-tab == 1; clicked => { current-tab = 1; } }
-                    
-                    Rectangle { height: 16px; }
-
-                    HorizontalLayout {
-                        padding-left: 20px;
-                        Text { text: "QUEUES"; font-family: Palette.font-body; color: Palette.text-muted; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
-                    }
-                    for q[i] in root.queue-groups: CyberSidebarItem {
-                        text: q;
-                        selected: i == root.selected-queue-index && current-tab == 0;
-                        clicked => { root.select-queue(i); current-tab = 0; }
-                    }
-                    
-                    Rectangle {
-                        height: 36px;
-                        HorizontalLayout {
-                            padding-left: 20px;
-                            padding-right: 20px;
-                            CyberButton { text: "+ NEW QUEUE"; clicked => { root.create-queue(); } }
+                    ScrollView {
+                        VerticalLayout { padding: 8px; spacing: 6px;
+                            for item[i] in root.download-items: Rectangle {
+                                height: 44px; background: i == root.selected-download-index ? #242424 : Palette.panel; border-width: 1px; border-color: Palette.border;
+                                TouchArea { clicked => { root.select-download(i); } }
+                                Text { text: item; x: 10px; y: 12px; color: Palette.text-primary; font-size: 12px; }
+                            }
                         }
                     }
-                    
-                    Rectangle { height: 100%; } // spacer
+                    Rectangle { height: 42px; background: #111111; border-color: Palette.border; border-width: 1px;
+                        HorizontalLayout { padding-left: 8px; spacing: 8px;
+                            CyberButton { text: "Up"; clicked => { root.move-download-up(); } }
+                            CyberButton { text: "Down"; clicked => { root.move-download-down(); } }
+                            CyberButton { text: "Requeue"; clicked => { root.requeue-download(); } }
+                            CyberButton { text: "Cleanup"; clicked => { root.cleanup-finished(); } }
+                        }
+                    }
                 }
             }
         }
 
-        // Main Content Area
-        VerticalLayout {
-            if current-tab == 0: VerticalLayout {
-                // Toolbar
-                Rectangle {
-                    height: 64px;
-                    background: Palette.bg;
-                    Rectangle {
-                        x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border;
-                    }
-                    HorizontalLayout {
-                        padding-left: 24px;
-                        padding-right: 24px;
-                        alignment: start;
-                        spacing: 12px;
-                        Rectangle { width: 1px; } // padding
-                        CyberButton { text: "START/STOP"; clicked => { root.toggle-queue(); } }
-                        CyberButton { text: "DELETE Q"; clicked => { root.delete-queue(); } }
-                        CyberButton { text: "RETRY"; clicked => { root.retry-failed(); } }
-                        CyberButton { text: "CLEANUP"; clicked => { root.cleanup-finished(); } }
-                        CyberButton { text: "UP"; clicked => { root.move-download-up(); } }
-                        CyberButton { text: "DOWN"; clicked => { root.move-download-down(); } }
-                        CyberButton { text: "REQUEUE"; clicked => { root.requeue-download(); } }
-                    }
-                }
-                
-                // Table Header
-                Rectangle {
-                    height: 36px;
-                    background: Palette.surface;
-                    Rectangle {
-                        x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border;
-                    }
-                    HorizontalLayout {
-                        padding-left: 24px;
-                        Text { text: "DOWNLOAD ITEMS"; font-family: Palette.font-body; color: Palette.text-muted; font-size: 12px; vertical-alignment: center; }
-                    }
-                }
-
-                // Download List
-                ScrollView {
-                    VerticalLayout {
-                        padding: 16px;
-                        spacing: 8px;
-                        for item[i] in download-items : Rectangle {
-                            height: 60px;
-                            background: i == selected-download-index ? Palette.border : Palette.surface;
-                            border-width: 1px;
-                            border-color: Palette.border;
-                            TouchArea { clicked => { root.select-download(i); } }
-                            Text {
-                                text: item;
-                                color: Palette.text-primary;
-                                x: 16px;
-                                y: 20px;
-                                font-size: 13px;
-                            }
-                        }
-                    }
-                }
+        if current-tab == 1: Rectangle {
+            background: Palette.bg;
+            VerticalLayout { padding: 16px; spacing: 10px;
+                Text { text: "Scheduler"; color: Palette.accent-primary; font-family: Palette.font-heading; font-size: 20px; }
+                Text { text: root.queue-config-summary; color: Palette.text-primary; font-size: 12px; }
+                CyberButton { text: "Start / Stop Queue"; clicked => { root.toggle-queue(); } }
             }
-            
-            if current-tab == 1: ScrollView {
-                VerticalLayout {
-                    padding: 32px;
-                    spacing: 32px;
-                    alignment: start;
+        }
 
-                    Text { text: "SETTINGS"; font-family: Palette.font-heading; font-size: 24px; color: Palette.text-primary; font-weight: 700; letter-spacing: 2px;}
-
-                    // Queue Config
-                    VerticalLayout {
-                        spacing: 16px;
-                        Text { text: "QUEUE CONFIG"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberInput { width: 300px; text: root.queue-name-text; edited(t) => { root.queue-name-changed(t); } }
-                            CyberButton { text: "MAX JOBS -"; clicked => { root.queue-max-minus(); } }
-                            CyberButton { text: "MAX JOBS +"; clicked => { root.queue-max-plus(); } }
-                            CyberButton { text: "STOP ON EMPTY"; clicked => { root.queue-toggle-stop-on-empty(); } }
-                        }
-                        Text { text: queue-config-summary; color: Palette.text-muted; font-size: 12px; }
-                    }
-
-                    // Appearance & System
-                    VerticalLayout {
-                        spacing: 16px;
-                        Text { text: "SYSTEM AND APPEARANCE"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberButton { text: "AUTO START"; clicked => { root.toggle-auto-start(); } }
-                            CyberButton { text: "SYSTEM TRAY"; clicked => { root.toggle-system-tray(); } }
-                            CyberButton { text: "CLIPBOARD"; clicked => { root.toggle-clipboard-monitoring(); } }
-                        }
-                        Text { text: appearance-summary; color: Palette.text-muted; font-size: 12px; }
-                    }
-
-                    // Engine
-                    VerticalLayout {
-                        spacing: 16px;
-                        Text { text: "DOWNLOAD ENGINE"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberButton { text: "THR -"; clicked => { root.settings-thread-minus(); } }
-                            CyberButton { text: "THR +"; clicked => { root.settings-thread-plus(); } }
-                            CyberButton { text: "GLOBAL MAX -"; clicked => { root.settings-max-minus(); } }
-                            CyberButton { text: "GLOBAL MAX +"; clicked => { root.settings-max-plus(); } }
-                        }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            Text { text: "Speed Limit (bps):"; color: Palette.text-muted; vertical-alignment: center; width: 140px; }
-                            CyberInput { width: 200px; text: global-speed-limit-text; edited(t) => { root.global-speed-limit-changed(t); } }
-                        }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            Text { text: "Default Folder:"; color: Palette.text-muted; vertical-alignment: center; width: 140px; }
-                            CyberInput { width: 400px; text: default-folder-text; edited(t) => { root.default-folder-changed(t); } }
-                            CyberButton { text: "USE SYSTEM FOLDER"; clicked => { root.settings-use-downloads-folder(); } }
-                        }
-                        Text { text: engine-summary; color: Palette.text-muted; font-size: 12px; }
-                    }
-
-                    // Proxy
-                    VerticalLayout {
-                        spacing: 16px;
-                        Text { text: "NETWORK PROXY"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberButton { text: "TOGGLE PROXY"; clicked => { root.toggle-proxy-mode(); } }
-                            CyberButton { text: "PORT -"; clicked => { root.proxy-port-minus(); } }
-                            CyberButton { text: "PORT +"; clicked => { root.proxy-port-plus(); } }
-                            CyberButton { text: "LOCALHOST"; clicked => { root.proxy-set-localhost(); } }
-                        }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            Text { text: "Host:"; color: Palette.text-muted; vertical-alignment: center; width: 60px; }
-                            CyberInput { width: 200px; text: proxy-host-text; edited(t) => { root.proxy-host-changed(t); } }
-                            Text { text: "Port:"; color: Palette.text-muted; vertical-alignment: center; width: 40px; }
-                            CyberInput { width: 100px; text: proxy-port-text; edited(t) => { root.proxy-port-changed(t); } }
-                            Text { text: "PAC:"; color: Palette.text-muted; vertical-alignment: center; width: 40px; }
-                            CyberInput { width: 200px; text: proxy-pac-text; edited(t) => { root.proxy-pac-changed(t); } }
-                        }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            Text { text: "User:"; color: Palette.text-muted; vertical-alignment: center; width: 60px; }
-                            CyberInput { width: 160px; text: proxy-username-text; edited(t) => { root.proxy-username-changed(t); } }
-                            Text { text: "Pass:"; color: Palette.text-muted; vertical-alignment: center; width: 40px; }
-                            CyberInput { width: 160px; text: proxy-password-text; edited(t) => { root.proxy-password-changed(t); } }
-                            CyberButton { text: "SET AUTH SAMPLE"; clicked => { root.proxy-set-auth-sample(); } }
-                            CyberButton { text: "CLEAR AUTH"; clicked => { root.proxy-clear-auth(); } }
-                        }
-                    }
-
-                    // Browser Integration
-                    VerticalLayout {
-                        spacing: 16px;
-                        Text { text: "BROWSER INTEGRATION"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberButton { text: "TOGGLE INTEGRATION"; clicked => { root.toggle-browser-integration(); } }
-                            CyberButton { text: "REGISTER HOST"; clicked => { root.register-browser-host(); } }
-                        }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            Text { text: "Extension ID:"; color: Palette.text-muted; vertical-alignment: center; width: 100px; }
-                            CyberInput { width: 300px; text: browser-extension-id-text; edited(t) => { root.browser-extension-id-changed(t); } }
-                        }
-                        Text { text: browser-summary; color: Palette.text-muted; font-size: 12px; }
-                    }
-                    
-                    // Per-Host Settings
-                    VerticalLayout {
-                        spacing: 16px;
-                        Text { text: "PER-HOST RULES"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberButton { text: "ADD SAMPLE RULE"; clicked => { root.perhost-add-sample(); } }
-                            CyberButton { text: "REMOVE LAST"; clicked => { root.perhost-remove-last(); } }
-                            CyberButton { text: "CLEAR ALL"; clicked => { root.perhost-clear(); } }
-                        }
-                        HorizontalLayout {
-                            spacing: 12px;
-                            CyberInput { placeholder: "Domain"; width: 200px; text: perhost-first-text; edited(t) => { root.perhost-first-changed(t); } }
-                            CyberInput { placeholder: "Threads"; width: 80px; text: perhost-thread-text; edited(t) => { root.perhost-thread-changed(t); } }
-                            CyberInput { placeholder: "User"; width: 120px; text: perhost-user-text; edited(t) => { root.perhost-user-changed(t); } }
-                            CyberInput { placeholder: "Pass"; width: 120px; text: perhost-pass-text; edited(t) => { root.perhost-pass-changed(t); } }
-                        }
-                    }
-                    
-                    Rectangle { height: 100px; } // bottom spacer
+        if current-tab == 2: ScrollView {
+            VerticalLayout { padding: 16px; spacing: 12px;
+                Text { text: "Settings"; color: Palette.accent-primary; font-family: Palette.font-heading; font-size: 20px; }
+                HorizontalLayout { spacing: 8px;
+                    CyberButton { text: "Auto Start"; clicked => { root.toggle-auto-start(); } }
+                    CyberButton { text: "System Tray"; clicked => { root.toggle-system-tray(); } }
+                    CyberButton { text: "Clipboard"; clicked => { root.toggle-clipboard-monitoring(); } }
+                }
+                Text { text: root.appearance-summary; color: Palette.text-muted; font-size: 12px; }
+                HorizontalLayout { spacing: 8px;
+                    CyberButton { text: "Thr -"; clicked => { root.settings-thread-minus(); } }
+                    CyberButton { text: "Thr +"; clicked => { root.settings-thread-plus(); } }
+                    CyberButton { text: "Jobs -"; clicked => { root.settings-max-minus(); } }
+                    CyberButton { text: "Jobs +"; clicked => { root.settings-max-plus(); } }
+                }
+                HorizontalLayout { spacing: 8px; Text { text: "Folder"; width: 80px; color: Palette.text-muted; }
+                    CyberInput { width: 420px; text: default-folder-text; edited(t) => { root.default-folder-changed(t); } }
+                    CyberButton { text: "Use Downloads"; clicked => { root.settings-use-downloads-folder(); } }
+                }
+                HorizontalLayout { spacing: 8px;
+                    CyberButton { text: "Toggle Browser"; clicked => { root.toggle-browser-integration(); } }
+                    CyberButton { text: "Register Host"; clicked => { root.register-browser-host(); } }
                 }
             }
         }
@@ -425,60 +211,81 @@ export component MainWindow inherits Window {
 }
 
 export component ClipboardDialog inherits Window {
-    width: 480px;
-    height: 220px;
-    title: "New Download Detected";
+    width: 640px;
+    height: 290px;
+    title: "Download File Info";
     always-on-top: true;
-    background: Palette.bg;
+    background: #2f2f2f;
 
     in property <string> url: "";
     in property <string> file-name: "";
     in property <string> output-dir: "";
 
-    callback queue();
+    callback queue_later();
+    callback start_now();
     callback dismiss();
 
     Rectangle {
-        border-color: Palette.accent-primary;
+        border-color: #5A5A5A;
         border-width: 1px;
+        background: #353535;
+
         VerticalLayout {
-            padding: 24px;
-            spacing: 16px;
-            Text {
-                text: "NEW DOWNLOAD DETECTED";
-                font-family: Palette.font-heading;
-                font-size: 18px;
-                font-weight: 700;
-                color: Palette.accent-primary;
-                letter-spacing: 2px;
+            padding: 14px;
+            spacing: 8px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "URL"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
+                Rectangle { background: #2A2A2A; border-color: #8C8C8C; border-width: 1px; height: 28px;
+                    Text { text: root.url; color: #F4F4F4; x: 8px; y: 6px; font-size: 12px; overflow: elide; }
+                }
             }
-            Text {
-                text: "URL: " + root.url;
-                color: Palette.text-muted;
-                font-size: 12px;
-                font-family: Palette.font-body;
-                overflow: elide;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Category"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
+                Rectangle { width: 180px; height: 28px; background: #2A2A2A; border-color: #8C8C8C; border-width: 1px;
+                    Text { text: "Compressed"; color: #EDEDED; x: 8px; y: 6px; font-size: 12px; }
+                }
+                CyberButton { text: "+"; min-width: 28px; }
             }
-            Text {
-                text: "FILE: " + root.file-name;
-                color: Palette.text-primary;
-                font-size: 13px;
-                font-weight: 700;
-                font-family: Palette.font-body;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Save As"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
+                Rectangle { background: #2A2A2A; border-color: #8C8C8C; border-width: 1px; height: 28px;
+                    Text { text: root.output-dir + "/" + root.file-name; color: #F4F4F4; x: 8px; y: 6px; font-size: 12px; overflow: elide; }
+                }
+                CyberButton { text: "..."; min-width: 34px; }
             }
-            Text {
-                text: "DIR: " + root.output-dir;
-                color: Palette.text-muted;
-                font-size: 12px;
-                font-family: Palette.font-body;
-                overflow: elide;
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: ""; width: 68px; }
+                Rectangle {
+                    height: 28px;
+                    background: #2A2A2A;
+                    border-color: #8C8C8C;
+                    border-width: 1px;
+                    Text { text: "Remember this path for this category"; color: #D8D8D8; x: 8px; y: 6px; font-size: 12px; }
+                }
             }
-            Rectangle { height: 10px; } // Spacer
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Description"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
+                Rectangle { background: #2A2A2A; border-color: #8C8C8C; border-width: 1px; height: 28px; }
+            }
+
+            Rectangle { height: 10px; background: transparent; }
+
             HorizontalLayout {
                 spacing: 12px;
-                alignment: end;
-                CyberButton { text: "DISMISS"; accent: Palette.text-muted; clicked => { root.dismiss(); } }
-                CyberButton { text: "INITIALIZE"; clicked => { root.queue(); } }
+                alignment: center;
+                CyberButton { text: "Download Later"; min-width: 140px; clicked => { root.queue_later(); } }
+                CyberButton { text: "Start Download"; min-width: 140px; active: true; clicked => { root.start_now(); } }
+                CyberButton { text: "Cancel"; min-width: 110px; clicked => { root.dismiss(); } }
             }
         }
     }
