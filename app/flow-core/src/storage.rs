@@ -59,6 +59,7 @@ pub struct QueueGroupRecord {
     pub max_concurrent: i64,
     pub stop_on_empty: bool,
     pub active: bool,
+    pub schedule_json: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,6 +194,7 @@ impl DownloadRepository for SqliteDownloadRepository {
         add_optional_column(&self.connection, "queue_groups", "max_concurrent", "INTEGER NOT NULL DEFAULT 3")?;
         add_optional_column(&self.connection, "queue_groups", "stop_on_empty", "INTEGER NOT NULL DEFAULT 0")?;
         add_optional_column(&self.connection, "queue_groups", "active", "INTEGER NOT NULL DEFAULT 1")?;
+        add_optional_column(&self.connection, "queue_groups", "schedule_json", "TEXT")?;
         Ok(())
     }
 
@@ -225,6 +227,7 @@ impl DownloadRepository for SqliteDownloadRepository {
             INSERT INTO download_chunks (download_id, chunk_index, start_byte, end_inclusive, downloaded)
             VALUES (?1, ?2, ?3, ?4, ?5)
             ON CONFLICT(download_id, chunk_index) DO UPDATE SET
+                end_inclusive = excluded.end_inclusive,
                 downloaded = excluded.downloaded
             ",
             (
@@ -315,14 +318,14 @@ impl DownloadRepository for SqliteDownloadRepository {
 
     fn ensure_default_queue_group(&self) -> Result<()> {
         self.connection.execute(
-            "INSERT OR IGNORE INTO queue_groups (id, name, max_concurrent, stop_on_empty, active) VALUES (0, 'Main', 3, 0, 1)",
+            "INSERT OR IGNORE INTO queue_groups (id, name, max_concurrent, stop_on_empty, active, schedule_json) VALUES (0, 'Main', 3, 0, 1, NULL)",
             [],
         )?;
         Ok(())
     }
 
     fn list_queue_groups(&self) -> Result<Vec<QueueGroupRecord>> {
-        let mut statement = self.connection.prepare("SELECT id, name, max_concurrent, stop_on_empty, active FROM queue_groups ORDER BY id ASC")?;
+        let mut statement = self.connection.prepare("SELECT id, name, max_concurrent, stop_on_empty, active, schedule_json FROM queue_groups ORDER BY id ASC")?;
         let rows = statement.query_map([], |row| {
             Ok(QueueGroupRecord {
                 id: row.get(0)?,
@@ -330,6 +333,7 @@ impl DownloadRepository for SqliteDownloadRepository {
                 max_concurrent: row.get(2)?,
                 stop_on_empty: row.get::<_, i64>(3)? != 0,
                 active: row.get::<_, i64>(4)? != 0,
+                schedule_json: row.get(5)?,
             })
         })?;
         let mut groups = Vec::new();
@@ -340,7 +344,7 @@ impl DownloadRepository for SqliteDownloadRepository {
     }
 
     fn get_queue_group(&self, queue_id: i64) -> Result<Option<QueueGroupRecord>> {
-        let mut statement = self.connection.prepare("SELECT id, name, max_concurrent, stop_on_empty, active FROM queue_groups WHERE id = ?1")?;
+        let mut statement = self.connection.prepare("SELECT id, name, max_concurrent, stop_on_empty, active, schedule_json FROM queue_groups WHERE id = ?1")?;
         let mut rows = statement.query([queue_id])?;
         if let Some(row) = rows.next()? {
             Ok(Some(QueueGroupRecord {
@@ -349,6 +353,7 @@ impl DownloadRepository for SqliteDownloadRepository {
                 max_concurrent: row.get(2)?,
                 stop_on_empty: row.get::<_, i64>(3)? != 0,
                 active: row.get::<_, i64>(4)? != 0,
+                schedule_json: row.get(5)?,
             }))
         } else {
             Ok(None)
@@ -366,15 +371,16 @@ impl DownloadRepository for SqliteDownloadRepository {
     fn upsert_queue_group(&self, group: &QueueGroupRecord) -> Result<()> {
         self.connection.execute(
             "
-            INSERT INTO queue_groups (id, name, max_concurrent, stop_on_empty, active)
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            INSERT INTO queue_groups (id, name, max_concurrent, stop_on_empty, active, schedule_json)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 max_concurrent = excluded.max_concurrent,
                 stop_on_empty = excluded.stop_on_empty,
-                active = excluded.active
+                active = excluded.active,
+                schedule_json = excluded.schedule_json
             ",
-            (group.id, &group.name, group.max_concurrent, i64::from(group.stop_on_empty), i64::from(group.active)),
+            params![group.id, &group.name, group.max_concurrent, i64::from(group.stop_on_empty), i64::from(group.active), &group.schedule_json],
         )?;
         Ok(())
     }

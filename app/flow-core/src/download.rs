@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
@@ -14,6 +14,16 @@ use tokio::task::JoinSet;
 
 use crate::model::{DownloadId, DownloadStatus, DownloadTask};
 use crate::storage::{ChunkProgress, DownloadRepository};
+
+#[derive(Debug, Clone)]
+pub struct RuntimePart {
+    pub index: usize,
+    pub start: u64,
+    pub end_inclusive: Arc<AtomicU64>,
+    pub current: Arc<AtomicU64>,
+    pub is_completed: Arc<AtomicBool>,
+    pub active_workers: Arc<AtomicUsize>,
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct ResumeValidationMetadata {
@@ -48,12 +58,7 @@ pub struct ChunkPlan {
     pub end_inclusive: u64,
 }
 
-#[derive(Debug, Clone)]
-struct ChunkAssignment {
-    chunk_index: usize,
-    plan: ChunkPlan,
-    persisted_downloaded: u64,
-}
+
 
 #[derive(Debug, Clone)]
 pub enum DownloadEvent {
@@ -370,13 +375,26 @@ impl DownloadEngine {
 
         task.total_bytes = Some(total);
         task.status = DownloadStatus::Downloading;
-        let plans = Self::make_chunk_plan(total, request.connections);
         let client = Arc::new(client_for_request(&request).unwrap_or_else(|| self.client.clone()));
         let temp_dir = request.output_dir.join(format!(".{}.parts", task.id.0));
         fs::create_dir_all(&temp_dir).await.map_err(|e| e.to_string())?;
 
-        let persisted_chunks = prepare_resume_chunks(&persisted_chunks, &plans, &temp_dir).await;
-        let persisted_total: u64 = persisted_chunks.iter().map(|c| c.downloaded).sum();
+        let active_chunks = if persisted_chunks.is_empty() {
+            let plans = Self::make_chunk_plan(total, request.connections);
+            plans.into_iter().enumerate().map(|(idx, plan)| {
+                ChunkProgress {
+                    download_id: task.id.0.clone(),
+                    chunk_index: idx as i64,
+                    start: plan.start,
+                    end_inclusive: plan.end_inclusive,
+                    downloaded: 0,
+                }
+            }).collect::<Vec<_>>()
+        } else {
+            prepare_resume_chunks(&persisted_chunks, &temp_dir).await
+        };
+
+        let persisted_total: u64 = active_chunks.iter().map(|c| c.downloaded).sum();
         let output_file = unique_output_path(&request.output_dir.join(&request.file_name));
         let metadata_path = resume_metadata_path(&output_file);
 
@@ -404,43 +422,39 @@ impl DownloadEngine {
         let request_url = request.url.clone();
         let request_headers = request_header_map(Some(&request));
         let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
-        let assignments = plans
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, plan)| {
-                let persisted = persisted_chunks.iter().find(|chunk| chunk.chunk_index == idx as i64);
-                let persisted_downloaded = persisted.map(|v| v.downloaded).unwrap_or(0);
-                let chunk_size = plan.end_inclusive - plan.start + 1;
-                if persisted_downloaded >= chunk_size {
-                    None
-                } else {
-                    Some(ChunkAssignment {
-                        chunk_index: idx,
-                        plan: plan.clone(),
-                        persisted_downloaded,
-                    })
-                }
-            })
-            .collect::<Vec<_>>();
 
-        for assignment in &assignments {
-            let _ = tx
-                .send(DownloadEvent::ChunkProgress {
-                    id: task.id.clone(),
-                    chunk_index: assignment.chunk_index,
-                    start: assignment.plan.start,
-                    end_inclusive: assignment.plan.end_inclusive,
-                    downloaded: assignment.persisted_downloaded,
-                })
-                .await;
+        let mut runtime_parts = Vec::new();
+        for chunk in &active_chunks {
+            let chunk_size = chunk.end_inclusive - chunk.start + 1;
+            let completed = chunk.downloaded >= chunk_size;
+            runtime_parts.push(RuntimePart {
+                index: chunk.chunk_index as usize,
+                start: chunk.start,
+                end_inclusive: Arc::new(AtomicU64::new(chunk.end_inclusive)),
+                current: Arc::new(AtomicU64::new(chunk.start + chunk.downloaded)),
+                is_completed: Arc::new(AtomicBool::new(completed)),
+                active_workers: Arc::new(AtomicUsize::new(0)),
+            });
+
+            if !completed {
+                let _ = tx
+                    .send(DownloadEvent::ChunkProgress {
+                        id: task.id.clone(),
+                        chunk_index: chunk.chunk_index as usize,
+                        start: chunk.start,
+                        end_inclusive: chunk.end_inclusive,
+                        downloaded: chunk.downloaded,
+                    })
+                    .await;
+            }
         }
 
-        let work_queue = Arc::new(Mutex::new(VecDeque::from(assignments)));
-        let worker_count = request.connections.max(1).min(plans.len().max(1));
+        let shared_parts = Arc::new(Mutex::new(runtime_parts));
+        let worker_count = request.connections.max(1).min(active_chunks.len().max(1) * 4);
         let mut join_set = JoinSet::new();
 
         for _ in 0..worker_count {
-            let work_queue = Arc::clone(&work_queue);
+            let shared_parts = Arc::clone(&shared_parts);
             let client = Arc::clone(&client);
             let tx2 = tx.clone();
             let control2 = control.clone();
@@ -456,64 +470,151 @@ impl DownloadEngine {
 
             join_set.spawn(async move {
                 loop {
-                    let assignment = {
-                        let mut queue = work_queue.lock().await;
-                        queue.pop_front()
-                    };
-                    let Some(assignment) = assignment else {
+                    let mut chosen_part = None;
+                    {
+                        let mut parts = shared_parts.lock().await;
+                        if let Some(p) = parts.iter().find(|p| !p.is_completed.load(Ordering::SeqCst) && p.active_workers.load(Ordering::SeqCst) == 0) {
+                            p.active_workers.fetch_add(1, Ordering::SeqCst);
+                            chosen_part = Some(p.clone());
+                        } else {
+                            let mut best_split: Option<(usize, u64)> = None;
+                            let mut max_remaining = 0;
+                            for (idx, p) in parts.iter().enumerate() {
+                                if p.is_completed.load(Ordering::SeqCst) { continue; }
+                                let current = p.current.load(Ordering::SeqCst);
+                                let end = p.end_inclusive.load(Ordering::SeqCst);
+                                if current < end {
+                                    let remaining = end - current;
+                                    if remaining > 512 * 1024 && remaining > max_remaining {
+                                        max_remaining = remaining;
+                                        best_split = Some((idx, remaining));
+                                    }
+                                }
+                            }
+                            if let Some((idx, remaining)) = best_split {
+                                let p = &parts[idx];
+                                let current = p.current.load(Ordering::SeqCst);
+                                let end = p.end_inclusive.load(Ordering::SeqCst);
+                                let mid = current + remaining / 2;
+                                p.end_inclusive.store(mid, Ordering::SeqCst);
+                                
+                                let new_index = parts.iter().map(|p| p.index).max().unwrap_or(0) + 1;
+                                let new_part = RuntimePart {
+                                    index: new_index,
+                                    start: mid + 1,
+                                    end_inclusive: Arc::new(AtomicU64::new(end)),
+                                    current: Arc::new(AtomicU64::new(mid + 1)),
+                                    is_completed: Arc::new(AtomicBool::new(false)),
+                                    active_workers: Arc::new(AtomicUsize::new(1)),
+                                };
+                                parts.insert(idx + 1, new_part.clone());
+                                chosen_part = Some(new_part);
+                            }
+                        }
+                    }
+
+                    let Some(part) = chosen_part else {
                         return Ok::<(), String>(());
                     };
 
                     let url = request_url.clone();
-                    let part_path = temp_dir.join(format!("part-{}.bin", assignment.chunk_index));
-                    let resume_start = assignment.plan.start + assignment.persisted_downloaded;
-                    let range_value = format!("bytes={resume_start}-{}", assignment.plan.end_inclusive);
-                    let response = send_with_retry(|| {
-                        apply_credentials(
-                            apply_header_map(client.get(&url).header(RANGE, range_value.clone()), &request_headers),
-                            username.as_deref(),
-                            password.as_deref(),
-                        )
-                    }, 3)
-                    .await?;
-                    validate_range_response(&response, resume_start, assignment.plan.end_inclusive)?;
-                    let mut stream = response.bytes_stream();
-                    let mut file = OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open(&part_path)
-                        .await
-                        .map_err(|e| e.to_string())?;
-                    let mut written = assignment.persisted_downloaded;
-                    while let Some(chunk) = stream.next().await {
-                        wait_if_paused_or_cancelled(&control2).await?;
-                        let bytes = chunk.map_err(|e| e.to_string())?;
-                        if let Some(limiter) = &limiter {
-                            limiter.consume(bytes.len()).await;
+                    let part_path = temp_dir.join(format!("part-{}.bin", part.index));
+                    
+                    loop {
+                        let resume_start = part.current.load(Ordering::SeqCst);
+                        let end_limit = part.end_inclusive.load(Ordering::SeqCst);
+                        if resume_start > end_limit {
+                            break;
                         }
-                        if let Some(global) = &global_limiter {
-                            global.consume(bytes.len()).await;
+
+                        let range_value = format!("bytes={resume_start}-{end_limit}");
+                        let response = match send_with_retry(|| {
+                            apply_credentials(
+                                apply_header_map(client.get(&url).header(RANGE, range_value.clone()), &request_headers),
+                                username.as_deref(),
+                                password.as_deref(),
+                            )
+                        }, 3).await {
+                            Ok(res) => res,
+                            Err(_) => {
+                                tokio::time::sleep(Duration::from_millis(500)).await;
+                                continue;
+                            }
+                        };
+
+                        if validate_range_response(&response, resume_start, end_limit).is_err() {
+                            tokio::time::sleep(Duration::from_millis(500)).await;
+                            continue;
                         }
-                        file.write_all(&bytes).await.map_err(|e| e.to_string())?;
-                        written += bytes.len() as u64;
-                        let _ = tx2
-                            .send(DownloadEvent::ChunkProgress {
+
+                        let mut stream = response.bytes_stream();
+                        let mut file = match OpenOptions::new().create(true).append(true).open(&part_path).await {
+                            Ok(f) => f,
+                            Err(_) => {
+                                tokio::time::sleep(Duration::from_millis(500)).await;
+                                continue;
+                            }
+                        };
+
+                        let mut break_outer = false;
+                        while let Some(chunk) = stream.next().await {
+                            if wait_if_paused_or_cancelled(&control2).await.is_err() {
+                                part.active_workers.fetch_sub(1, Ordering::SeqCst);
+                                return Err("Cancelled".to_string());
+                            }
+                            let bytes = match chunk {
+                                Ok(b) => b,
+                                Err(_) => break,
+                            };
+                            
+                            let mut to_write = bytes.len();
+                            let current = part.current.load(Ordering::SeqCst);
+                            let current_end = part.end_inclusive.load(Ordering::SeqCst);
+                            if current + to_write as u64 > current_end + 1 {
+                                to_write = (current_end + 1).saturating_sub(current) as usize;
+                            }
+                            
+                            if to_write == 0 {
+                                break_outer = true;
+                                break;
+                            }
+
+                            if let Some(limiter) = &limiter {
+                                limiter.consume(to_write).await;
+                            }
+                            if let Some(global) = &global_limiter {
+                                global.consume(to_write).await;
+                            }
+                            if file.write_all(&bytes[..to_write]).await.is_err() {
+                                break;
+                            }
+                            part.current.fetch_add(to_write as u64, Ordering::SeqCst);
+                            let _ = tx2.send(DownloadEvent::ChunkProgress {
                                 id: task_id2.clone(),
-                                chunk_index: assignment.chunk_index,
-                                start: assignment.plan.start,
-                                end_inclusive: assignment.plan.end_inclusive,
-                                downloaded: written,
-                            })
-                            .await;
-                        let total_done = aggregate2.fetch_add(bytes.len() as u64, Ordering::SeqCst) + bytes.len() as u64;
-                        let _ = tx2
-                            .send(DownloadEvent::Progress {
+                                chunk_index: part.index,
+                                start: part.start,
+                                end_inclusive: current_end,
+                                downloaded: part.current.load(Ordering::SeqCst) - part.start,
+                            }).await;
+                            let total_done = aggregate2.fetch_add(to_write as u64, Ordering::SeqCst) + to_write as u64;
+                            let _ = tx2.send(DownloadEvent::Progress {
                                 id: task_id2.clone(),
                                 downloaded_bytes: total_done,
                                 total_bytes: None,
-                            })
-                            .await;
+                            }).await;
+                            
+                            if part.current.load(Ordering::SeqCst) > part.end_inclusive.load(Ordering::SeqCst) {
+                                break_outer = true;
+                                break;
+                            }
+                        }
+                        
+                        if break_outer || part.current.load(Ordering::SeqCst) > part.end_inclusive.load(Ordering::SeqCst) {
+                            part.is_completed.store(true, Ordering::SeqCst);
+                            break;
+                        }
                     }
+                    part.active_workers.fetch_sub(1, Ordering::SeqCst);
                 }
             });
         }
@@ -536,8 +637,9 @@ impl DownloadEngine {
                 .await;
         }
 
-        verify_parts_complete(&temp_dir, &plans).await?;
-        merge_parts(&temp_dir, plans.len(), &output_file).await?;
+        let ordered_parts = shared_parts.lock().await.clone();
+        verify_parts_complete(&temp_dir, &ordered_parts).await?;
+        merge_parts(&temp_dir, &ordered_parts, &output_file).await?;
         verify_output_integrity(&output_file, total, request.expected_sha256_hex.as_deref()).await?;
         let _ = fs::remove_dir_all(&temp_dir).await;
 
@@ -660,7 +762,7 @@ pub async fn run_multi_connection_with_repository(
         .await
 }
 
-async fn merge_parts(temp_dir: &Path, part_count: usize, output_file: &Path) -> Result<(), String> {
+async fn merge_parts(temp_dir: &Path, parts: &[RuntimePart], output_file: &Path) -> Result<(), String> {
     let mut destination = OpenOptions::new()
         .create(true)
         .write(true)
@@ -669,8 +771,8 @@ async fn merge_parts(temp_dir: &Path, part_count: usize, output_file: &Path) -> 
         .await
         .map_err(|e| e.to_string())?;
 
-    for idx in 0..part_count {
-        let part_path = temp_dir.join(format!("part-{idx}.bin"));
+    for part in parts {
+        let part_path = temp_dir.join(format!("part-{}.bin", part.index));
         let mut source = OpenOptions::new().read(true).open(&part_path).await.map_err(|e| e.to_string())?;
         let mut buffer = vec![0_u8; 64 * 1024];
         loop {
@@ -684,14 +786,15 @@ async fn merge_parts(temp_dir: &Path, part_count: usize, output_file: &Path) -> 
     destination.flush().await.map_err(|e| e.to_string())
 }
 
-async fn verify_parts_complete(temp_dir: &Path, plans: &[ChunkPlan]) -> Result<(), String> {
-    for (idx, plan) in plans.iter().enumerate() {
-        let part_path = temp_dir.join(format!("part-{idx}.bin"));
-        let expected = plan.end_inclusive - plan.start + 1;
+async fn verify_parts_complete(temp_dir: &Path, parts: &[RuntimePart]) -> Result<(), String> {
+    for part in parts {
+        let part_path = temp_dir.join(format!("part-{}.bin", part.index));
+        let expected = part.end_inclusive.load(Ordering::SeqCst) - part.start + 1;
         let actual = existing_size(&part_path).await.map_err(|e| e.to_string())?;
         if actual != expected {
             return Err(format!(
-                "Part {idx} size mismatch before merge: expected {expected}, got {actual}"
+                "Part {} size mismatch before merge: expected {expected}, got {actual}",
+                part.index
             ));
         }
     }
@@ -734,25 +837,19 @@ async fn wait_if_paused_or_cancelled(control: &DownloadControl) -> Result<(), St
 
 async fn prepare_resume_chunks(
     persisted: &[ChunkProgress],
-    plans: &[ChunkPlan],
     temp_dir: &Path,
 ) -> Vec<ChunkProgress> {
     let mut out = Vec::new();
-    for (idx, plan) in plans.iter().enumerate() {
-        let expected_max = plan.end_inclusive - plan.start + 1;
-        let db_downloaded = persisted
-            .iter()
-            .find(|c| c.chunk_index == idx as i64)
-            .map(|c| c.downloaded)
-            .unwrap_or(0);
-        let part_path = temp_dir.join(format!("part-{idx}.bin"));
+    for chunk in persisted.iter() {
+        let expected_max = chunk.end_inclusive - chunk.start + 1;
+        let part_path = temp_dir.join(format!("part-{}.bin", chunk.chunk_index));
         let disk_size = existing_size(&part_path).await.unwrap_or(0);
-        let safe = db_downloaded.min(disk_size).min(expected_max);
+        let safe = chunk.downloaded.min(disk_size).min(expected_max);
         out.push(ChunkProgress {
-            download_id: String::new(),
-            chunk_index: idx as i64,
-            start: plan.start,
-            end_inclusive: plan.end_inclusive,
+            download_id: chunk.download_id.clone(),
+            chunk_index: chunk.chunk_index,
+            start: chunk.start,
+            end_inclusive: chunk.end_inclusive,
             downloaded: safe,
         });
     }

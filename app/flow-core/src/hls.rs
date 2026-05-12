@@ -28,6 +28,7 @@ struct HlsSegment {
     index: usize,
     url: String,
     duration: f64,
+    extension: String,
 }
 
 #[derive(Clone, Debug)]
@@ -36,14 +37,28 @@ struct VariantStream {
     bandwidth: u64,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+enum HlsMergeStrategy {
+    RawTsConcat,
+    FfmpegConcatDemuxer,
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 struct HlsSegmentState {
     index: usize,
     url: String,
     duration: f64,
+    extension: String,
     length: Option<u64>,
     downloaded: u64,
     is_completed: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct HlsManifestState {
+    merge_strategy: HlsMergeStrategy,
+    output_extension: String,
+    segments: Vec<HlsSegmentState>,
 }
 
 pub fn is_hls_request(url: &str, file_name: &str, headers: Option<&reqwest::header::HeaderMap>) -> bool {
@@ -83,7 +98,13 @@ pub async fn download_hls(
         return Err("playlist has no segments".to_string());
     }
 
-    let output_name = suggested_output_name(&request.file_name, &request.url);
+    let (merge_strategy, final_ext) = if segments.iter().all(|s| s.extension == "ts") {
+        (HlsMergeStrategy::RawTsConcat, "ts")
+    } else {
+        (HlsMergeStrategy::FfmpegConcatDemuxer, "mp4")
+    };
+
+    let output_name = suggested_output_name(&request.file_name, &request.url, final_ext);
     let output_file = unique_output_path(&request.output_dir.join(output_name));
     let temp_dir = request.output_dir.join(format!(".{}.hls", task.id.0));
     fs::create_dir_all(&temp_dir).await.map_err(|e| e.to_string())?;
@@ -93,12 +114,21 @@ pub async fn download_hls(
     task.file_name = output_file
         .file_name()
         .and_then(|v| v.to_str())
-        .unwrap_or("download.ts")
+        .unwrap_or("download.mp4")
         .to_string();
     task.total_bytes = None;
 
-    let persisted_states = load_segment_states(&state_path)?;
+    let persisted_manifest = load_manifest_state(&state_path)?;
+    let persisted_states = persisted_manifest.map(|m| m.segments).unwrap_or_default();
     let states = build_segment_states(&temp_dir, &segments, persisted_states).await?;
+    
+    let manifest_state = HlsManifestState {
+        merge_strategy: merge_strategy.clone(),
+        output_extension: final_ext.to_string(),
+        segments: states.clone(),
+    };
+    save_manifest_state(&state_path, &manifest_state)?;
+
     let existing_total: u64 = states.iter().map(|state| state.downloaded).sum();
     let aggregate = Arc::new(AtomicU64::new(existing_total));
     if existing_total > 0 {
@@ -115,7 +145,6 @@ pub async fn download_hls(
         .filter(|state| !state.is_completed)
         .cloned()
         .collect::<Vec<_>>();
-    save_segment_states(&state_path, &states)?;
     let work_queue = Arc::new(Mutex::new(VecDeque::from(assignments)));
     let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
     let worker_count = request.connections.max(1).min(segments.len().max(1));
@@ -208,7 +237,7 @@ pub async fn download_hls(
         }
     }
 
-    merge_segments(&temp_dir, segments.len(), &output_file).await?;
+    merge_segments(&temp_dir, &manifest_state, &output_file).await?;
     let _ = fs::remove_dir_all(&temp_dir).await;
     task.status = DownloadStatus::Completed;
     task.downloaded_bytes = existing_size(&output_file).await.map_err(|e| e.to_string())?;
@@ -278,15 +307,13 @@ fn parse_media_playlist(base_url: &str, playlist_text: &str) -> Result<Vec<HlsSe
         let extension = Path::new(segment_url.split('?').next().unwrap_or(""))
             .extension()
             .and_then(|value| value.to_str())
-            .unwrap_or_default()
+            .unwrap_or("ts")
             .to_ascii_lowercase();
-        if extension != "ts" {
-            return Err(format!("Only HLS .ts segments supported at the moment, but '{extension}' provided"));
-        }
         segments.push(HlsSegment {
             index: segments.len(),
             url: segment_url,
             duration: pending_duration.take().unwrap_or(0.0),
+            extension,
         });
     }
     if !saw_playlist {
@@ -356,9 +383,9 @@ fn extract_attribute(attributes: &str, key: &str) -> Option<String> {
     None
 }
 
-fn suggested_output_name(file_name: &str, url: &str) -> String {
+fn suggested_output_name(file_name: &str, url: &str, ext: &str) -> String {
     if !file_name.trim().is_empty() && !file_name.eq_ignore_ascii_case("download.bin") {
-        return file_name.trim_end_matches(".m3u8").to_string() + ".ts";
+        return format!("{}.{ext}", file_name.trim_end_matches(".m3u8"));
     }
     let fallback = url
         .split('/')
@@ -367,10 +394,17 @@ fn suggested_output_name(file_name: &str, url: &str) -> String {
         .split('?')
         .next()
         .unwrap_or("stream.m3u8");
-    fallback.trim_end_matches(".m3u8").to_string() + ".ts"
+    format!("{}.{ext}", fallback.trim_end_matches(".m3u8"))
 }
 
-async fn merge_segments(temp_dir: &Path, segment_count: usize, output_file: &Path) -> Result<(), String> {
+async fn merge_segments(temp_dir: &Path, manifest: &HlsManifestState, output_file: &Path) -> Result<(), String> {
+    match manifest.merge_strategy {
+        HlsMergeStrategy::RawTsConcat => merge_segments_raw_concat(temp_dir, &manifest.segments, output_file).await,
+        HlsMergeStrategy::FfmpegConcatDemuxer => merge_segments_ffmpeg(temp_dir, &manifest.segments, output_file).await,
+    }
+}
+
+async fn merge_segments_raw_concat(temp_dir: &Path, segments: &[HlsSegmentState], output_file: &Path) -> Result<(), String> {
     let mut destination = OpenOptions::new()
         .create(true)
         .write(true)
@@ -378,8 +412,8 @@ async fn merge_segments(temp_dir: &Path, segment_count: usize, output_file: &Pat
         .open(output_file)
         .await
         .map_err(|e| e.to_string())?;
-    for idx in 0..segment_count {
-        let path = temp_dir.join(format!("segment-{:06}.ts", idx));
+    for segment in segments {
+        let path = temp_dir.join(format!("segment-{:06}.ts", segment.index));
         let mut source = OpenOptions::new().read(true).open(&path).await.map_err(|e| e.to_string())?;
         let mut buffer = vec![0_u8; 64 * 1024];
         loop {
@@ -393,6 +427,41 @@ async fn merge_segments(temp_dir: &Path, segment_count: usize, output_file: &Pat
     destination.flush().await.map_err(|e| e.to_string())
 }
 
+async fn merge_segments_ffmpeg(temp_dir: &Path, segments: &[HlsSegmentState], output_file: &Path) -> Result<(), String> {
+    let list_file = temp_dir.join("ffmpeg_concat_list.txt");
+    let mut list_content = String::new();
+    for segment in segments {
+        let filename = format!("segment-{:06}.ts", segment.index);
+        list_content.push_str(&format!("file '{}'\n", filename));
+    }
+    fs::write(&list_file, list_content).await.map_err(|e| e.to_string())?;
+
+    let output_str = output_file.to_str().ok_or("Invalid output path")?;
+    let list_str = list_file.to_str().ok_or("Invalid list path")?;
+
+    let status = tokio::process::Command::new("ffmpeg")
+        .arg("-y")
+        .arg("-f")
+        .arg("concat")
+        .arg("-safe")
+        .arg("0")
+        .arg("-i")
+        .arg(list_str)
+        .arg("-c")
+        .arg("copy")
+        .arg(output_str)
+        .current_dir(temp_dir)
+        .status()
+        .await
+        .map_err(|e| format!("Failed to spawn ffmpeg: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("ffmpeg merge failed with status: {}", status));
+    }
+
+    Ok(())
+}
+
 async fn existing_size(path: &Path) -> std::io::Result<u64> {
     match fs::metadata(path).await {
         Ok(metadata) => Ok(metadata.len()),
@@ -401,28 +470,30 @@ async fn existing_size(path: &Path) -> std::io::Result<u64> {
     }
 }
 
-fn load_segment_states(path: &Path) -> Result<Vec<HlsSegmentState>, String> {
+fn load_manifest_state(path: &Path) -> Result<Option<HlsManifestState>, String> {
     match std::fs::read_to_string(path) {
         Ok(text) => serde_json::from_str(&text).map_err(|e| e.to_string()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error.to_string()),
     }
 }
 
-fn save_segment_states(path: &Path, states: &[HlsSegmentState]) -> Result<(), String> {
-    let text = serde_json::to_string(states).map_err(|e| e.to_string())?;
+fn save_manifest_state(path: &Path, state: &HlsManifestState) -> Result<(), String> {
+    let text = serde_json::to_string(state).map_err(|e| e.to_string())?;
     std::fs::write(path, text).map_err(|e| e.to_string())
 }
 
 fn update_segment_state(path: &Path, state: &HlsSegmentState) -> Result<(), String> {
-    let mut states = load_segment_states(path)?;
-    if let Some(existing) = states.iter_mut().find(|item| item.index == state.index) {
-        *existing = state.clone();
-    } else {
-        states.push(state.clone());
-        states.sort_by_key(|item| item.index);
+    if let Some(mut manifest) = load_manifest_state(path)? {
+        if let Some(existing) = manifest.segments.iter_mut().find(|item| item.index == state.index) {
+            *existing = state.clone();
+        } else {
+            manifest.segments.push(state.clone());
+            manifest.segments.sort_by_key(|item| item.index);
+        }
+        save_manifest_state(path, &manifest)?;
     }
-    save_segment_states(path, &states)
+    Ok(())
 }
 
 async fn build_segment_states(
@@ -452,6 +523,7 @@ async fn build_segment_states(
             index: segment.index,
             url: segment.url.clone(),
             duration: segment.duration,
+            extension: segment.extension.clone(),
             length,
             downloaded,
             is_completed,
