@@ -109,17 +109,17 @@ export component MainWindow inherits Window {
         }
 
         Rectangle { // command bar
-            height: 58px; background: Palette.surface;
+            height: 62px; background: Palette.surface;
             Rectangle { x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
             HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 8px;
-                CyberButton { text: "Add URL"; clicked => { current-tab = 0; } }
-                CyberButton { text: "Resume"; clicked => { root.toggle-queue(); current-tab = 0; } }
-                CyberButton { text: "Stop"; clicked => { root.toggle-queue(); current-tab = 0; } }
-                CyberButton { text: "Stop All"; clicked => { root.toggle-queue(); current-tab = 0; } }
-                CyberButton { text: "Delete"; clicked => { root.delete-queue(); current-tab = 0; } }
-                CyberButton { text: "Retry"; clicked => { root.retry-failed(); current-tab = 0; } }
-                CyberButton { text: "Scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
-                CyberButton { text: "Settings"; active: current-tab == 2; clicked => { current-tab = 2; } }
+                CyberButton { text: "+ Add URL"; clicked => { current-tab = 0; } }
+                CyberButton { text: "▶ Resume"; clicked => { root.toggle-queue(); current-tab = 0; } }
+                CyberButton { text: "■ Stop"; clicked => { root.toggle-queue(); current-tab = 0; } }
+                CyberButton { text: "⏹ Stop All"; clicked => { root.toggle-queue(); current-tab = 0; } }
+                CyberButton { text: "🗑 Delete"; clicked => { root.delete-queue(); current-tab = 0; } }
+                CyberButton { text: "↻ Retry"; clicked => { root.retry-failed(); current-tab = 0; } }
+                CyberButton { text: "🕒 Scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
+                CyberButton { text: "⚙ Settings"; active: current-tab == 2; clicked => { current-tab = 2; } }
                 Rectangle { width: 100%; }
                 Text { text: root.queue-event-summary; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
             }
@@ -127,7 +127,7 @@ export component MainWindow inherits Window {
 
         if current-tab == 0: HorizontalLayout { // IDM main workspace
             Rectangle {
-                width: 220px; background: #111111; border-color: Palette.border; border-width: 1px;
+                width: 230px; background: #111111; border-color: Palette.border; border-width: 1px;
                 VerticalLayout { padding: 8px; spacing: 4px;
                     Text { text: "Categories"; color: Palette.text-primary; font-size: 12px; }
                     TreeItem { text: "All Downloads"; active: true; }
@@ -144,20 +144,34 @@ export component MainWindow inherits Window {
                 background: Palette.bg;
                 VerticalLayout {
                     Rectangle { height: 30px; background: Palette.surface; border-color: Palette.border; border-width: 1px;
-                        HorizontalLayout { padding-left: 8px; spacing: 14px;
-                            Text { text: "File Name"; color: Palette.text-primary; font-size: 11px; }
-                            Text { text: "Size"; color: Palette.text-muted; font-size: 11px; }
-                            Text { text: "Status"; color: Palette.text-muted; font-size: 11px; }
-                            Text { text: "Time left"; color: Palette.text-muted; font-size: 11px; }
-                            Text { text: "Transfer rate"; color: Palette.text-muted; font-size: 11px; }
+                        HorizontalLayout { padding-left: 8px; padding-right: 8px; spacing: 0;
+                            Text { text: "File Name"; color: Palette.text-primary; font-size: 11px; width: 320px; vertical-alignment: center; }
+                            Text { text: "Size"; color: Palette.text-muted; font-size: 11px; width: 80px; vertical-alignment: center; }
+                            Text { text: "Status"; color: Palette.text-muted; font-size: 11px; width: 110px; vertical-alignment: center; }
+                            Text { text: "Time left"; color: Palette.text-muted; font-size: 11px; width: 100px; vertical-alignment: center; }
+                            Text { text: "Transfer rate"; color: Palette.text-muted; font-size: 11px; width: 120px; vertical-alignment: center; }
+                            Text { text: "Last Try"; color: Palette.text-muted; font-size: 11px; width: 120px; vertical-alignment: center; }
+                            Text { text: "Description"; color: Palette.text-muted; font-size: 11px; }
                         }
                     }
                     ScrollView {
-                        VerticalLayout { padding: 8px; spacing: 6px;
+                        VerticalLayout { padding: 0px; spacing: 0px;
                             for item[i] in root.download-items: Rectangle {
-                                height: 44px; background: i == root.selected-download-index ? #242424 : Palette.panel; border-width: 1px; border-color: Palette.border;
+                                height: 36px;
+                                background: i == root.selected-download-index ? #2A2A2A : Palette.panel;
+                                border-width: 1px;
+                                border-color: i == root.selected-download-index ? Palette.accent-primary : Palette.border;
+                                if i == root.selected-download-index: Rectangle { x: 0; y: 0; width: 2px; height: parent.height; background: Palette.accent-primary; }
                                 TouchArea { clicked => { root.select-download(i); } }
-                                Text { text: item; x: 10px; y: 12px; color: Palette.text-primary; font-size: 12px; }
+                                HorizontalLayout { padding-left: 8px; padding-right: 8px; spacing: 0;
+                                    Text { text: item; color: Palette.text-primary; font-size: 12px; width: 320px; vertical-alignment: center; overflow: elide; }
+                                    Text { text: "-"; color: Palette.text-muted; font-size: 11px; width: 80px; vertical-alignment: center; }
+                                    Text { text: i == root.selected-download-index ? "Selected" : "Queued"; color: i == root.selected-download-index ? #22C55E : Palette.text-muted; font-size: 11px; width: 110px; vertical-alignment: center; }
+                                    Text { text: "--"; color: Palette.text-muted; font-size: 11px; width: 100px; vertical-alignment: center; }
+                                    Text { text: "--"; color: Palette.text-muted; font-size: 11px; width: 120px; vertical-alignment: center; }
+                                    Text { text: i == root.selected-download-index ? "now" : "--"; color: Palette.text-muted; font-size: 11px; width: 120px; vertical-alignment: center; }
+                                    Text { text: i == root.selected-download-index ? "Active focus" : ""; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                                }
                             }
                         }
                     }
@@ -245,18 +259,14 @@ export component ClipboardDialog inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 Text { text: "Category"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
-                Rectangle { width: 180px; height: 28px; background: #2A2A2A; border-color: #8C8C8C; border-width: 1px;
-                    Text { text: "Compressed"; color: #EDEDED; x: 8px; y: 6px; font-size: 12px; }
-                }
+                CyberInput { width: 180px; text: "Compressed"; }
                 CyberButton { text: "+"; min-width: 28px; }
             }
 
             HorizontalLayout {
                 spacing: 8px;
                 Text { text: "Save As"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
-                Rectangle { background: #2A2A2A; border-color: #8C8C8C; border-width: 1px; height: 28px;
-                    Text { text: root.output-dir + "/" + root.file-name; color: #F4F4F4; x: 8px; y: 6px; font-size: 12px; overflow: elide; }
-                }
+                CyberInput { text: root.output-dir + "/" + root.file-name; }
                 CyberButton { text: "..."; min-width: 34px; }
             }
 
@@ -275,7 +285,19 @@ export component ClipboardDialog inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 Text { text: "Description"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
-                Rectangle { background: #2A2A2A; border-color: #8C8C8C; border-width: 1px; height: 28px; }
+                CyberInput { text: ""; placeholder: "Optional note"; }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Info"; color: #F2F2F2; width: 68px; vertical-alignment: center; horizontal-alignment: right; font-size: 13px; }
+                Rectangle {
+                    height: 28px;
+                    background: #2A2A2A;
+                    border-color: #8C8C8C;
+                    border-width: 1px;
+                    Text { text: "Type: file | Resume: checking... | Queue: Main"; color: #D8D8D8; x: 8px; y: 6px; font-size: 12px; }
+                }
             }
 
             Rectangle { height: 10px; background: transparent; }
