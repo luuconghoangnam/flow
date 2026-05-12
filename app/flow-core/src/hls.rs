@@ -13,7 +13,7 @@ use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinSet;
 
 use crate::download::{
-    DownloadControl, DownloadEngine, DownloadEvent, DownloadRequest, SpeedLimiter,
+    DownloadControl, DownloadEngine, DownloadEvent, DownloadRequest, SpeedLimiter, client_for_request,
 };
 use crate::model::{DownloadStatus, DownloadTask};
 
@@ -21,17 +21,29 @@ const HLS_CONTENT_TYPES: [&str; 2] = [
     "application/x-mpegurl",
     "application/vnd.apple.mpegurl",
 ];
+const MAXIMUM_ALLOWED_PLAYLIST_SIZE: u64 = 2 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
 struct HlsSegment {
     index: usize,
     url: String,
+    duration: f64,
 }
 
 #[derive(Clone, Debug)]
 struct VariantStream {
     uri: String,
     bandwidth: u64,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct HlsSegmentState {
+    index: usize,
+    url: String,
+    duration: f64,
+    length: Option<u64>,
+    downloaded: u64,
+    is_completed: bool,
 }
 
 pub fn is_hls_request(url: &str, file_name: &str, headers: Option<&reqwest::header::HeaderMap>) -> bool {
@@ -58,12 +70,13 @@ pub async fn download_hls(
     let _ = tx.send(DownloadEvent::Queued(task.clone())).await;
     fs::create_dir_all(&request.output_dir).await.map_err(|e| e.to_string())?;
 
-    let playlist_text = fetch_text(engine, &request, &request.url).await?;
+    let client = client_for_request(&request).unwrap_or_else(|| engine.client());
+    let playlist_text = fetch_text(&client, &request, &request.url).await?;
     let media_playlist_url = resolve_media_playlist_url(&request.url, &playlist_text)?;
     let media_playlist_text = if media_playlist_url == request.url {
         playlist_text
     } else {
-        fetch_text(engine, &request, &media_playlist_url).await?
+        fetch_text(&client, &request, &media_playlist_url).await?
     };
     let segments = parse_media_playlist(&media_playlist_url, &media_playlist_text)?;
     if segments.is_empty() {
@@ -74,6 +87,7 @@ pub async fn download_hls(
     let output_file = unique_output_path(&request.output_dir.join(output_name));
     let temp_dir = request.output_dir.join(format!(".{}.hls", task.id.0));
     fs::create_dir_all(&temp_dir).await.map_err(|e| e.to_string())?;
+    let state_path = temp_dir.join("manifest_state.json");
 
     task.status = DownloadStatus::Downloading;
     task.file_name = output_file
@@ -83,16 +97,33 @@ pub async fn download_hls(
         .to_string();
     task.total_bytes = None;
 
-    let existing_total = sum_existing_segment_bytes(&temp_dir, &segments).await?;
+    let persisted_states = load_segment_states(&state_path)?;
+    let states = build_segment_states(&temp_dir, &segments, persisted_states).await?;
+    let existing_total: u64 = states.iter().map(|state| state.downloaded).sum();
     let aggregate = Arc::new(AtomicU64::new(existing_total));
-    let work_queue = Arc::new(Mutex::new(VecDeque::from(segments.clone())));
+    if existing_total > 0 {
+        let _ = tx
+            .send(DownloadEvent::Progress {
+                id: task.id.clone(),
+                downloaded_bytes: existing_total,
+                total_bytes: None,
+            })
+            .await;
+    }
+    let assignments = states
+        .iter()
+        .filter(|state| !state.is_completed)
+        .cloned()
+        .collect::<Vec<_>>();
+    save_segment_states(&state_path, &states)?;
+    let work_queue = Arc::new(Mutex::new(VecDeque::from(assignments)));
     let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
     let worker_count = request.connections.max(1).min(segments.len().max(1));
     let task_id = task.id.clone();
     let mut join_set = JoinSet::new();
 
     for _ in 0..worker_count {
-        let engine_client = engine.client();
+        let engine_client = client.clone();
         let request_clone = request.clone();
         let control2 = control.clone();
         let tx2 = tx.clone();
@@ -103,28 +134,36 @@ pub async fn download_hls(
         let limiter2 = limiter.clone();
         let global_limiter = engine.global_limiter.clone();
 
+        let state_path2 = state_path.clone();
+
         join_set.spawn(async move {
             loop {
-                let segment = {
+                let segment_state = {
                     let mut queue = queue2.lock().await;
                     queue.pop_front()
                 };
-                let Some(segment) = segment else {
+                let Some(mut segment_state) = segment_state else {
                     return Ok::<(), String>(());
                 };
 
-                let part_path = temp_dir2.join(format!("segment-{:06}.ts", segment.index));
+                let part_path = temp_dir2.join(format!("segment-{:06}.ts", segment_state.index));
                 let existing = existing_size(&part_path).await.map_err(|e| e.to_string())?;
-                let response = build_segment_request(&engine_client, &request_clone, &segment.url, existing)
+                let response = build_segment_request(&engine_client, &request_clone, &segment_state.url, existing)
                     .send()
                     .await
                     .map_err(|e| e.to_string())?;
                 if existing > 0 && response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
-                    return Err(format!("Server did not resume HLS segment {}", segment.url));
+                    return Err(format!("Server did not resume HLS segment {}", segment_state.url));
                 }
                 if existing == 0 && !response.status().is_success() {
-                    return Err(format!("HTTP request failed for HLS segment {} with status {}", segment.url, response.status()));
+                    return Err(format!("HTTP request failed for HLS segment {} with status {}", segment_state.url, response.status()));
                 }
+                segment_state.length = response
+                    .headers()
+                    .get(reqwest::header::CONTENT_LENGTH)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .map(|value| value + existing);
                 let mut stream = response.bytes_stream();
                 let mut file = OpenOptions::new()
                     .create(true)
@@ -142,6 +181,7 @@ pub async fn download_hls(
                         global.consume(bytes.len()).await;
                     }
                     file.write_all(&bytes).await.map_err(|e| e.to_string())?;
+                    segment_state.downloaded = segment_state.downloaded.saturating_add(bytes.len() as u64);
                     let total_done = aggregate2.fetch_add(bytes.len() as u64, Ordering::SeqCst) + bytes.len() as u64;
                     let _ = tx2
                         .send(DownloadEvent::Progress {
@@ -151,6 +191,9 @@ pub async fn download_hls(
                         })
                         .await;
                 }
+                segment_state.downloaded = existing_size(&part_path).await.map_err(|e| e.to_string())?;
+                segment_state.is_completed = segment_state.length.map(|length| segment_state.downloaded >= length).unwrap_or(segment_state.downloaded > 0);
+                update_segment_state(&state_path2, &segment_state)?;
             }
         });
     }
@@ -210,9 +253,15 @@ fn parse_master_playlist(base_url: &str, playlist_text: &str) -> Result<Vec<Vari
 fn parse_media_playlist(base_url: &str, playlist_text: &str) -> Result<Vec<HlsSegment>, String> {
     let mut segments = Vec::new();
     let mut saw_playlist = false;
+    let mut pending_duration = None::<f64>;
     for line in playlist_text.lines().map(str::trim).filter(|line| !line.is_empty()) {
         if line == "#EXTM3U" {
             saw_playlist = true;
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("#EXTINF:") {
+            let duration_text = rest.split(',').next().unwrap_or(rest).trim();
+            pending_duration = duration_text.parse::<f64>().ok();
             continue;
         }
         if let Some(rest) = line.strip_prefix("#EXT-X-KEY:") {
@@ -234,7 +283,11 @@ fn parse_media_playlist(base_url: &str, playlist_text: &str) -> Result<Vec<HlsSe
         if extension != "ts" {
             return Err(format!("Only HLS .ts segments supported at the moment, but '{extension}' provided"));
         }
-        segments.push(HlsSegment { index: segments.len(), url: segment_url });
+        segments.push(HlsSegment {
+            index: segments.len(),
+            url: segment_url,
+            duration: pending_duration.take().unwrap_or(0.0),
+        });
     }
     if !saw_playlist {
         return Err("invalid HLS playlist".to_string());
@@ -242,14 +295,15 @@ fn parse_media_playlist(base_url: &str, playlist_text: &str) -> Result<Vec<HlsSe
     Ok(segments)
 }
 
-async fn fetch_text(engine: &DownloadEngine, request: &DownloadRequest, url: &str) -> Result<String, String> {
-    let response = build_segment_request(&engine.client(), request, url, 0)
+async fn fetch_text(client: &reqwest::Client, request: &DownloadRequest, url: &str) -> Result<String, String> {
+    let response = build_segment_request(client, request, url, 0)
         .send()
         .await
         .map_err(|e| e.to_string())?;
     if !response.status().is_success() {
         return Err(format!("HTTP request failed with status {}", response.status()));
     }
+    validate_hls_playlist_response(response.headers())?;
     response.text().await.map_err(|e| e.to_string())
 }
 
@@ -347,13 +401,87 @@ async fn existing_size(path: &Path) -> std::io::Result<u64> {
     }
 }
 
-async fn sum_existing_segment_bytes(temp_dir: &Path, segments: &[HlsSegment]) -> Result<u64, String> {
-    let mut total = 0_u64;
-    for segment in segments {
-        let path = temp_dir.join(format!("segment-{:06}.ts", segment.index));
-        total += existing_size(&path).await.map_err(|e| e.to_string())?;
+fn load_segment_states(path: &Path) -> Result<Vec<HlsSegmentState>, String> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => serde_json::from_str(&text).map_err(|e| e.to_string()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(error) => Err(error.to_string()),
     }
-    Ok(total)
+}
+
+fn save_segment_states(path: &Path, states: &[HlsSegmentState]) -> Result<(), String> {
+    let text = serde_json::to_string(states).map_err(|e| e.to_string())?;
+    std::fs::write(path, text).map_err(|e| e.to_string())
+}
+
+fn update_segment_state(path: &Path, state: &HlsSegmentState) -> Result<(), String> {
+    let mut states = load_segment_states(path)?;
+    if let Some(existing) = states.iter_mut().find(|item| item.index == state.index) {
+        *existing = state.clone();
+    } else {
+        states.push(state.clone());
+        states.sort_by_key(|item| item.index);
+    }
+    save_segment_states(path, &states)
+}
+
+async fn build_segment_states(
+    temp_dir: &Path,
+    segments: &[HlsSegment],
+    persisted: Vec<HlsSegmentState>,
+) -> Result<Vec<HlsSegmentState>, String> {
+    let persisted_map = persisted
+        .into_iter()
+        .map(|state| (state.index, state))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut out = Vec::with_capacity(segments.len());
+    for segment in segments {
+        let disk_downloaded = existing_size(&temp_dir.join(format!("segment-{:06}.ts", segment.index)))
+            .await
+            .map_err(|e| e.to_string())?;
+        let persisted = persisted_map.get(&segment.index);
+        let length = persisted.and_then(|state| state.length);
+        let downloaded = persisted
+            .map(|state| state.downloaded.min(disk_downloaded))
+            .unwrap_or(disk_downloaded);
+        let is_completed = persisted
+            .map(|state| state.is_completed)
+            .unwrap_or(false)
+            && length.map(|value| downloaded >= value).unwrap_or(downloaded > 0);
+        out.push(HlsSegmentState {
+            index: segment.index,
+            url: segment.url.clone(),
+            duration: segment.duration,
+            length,
+            downloaded,
+            is_completed,
+        });
+    }
+    Ok(out)
+}
+
+fn validate_hls_playlist_response(headers: &reqwest::header::HeaderMap) -> Result<(), String> {
+    let content_type = headers
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_ascii_lowercase());
+    let content_length = headers
+        .get(reqwest::header::CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok());
+
+    let type_ok = content_type
+        .as_ref()
+        .map(|value| HLS_CONTENT_TYPES.iter().any(|candidate| value.starts_with(candidate)))
+        .unwrap_or(false);
+    if type_ok {
+        return Ok(());
+    }
+    match content_length {
+        Some(length) if length <= MAXIMUM_ALLOWED_PLAYLIST_SIZE => Ok(()),
+        Some(length) => Err(format!("content type is not hls compatible and returned content length is too big for hls playlist: {length}")),
+        None => Err("content type is not hls compatible and content length is unknown".to_string()),
+    }
 }
 
 fn unique_output_path(path: &Path) -> std::path::PathBuf {
