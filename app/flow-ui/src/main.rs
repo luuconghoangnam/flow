@@ -37,7 +37,6 @@ fn main() {
     app.set_engine_summary(engine.into());
     app.set_browser_summary(browser.into());
     app.set_queue_event_summary(load_queue_event_summary().into());
-    app.set_clipboard_pending_summary(load_clipboard_pending_summary().into());
     let settings = load_settings(&flow_data_dir().join("settings.json"));
     app.set_proxy_host_text(settings.proxy.manual.host.into());
     app.set_proxy_port_text(settings.proxy.manual.port.to_string().into());
@@ -201,36 +200,6 @@ fn main() {
             }
         });
     }
-    app.on_clipboard_queue(|| {
-        if let Some(value) = load_clipboard_pending_json() {
-            let mut decision = serde_json::Map::new();
-            decision.insert("action".to_string(), serde_json::Value::String("queue".to_string()));
-            if let Some(url) = value.get("url") {
-                decision.insert("url".to_string(), url.clone());
-            }
-            if let Some(file_name) = value.get("file_name") {
-                decision.insert("file_name".to_string(), file_name.clone());
-            }
-            if let Some(output_dir) = value.get("output_dir") {
-                decision.insert("output_dir".to_string(), output_dir.clone());
-            }
-            if let Some(connections) = value.get("connections") {
-                decision.insert("connections".to_string(), connections.clone());
-            }
-            if let Some(priority) = value.get("priority") {
-                decision.insert("priority".to_string(), priority.clone());
-            }
-            if let Some(queue_id) = value.get("queue_id") {
-                decision.insert("queue_id".to_string(), queue_id.clone());
-            }
-            let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
-        }
-    });
-    app.on_clipboard_dismiss(|| {
-        let mut decision = serde_json::Map::new();
-        decision.insert("action".to_string(), serde_json::Value::String("dismiss".to_string()));
-        let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
-    });
 
     app.on_browser_extension_id_changed(|value| mutate_settings(|settings| {
         settings.browser_extension_id = if value.trim().is_empty() { None } else { Some(value.to_string()) };
@@ -439,7 +408,6 @@ fn main() {
                     app.set_engine_summary(engine.into());
                     app.set_browser_summary(browser.into());
                     app.set_queue_event_summary(load_queue_event_summary().into());
-                    app.set_clipboard_pending_summary(load_clipboard_pending_summary().into());
                     let settings = load_settings(&flow_data_dir().join("settings.json"));
                     app.set_proxy_host_text(settings.proxy.manual.host.into());
                     app.set_proxy_port_text(settings.proxy.manual.port.to_string().into());
@@ -452,6 +420,38 @@ fn main() {
                     app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
                     app.set_browser_extension_id_text(settings.browser_extension_id.unwrap_or_default().into());
                     app.set_selected_download_index(selected_index);
+                    
+                    if let Some(pending) = load_clipboard_pending_json() {
+                        let url = pending.get("url").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                        let file_name = pending.get("file_name").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                        let output_dir = pending.get("output_dir").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                        
+                        let dialog = ClipboardDialog::new().unwrap();
+                        dialog.set_url(url.into());
+                        dialog.set_file_name(file_name.into());
+                        dialog.set_output_dir(output_dir.into());
+                        
+                        let dialog_weak1 = dialog.as_weak();
+                        dialog.on_dismiss(move || {
+                            let mut decision = serde_json::Map::new();
+                            decision.insert("action".to_string(), serde_json::Value::String("dismiss".to_string()));
+                            let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
+                            let _ = std::fs::remove_file(flow_clipboard_pending_path());
+                            if let Some(dlg) = dialog_weak1.upgrade() { dlg.hide().ok(); }
+                        });
+                        
+                        let dialog_weak2 = dialog.as_weak();
+                        dialog.on_queue(move || {
+                            let pending_data = load_clipboard_pending_json().unwrap_or_default();
+                            let mut decision = pending_data.as_object().cloned().unwrap_or_default();
+                            decision.insert("action".to_string(), serde_json::Value::String("queue".to_string()));
+                            let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
+                            let _ = std::fs::remove_file(flow_clipboard_pending_path());
+                            if let Some(dlg) = dialog_weak2.upgrade() { dlg.hide().ok(); }
+                        });
+                        
+                        dialog.show().unwrap();
+                    }
                 });
             }
         });
@@ -700,13 +700,7 @@ fn load_clipboard_pending_json() -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
-fn load_clipboard_pending_summary() -> String {
-    let Some(value) = load_clipboard_pending_json() else {
-        return String::new();
-    };
-    let url = value.get("url").and_then(|v| v.as_str()).unwrap_or("<invalid>");
-    format!("Clipboard link pending: {url}")
-}
+
 
 fn mutate_selected_job<F>(selected_download: Arc<Mutex<Option<String>>>, op: F)
 where

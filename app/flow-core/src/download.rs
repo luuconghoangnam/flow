@@ -1,5 +1,5 @@
+use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -9,7 +9,8 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT_ENCODING, ACCEP
 use sha2::{Digest, Sha256};
 use tokio::fs::{self, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
+use tokio::task::JoinSet;
 
 use crate::model::{DownloadId, DownloadStatus, DownloadTask};
 use crate::storage::{ChunkProgress, DownloadRepository};
@@ -48,6 +49,13 @@ pub struct ChunkPlan {
 }
 
 #[derive(Debug, Clone)]
+struct ChunkAssignment {
+    chunk_index: usize,
+    plan: ChunkPlan,
+    persisted_downloaded: u64,
+}
+
+#[derive(Debug, Clone)]
 pub enum DownloadEvent {
     Queued(DownloadTask),
     Progress { id: DownloadId, downloaded_bytes: u64, total_bytes: Option<u64> },
@@ -74,8 +82,8 @@ impl DownloadControl {
     pub fn pause(&self) { self.paused.store(true, Ordering::SeqCst); }
     pub fn resume(&self) { self.paused.store(false, Ordering::SeqCst); }
     pub fn cancel(&self) { self.cancelled.store(true, Ordering::SeqCst); }
-    fn is_paused(&self) -> bool { self.paused.load(Ordering::SeqCst) }
-    fn is_cancelled(&self) -> bool { self.cancelled.load(Ordering::SeqCst) }
+    pub(crate) fn is_paused(&self) -> bool { self.paused.load(Ordering::SeqCst) }
+    pub(crate) fn is_cancelled(&self) -> bool { self.cancelled.load(Ordering::SeqCst) }
 }
 
 pub struct DownloadEngine {
@@ -137,6 +145,10 @@ impl DownloadEngine {
         self
     }
 
+    pub(crate) fn client(&self) -> reqwest::Client {
+        self.client.clone()
+    }
+
     pub async fn enqueue(&self, request: DownloadRequest) -> DownloadTask {
         let id = DownloadId(format!("dl-{}", uuid_like_seed(&request.url)));
         DownloadTask {
@@ -166,10 +178,14 @@ impl DownloadEngine {
     }
 
     pub fn make_chunk_plan(total_bytes: u64, connections: usize) -> Vec<ChunkPlan> {
-        const MIN_PART_SIZE: u64 = 1024 * 1024;
-        let max_part_count = connections.max(1) as u64;
-        let min_parts = total_bytes.div_ceil(MIN_PART_SIZE).max(1);
-        let actual_part_count = max_part_count.min(min_parts).max(1);
+        const MIN_INITIAL_PART_SIZE: u64 = 1024 * 1024;
+        const DYNAMIC_SPLIT_MULTIPLIER: u64 = 4;
+
+        let base_connections = connections.max(1) as u64;
+        let desired_parts = (base_connections * DYNAMIC_SPLIT_MULTIPLIER).max(1);
+        let bounded_parts = desired_parts.min(total_bytes.max(1));
+        let by_size = total_bytes.div_ceil(MIN_INITIAL_PART_SIZE).max(1);
+        let actual_part_count = bounded_parts.min(by_size.max(base_connections)).max(1);
         let base_size = total_bytes / actual_part_count;
         let remainder = total_bytes % actual_part_count;
         let mut start = 0_u64;
@@ -207,6 +223,9 @@ impl DownloadEngine {
         tx: mpsc::Sender<DownloadEvent>,
         control: DownloadControl,
     ) -> Result<DownloadTask, String> {
+        if crate::hls::is_hls_request(&request.url, &request.file_name, None) {
+            return crate::hls::download_hls(self, request, tx, control).await;
+        }
         let mut task = self.enqueue(request.clone()).await;
         let _ = tx.send(DownloadEvent::Queued(task.clone())).await;
 
@@ -339,6 +358,9 @@ impl DownloadEngine {
                 return Err(reason);
             }
         };
+        if crate::hls::is_hls_request(&request.url, &request.file_name, Some(&probe_headers)) {
+            return crate::hls::download_hls(self, request, tx, control).await;
+        }
         let Some(total) = total_opt else {
             return self.download_single_stream(request, tx, control).await;
         };
@@ -350,7 +372,6 @@ impl DownloadEngine {
         task.status = DownloadStatus::Downloading;
         let plans = Self::make_chunk_plan(total, request.connections);
         let client = Arc::new(client_for_request(&request).unwrap_or_else(|| self.client.clone()));
-        let mut handles = Vec::new();
         let temp_dir = request.output_dir.join(format!(".{}.parts", task.id.0));
         fs::create_dir_all(&temp_dir).await.map_err(|e| e.to_string())?;
 
@@ -380,88 +401,131 @@ impl DownloadEngine {
 
         let aggregate = Arc::new(AtomicU64::new(persisted_total));
         let task_id = task.id.clone();
+        let request_url = request.url.clone();
         let request_headers = request_header_map(Some(&request));
         let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
-        for (idx, plan) in plans.iter().enumerate() {
-            let persisted = persisted_chunks.iter().find(|chunk| chunk.chunk_index == idx as i64);
-            let persisted_downloaded = persisted.map(|v| v.downloaded).unwrap_or(0);
-            let chunk_size = plan.end_inclusive - plan.start + 1;
-            if persisted_downloaded >= chunk_size {
-                let _ = tx
-                    .send(DownloadEvent::ChunkProgress {
-                        id: task.id.clone(),
+        let assignments = plans
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, plan)| {
+                let persisted = persisted_chunks.iter().find(|chunk| chunk.chunk_index == idx as i64);
+                let persisted_downloaded = persisted.map(|v| v.downloaded).unwrap_or(0);
+                let chunk_size = plan.end_inclusive - plan.start + 1;
+                if persisted_downloaded >= chunk_size {
+                    None
+                } else {
+                    Some(ChunkAssignment {
                         chunk_index: idx,
-                        start: plan.start,
-                        end_inclusive: plan.end_inclusive,
-                        downloaded: chunk_size,
+                        plan: plan.clone(),
+                        persisted_downloaded,
                     })
-                    .await;
-                continue;
-            }
+                }
+            })
+            .collect::<Vec<_>>();
 
-            let url = request.url.clone();
-            let part_path = temp_dir.join(format!("part-{idx}.bin"));
-            let resume_start = plan.start + persisted_downloaded;
-            let range_value = format!("bytes={resume_start}-{}", plan.end_inclusive);
+        for assignment in &assignments {
+            let _ = tx
+                .send(DownloadEvent::ChunkProgress {
+                    id: task.id.clone(),
+                    chunk_index: assignment.chunk_index,
+                    start: assignment.plan.start,
+                    end_inclusive: assignment.plan.end_inclusive,
+                    downloaded: assignment.persisted_downloaded,
+                })
+                .await;
+        }
+
+        let work_queue = Arc::new(Mutex::new(VecDeque::from(assignments)));
+        let worker_count = request.connections.max(1).min(plans.len().max(1));
+        let mut join_set = JoinSet::new();
+
+        for _ in 0..worker_count {
+            let work_queue = Arc::clone(&work_queue);
             let client = Arc::clone(&client);
             let tx2 = tx.clone();
             let control2 = control.clone();
             let aggregate2 = Arc::clone(&aggregate);
             let task_id2 = task_id.clone();
-            let chunk_start = plan.start;
-            let chunk_end = plan.end_inclusive;
+            let request_url = request_url.clone();
             let request_headers = request_headers.clone();
             let username = request.username.clone();
             let password = request.password.clone();
             let limiter = limiter.clone();
             let global_limiter = self.global_limiter.clone();
-            handles.push(tokio::spawn(async move {
-                let response = send_with_retry(|| apply_credentials(apply_header_map(client.get(&url).header(RANGE, range_value.clone()), &request_headers), username.as_deref(), password.as_deref()), 3).await?;
-                validate_range_response(&response, resume_start, chunk_end)?;
-                let mut stream = response.bytes_stream();
-                let mut file = OpenOptions::new().create(true).append(true).open(&part_path).await.map_err(|e| e.to_string())?;
-                let mut written = persisted_downloaded;
-                while let Some(chunk) = stream.next().await {
-                    wait_if_paused_or_cancelled(&control2).await?;
-                    let bytes = chunk.map_err(|e| e.to_string())?;
-                    if let Some(limiter) = &limiter {
-                        limiter.consume(bytes.len()).await;
+            let temp_dir = temp_dir.clone();
+
+            join_set.spawn(async move {
+                loop {
+                    let assignment = {
+                        let mut queue = work_queue.lock().await;
+                        queue.pop_front()
+                    };
+                    let Some(assignment) = assignment else {
+                        return Ok::<(), String>(());
+                    };
+
+                    let url = request_url.clone();
+                    let part_path = temp_dir.join(format!("part-{}.bin", assignment.chunk_index));
+                    let resume_start = assignment.plan.start + assignment.persisted_downloaded;
+                    let range_value = format!("bytes={resume_start}-{}", assignment.plan.end_inclusive);
+                    let response = send_with_retry(|| {
+                        apply_credentials(
+                            apply_header_map(client.get(&url).header(RANGE, range_value.clone()), &request_headers),
+                            username.as_deref(),
+                            password.as_deref(),
+                        )
+                    }, 3)
+                    .await?;
+                    validate_range_response(&response, resume_start, assignment.plan.end_inclusive)?;
+                    let mut stream = response.bytes_stream();
+                    let mut file = OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&part_path)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    let mut written = assignment.persisted_downloaded;
+                    while let Some(chunk) = stream.next().await {
+                        wait_if_paused_or_cancelled(&control2).await?;
+                        let bytes = chunk.map_err(|e| e.to_string())?;
+                        if let Some(limiter) = &limiter {
+                            limiter.consume(bytes.len()).await;
+                        }
+                        if let Some(global) = &global_limiter {
+                            global.consume(bytes.len()).await;
+                        }
+                        file.write_all(&bytes).await.map_err(|e| e.to_string())?;
+                        written += bytes.len() as u64;
+                        let _ = tx2
+                            .send(DownloadEvent::ChunkProgress {
+                                id: task_id2.clone(),
+                                chunk_index: assignment.chunk_index,
+                                start: assignment.plan.start,
+                                end_inclusive: assignment.plan.end_inclusive,
+                                downloaded: written,
+                            })
+                            .await;
+                        let total_done = aggregate2.fetch_add(bytes.len() as u64, Ordering::SeqCst) + bytes.len() as u64;
+                        let _ = tx2
+                            .send(DownloadEvent::Progress {
+                                id: task_id2.clone(),
+                                downloaded_bytes: total_done,
+                                total_bytes: None,
+                            })
+                            .await;
                     }
-                    if let Some(global) = &global_limiter {
-                        global.consume(bytes.len()).await;
-                    }
-                    file.write_all(&bytes).await.map_err(|e| e.to_string())?;
-                    written += bytes.len() as u64;
-                    let _ = tx2
-                        .send(DownloadEvent::ChunkProgress {
-                            id: task_id2.clone(),
-                            chunk_index: idx,
-                            start: chunk_start,
-                            end_inclusive: chunk_end,
-                            downloaded: written,
-                        })
-                        .await;
-                    let total_done = aggregate2.fetch_add(bytes.len() as u64, Ordering::SeqCst) + bytes.len() as u64;
-                    let _ = tx2
-                        .send(DownloadEvent::Progress {
-                            id: task_id2.clone(),
-                            downloaded_bytes: total_done,
-                            total_bytes: None,
-                        })
-                        .await;
                 }
-                Ok::<u64, String>(written)
-            }));
+            });
         }
 
-        for handle in handles {
-            match handle.await.map_err(|e| e.to_string())? {
-                Ok(_) => {}
+        while let Some(result) = join_set.join_next().await {
+            match result.map_err(|e| e.to_string())? {
+                Ok(()) => {}
                 Err(reason) => {
                     emit_control_failure(&tx, &task.id, &reason).await;
                     return Err(reason);
                 }
-            };
+            }
             task.downloaded_bytes = aggregate.load(Ordering::SeqCst);
             let _ = tx
                 .send(DownloadEvent::Progress {
@@ -472,7 +536,6 @@ impl DownloadEngine {
                 .await;
         }
 
-        // Output file was computed earlier
         verify_parts_complete(&temp_dir, &plans).await?;
         merge_parts(&temp_dir, plans.len(), &output_file).await?;
         verify_output_integrity(&output_file, total, request.expected_sha256_hex.as_deref()).await?;
@@ -778,7 +841,7 @@ fn apply_credentials(
     }
 }
 
-fn client_for_request(request: &DownloadRequest) -> Option<reqwest::Client> {
+pub(crate) fn client_for_request(request: &DownloadRequest) -> Option<reqwest::Client> {
     let proxy_url = request.proxy_url.as_ref()?;
     let mut proxy = reqwest::Proxy::all(proxy_url).ok()?;
     if let (Some(username), Some(password)) = (&request.proxy_username, &request.proxy_password) {

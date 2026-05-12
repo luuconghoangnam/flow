@@ -1,4 +1,5 @@
 pub mod download;
+pub mod hls;
 pub mod model;
 pub mod paths;
 pub mod persistence;

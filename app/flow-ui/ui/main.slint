@@ -27,7 +27,6 @@ export component MainWindow inherits Window {
     in property <string> perhost-pass-text: "";
     in property <string> global-speed-limit-text: "";
     in property <string> proxy-pac-text: "";
-    in property <string> clipboard-pending-summary: "";
     in property <int> selected-download-index: -1;
     callback retry-failed();
     callback cleanup-finished();
@@ -74,8 +73,6 @@ export component MainWindow inherits Window {
     callback proxy-pac-changed(value: string);
     callback browser-extension-id-changed(value: string);
     callback register-browser-host();
-    callback clipboard-queue();
-    callback clipboard-dismiss();
 
     Rectangle {
         background: #0f172a;
@@ -547,44 +544,6 @@ export component MainWindow inherits Window {
                 }
             }
 
-            if clipboard-pending-summary != "" : Rectangle {
-                height: 64px;
-                border-radius: 12px;
-                background: #1f2937;
-                border-width: 1px;
-                border-color: #64748b;
-
-                Text {
-                    text: clipboard-pending-summary;
-                    color: #f1f5f9;
-                    x: 12px;
-                    y: 10px;
-                    font-size: 12px;
-                }
-
-                HorizontalLayout {
-                    x: 12px;
-                    y: 34px;
-                    spacing: 8px;
-                    Rectangle {
-                        height: 22px;
-                        width: 72px;
-                        border-radius: 6px;
-                        background: #334155;
-                        TouchArea { clicked => { root.clipboard-queue(); } }
-                        Text { text: "Queue"; color: #e2e8f0; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 22px;
-                        width: 72px;
-                        border-radius: 6px;
-                        background: #334155;
-                        TouchArea { clicked => { root.clipboard-dismiss(); } }
-                        Text { text: "Dismiss"; color: #e2e8f0; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                }
-            }
-
             Rectangle {
                 border-radius: 14px;
                 background: #0b1220;
@@ -710,6 +669,69 @@ export component MainWindow inherits Window {
                             font-size: 14px;
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+export component ClipboardDialog inherits Window {
+    width: 480px;
+    height: 220px;
+    title: "New Download Detected";
+    always-on-top: true;
+
+    in property <string> url: "";
+    in property <string> file-name: "";
+    in property <string> output-dir: "";
+
+    callback queue();
+    callback dismiss();
+
+    Rectangle {
+        background: #0f172a;
+        VerticalLayout {
+            padding: 24px;
+            spacing: 16px;
+            Text {
+                text: "New Download Detected";
+                font-size: 20px;
+                font-weight: 700;
+                color: #e2e8f0;
+            }
+            Text {
+                text: "URL: " + root.url;
+                color: #94a3b8;
+                font-size: 13px;
+                overflow: elide;
+            }
+            Text {
+                text: "File: " + root.file-name;
+                color: #cbd5e1;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            Text {
+                text: "Save to: " + root.output-dir;
+                color: #64748b;
+                font-size: 12px;
+                overflow: elide;
+            }
+            Rectangle { height: 10px; } // Spacer
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: end;
+                Rectangle {
+                    width: 100px; height: 36px;
+                    background: #334155; border-radius: 8px;
+                    TouchArea { clicked => { root.dismiss(); } }
+                    Text { text: "Cancel"; color: white; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Rectangle {
+                    width: 140px; height: 36px;
+                    background: #3b82f6; border-radius: 8px;
+                    TouchArea { clicked => { root.queue(); } }
+                    Text { text: "Add to Queue"; color: white; horizontal-alignment: center; vertical-alignment: center; font-weight: 600; }
                 }
             }
         }
