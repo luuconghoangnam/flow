@@ -1,10 +1,11 @@
+#![windows_subsystem = "windows"]
 slint::include_modules!();
 
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, is_windows_auto_start_enabled, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, QueueJobRecord, SqliteDownloadRepository};
+use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, QueueJobRecord, SqliteDownloadRepository};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use slint::{CloseRequestResponse, ModelRc, SharedString, VecModel};
 use tray_icon::menu::{Menu, MenuItem};
@@ -18,7 +19,6 @@ struct TrayContext {
 struct QueueUiState {
     queue_labels: Vec<SharedString>,
     queue_ids: Vec<i64>,
-    row_labels: Vec<SharedString>,
     rows: Vec<DownloadRow>,
     row_ids: Vec<String>,
     queue_summary: String,
@@ -31,27 +31,12 @@ fn main() {
     let selected_download = Arc::new(Mutex::new(None::<String>));
     let queue_state = load_queue_ui_state(*selected_queue.lock().expect("selected queue lock"));
     app.set_queue_groups(ModelRc::new(VecModel::from(queue_state.queue_labels)));
-    app.set_download_items(ModelRc::new(VecModel::from(queue_state.row_labels)));
     app.set_download_rows(ModelRc::new(VecModel::from(queue_state.rows)));
     app.set_queue_config_summary(queue_state.queue_summary.into());
     app.set_queue_name_text(load_selected_queue_name(*selected_queue.lock().expect("selected queue lock")).into());
-    let (appearance, engine, browser) = load_settings_sections();
-    app.set_appearance_summary(appearance.into());
-    app.set_engine_summary(engine.into());
-    app.set_browser_summary(browser.into());
-    app.set_queue_event_summary(load_queue_event_summary().into());
+    app.set_status_message("Ready".into());
     let settings = load_settings(&flow_data_dir().join("settings.json"));
-    app.set_proxy_host_text(settings.proxy.manual.host.into());
-    app.set_proxy_port_text(settings.proxy.manual.port.to_string().into());
-    app.set_proxy_username_text(settings.proxy.manual.username.unwrap_or_default().into());
-    app.set_proxy_password_text(settings.proxy.manual.password.unwrap_or_default().into());
     app.set_default_folder_text(settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder).into());
-    app.set_global_speed_limit_text(settings.global_speed_limit_bps.map(|v| v.to_string()).unwrap_or_default().into());
-    app.set_proxy_pac_text(settings.proxy.pac_url.clone().unwrap_or_default().into());
-    app.set_perhost_first_text(settings.per_host.first().map(|v| v.host.clone()).unwrap_or_default().into());
-    app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
-    app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
-    app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
     app.set_browser_extension_id_text(settings.browser_extension_id.unwrap_or_default().into());
 
     let _tray_context = setup_tray_if_enabled(&app);
@@ -92,101 +77,12 @@ fn main() {
     app.on_settings_thread_plus(|| mutate_settings(|settings| settings.thread_count += 1));
     app.on_settings_max_minus(|| mutate_settings(|settings| settings.max_concurrent_downloads = settings.max_concurrent_downloads.saturating_sub(1).max(1)));
     app.on_settings_max_plus(|| mutate_settings(|settings| settings.max_concurrent_downloads += 1));
-    app.on_settings_use_downloads_folder(|| mutate_settings(|settings| settings.default_download_folder = Some(default_downloads_folder())));
-    app.on_toggle_proxy_mode(|| mutate_settings(|settings| {
-        settings.proxy.mode = match settings.proxy.mode {
-            flow_core::ProxyMode::Direct => flow_core::ProxyMode::System,
-            flow_core::ProxyMode::System => flow_core::ProxyMode::Manual,
-            flow_core::ProxyMode::Manual => flow_core::ProxyMode::Pac,
-            flow_core::ProxyMode::Pac => flow_core::ProxyMode::Direct,
-        };
-    }));
-    app.on_proxy_port_minus(|| mutate_settings(|settings| settings.proxy.manual.port = settings.proxy.manual.port.saturating_sub(1).max(1)));
-    app.on_proxy_port_plus(|| mutate_settings(|settings| settings.proxy.manual.port = settings.proxy.manual.port.saturating_add(1)));
-    app.on_proxy_set_localhost(|| mutate_settings(|settings| settings.proxy.manual.host = "127.0.0.1".to_string()));
-    app.on_proxy_set_auth_sample(|| mutate_settings(|settings| {
-        settings.proxy.manual.username = Some("proxy-user".to_string());
-        settings.proxy.manual.password = Some("proxy-pass".to_string());
-    }));
-    app.on_proxy_clear_auth(|| mutate_settings(|settings| {
-        settings.proxy.manual.username = None;
-        settings.proxy.manual.password = None;
-    }));
-    app.on_perhost_add_sample(|| mutate_settings(|settings| {
-        if !settings.per_host.iter().any(|item| item.host == "*.example.com") {
-            settings.per_host.push(flow_core::PerHostSettings {
-                host: "*.example.com".to_string(),
-                username: None,
-                password: None,
-                user_agent: Some("Flow Custom UA".to_string()),
-                thread_count: Some(4),
-            });
+    app.on_settings_use_downloads_folder(|| {
+        if let Some(folder) = open_folder_picker() {
+            mutate_settings(|settings| settings.default_download_folder = Some(folder));
         }
-    }));
-    app.on_perhost_remove_last(|| mutate_settings(|settings| {
-        let _ = settings.per_host.pop();
-    }));
-    app.on_perhost_clear(|| mutate_settings(|settings| settings.per_host.clear()));
-    app.on_proxy_host_changed(|value| mutate_settings(|settings| settings.proxy.manual.host = value.to_string()));
-    app.on_proxy_port_changed(|value| {
-        mutate_settings(|settings| {
-            if let Ok(port) = value.parse::<u16>() {
-                settings.proxy.manual.port = port.max(1);
-            }
-        })
     });
-    app.on_proxy_username_changed(|value| mutate_settings(|settings| {
-        settings.proxy.manual.username = if value.trim().is_empty() { None } else { Some(value.to_string()) };
-    }));
-    app.on_proxy_password_changed(|value| mutate_settings(|settings| {
-        settings.proxy.manual.password = if value.trim().is_empty() { None } else { Some(value.to_string()) };
-    }));
-    app.on_default_folder_changed(|value| mutate_settings(|settings| {
-        settings.default_download_folder = if value.trim().is_empty() { None } else { Some(value.to_string()) };
-    }));
-    app.on_global_speed_limit_changed(|value| mutate_settings(|settings| {
-        settings.global_speed_limit_bps = value.parse::<u64>().ok();
-    }));
-    app.on_proxy_pac_changed(|value| mutate_settings(|settings| {
-        settings.proxy.pac_url = if value.is_empty() { None } else { Some(value.to_string()) };
-    }));
-    app.on_perhost_first_changed(|value| {
-        mutate_settings(|settings| {
-            if let Some(first) = settings.per_host.first_mut() {
-                first.host = value.to_string();
-            } else if !value.trim().is_empty() {
-                settings.per_host.push(flow_core::PerHostSettings {
-                    host: value.to_string(),
-                    username: None,
-                    password: None,
-                    user_agent: None,
-                    thread_count: None,
-                });
-            }
-        })
-    });
-    app.on_perhost_thread_changed(|value| {
-        mutate_settings(|settings| {
-            let parsed = value.parse::<usize>().ok();
-            if let Some(first) = settings.per_host.first_mut() {
-                first.thread_count = parsed;
-            }
-        })
-    });
-    app.on_perhost_user_changed(|value| {
-        mutate_settings(|settings| {
-            if let Some(first) = settings.per_host.first_mut() {
-                first.username = if value.trim().is_empty() { None } else { Some(value.to_string()) };
-            }
-        })
-    });
-    app.on_perhost_pass_changed(|value| {
-        mutate_settings(|settings| {
-            if let Some(first) = settings.per_host.first_mut() {
-                first.password = if value.trim().is_empty() { None } else { Some(value.to_string()) };
-            }
-        })
-    });
+    
     {
         let selected_queue = Arc::clone(&selected_queue);
         app.on_queue_name_changed(move |value| {
@@ -204,9 +100,7 @@ fn main() {
         });
     }
 
-    app.on_browser_extension_id_changed(|value| mutate_settings(|settings| {
-        settings.browser_extension_id = if value.trim().is_empty() { None } else { Some(value.to_string()) };
-    }));
+
 
     app.on_register_browser_host(|| {
         let settings = load_settings(&flow_data_dir().join("settings.json"));
@@ -267,15 +161,9 @@ fn main() {
                 let weak2 = weak.clone();
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
-                    app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(next_id).into());
-                    let (appearance, engine, browser) = load_settings_sections();
-                    app.set_appearance_summary(appearance.into());
-                    app.set_engine_summary(engine.into());
-                    app.set_browser_summary(browser.into());
-                    app.set_queue_event_summary(load_queue_event_summary().into());
                     app.set_selected_download_index(-1);
                 });
             }
@@ -332,15 +220,9 @@ fn main() {
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_selected_queue_index(0);
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
-                    app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(0).into());
-                    let (appearance, engine, browser) = load_settings_sections();
-                    app.set_appearance_summary(appearance.into());
-                    app.set_engine_summary(engine.into());
-                    app.set_browser_summary(browser.into());
-                    app.set_queue_event_summary(load_queue_event_summary().into());
                     app.set_selected_download_index(-1);
                 });
             }
@@ -350,6 +232,7 @@ fn main() {
     {
         let selected_queue_for_download = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
         app.on_select_download(move |index| {
             let selected_queue_id = selected_queue_for_download.lock().map(|v| *v).unwrap_or(0);
             let state = load_queue_ui_state(selected_queue_id);
@@ -357,6 +240,9 @@ fn main() {
             if let Ok(mut selected) = selected_download.lock() {
                 *selected = chosen;
             }
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                app.set_selected_download_index(index);
+            });
         });
     }
 
@@ -378,7 +264,6 @@ fn main() {
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_selected_queue_index(index);
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
-                    app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(selected_now).into());
@@ -410,26 +295,9 @@ fn main() {
             let weak2 = weak.clone();
             let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
-                    app.set_download_items(ModelRc::new(VecModel::from(state.row_labels)));
                     app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(selected).into());
-                    let (appearance, engine, browser) = load_settings_sections();
-                    app.set_appearance_summary(appearance.into());
-                    app.set_engine_summary(engine.into());
-                    app.set_browser_summary(browser.into());
-                    app.set_queue_event_summary(load_queue_event_summary().into());
-                    let settings = load_settings(&flow_data_dir().join("settings.json"));
-                    app.set_proxy_host_text(settings.proxy.manual.host.into());
-                    app.set_proxy_port_text(settings.proxy.manual.port.to_string().into());
-                    app.set_proxy_username_text(settings.proxy.manual.username.unwrap_or_default().into());
-                    app.set_proxy_password_text(settings.proxy.manual.password.unwrap_or_default().into());
-                    app.set_default_folder_text(settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder).into());
-                    app.set_perhost_first_text(settings.per_host.first().map(|v| v.host.clone()).unwrap_or_default().into());
-                    app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
-                    app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
-                    app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
-                    app.set_browser_extension_id_text(settings.browser_extension_id.unwrap_or_default().into());
                     app.set_selected_download_index(selected_index);
                     
                     if let Some(pending) = load_clipboard_pending_json() {
@@ -547,31 +415,25 @@ fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
 
 fn load_queue_ui_state(selected_queue_id: i64) -> QueueUiState {
     let db_path = flow_db_path();
-    let Ok(repo) = SqliteDownloadRepository::open(&db_path) else {
-        return QueueUiState { queue_labels: vec!["Main".into()], queue_ids: vec![0], row_labels: vec!["Queue database not available".into()], rows: vec![], row_ids: vec![], queue_summary: "Queue database not available".to_string() };
+    let Some(repo) = SqliteDownloadRepository::open(&db_path).ok() else {
+        return QueueUiState { queue_labels: vec![], queue_ids: vec![], rows: vec![], row_ids: vec![], queue_summary: "DB Error".to_string() };
     };
-    if repo.init_schema().is_err() {
-        return QueueUiState { queue_labels: vec!["Main".into()], queue_ids: vec![0], row_labels: vec!["Queue schema not available".into()], rows: vec![], row_ids: vec![], queue_summary: "Queue schema not available".to_string() };
-    }
-    let groups_raw = repo
-        .list_queue_groups()
-        .unwrap_or_default();
-    let groups = groups_raw.iter()
-        .map(|group| format!("{}{}", if group.active { "" } else { "[Paused] " }, group.name).into())
-        .collect::<Vec<SharedString>>();
-    let group_ids = groups_raw.iter().map(|g| g.id).collect::<Vec<_>>();
-    let summary = groups_raw.iter().find(|g| g.id == selected_queue_id)
+    let _ = repo.init_schema();
+
+    let groups = repo.list_queue_groups().unwrap_or_default().into_iter().map(|g| g.name.into()).collect();
+    let group_ids = repo.list_queue_groups().unwrap_or_default().into_iter().map(|g| g.id).collect();
+    let summary = repo.get_queue_group(selected_queue_id).ok().flatten()
         .map(|g| format!("{} | max {} | stop_on_empty {} | {}", g.name, g.max_concurrent, g.stop_on_empty, if g.active { "active" } else { "paused" }))
         .unwrap_or_else(|| "Queue config unavailable".to_string());
     let Ok(jobs) = repo.list_queue_view_rows() else {
-        return QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: vec!["Unable to load queue".into()], rows: vec![], row_ids: vec![], queue_summary: summary };
+        return QueueUiState { queue_labels: groups, queue_ids: group_ids, rows: vec![], row_ids: vec![], queue_summary: summary };
     };
     let filtered_jobs = jobs
         .into_iter()
         .filter(|row| row.queue_id == selected_queue_id)
         .collect::<Vec<_>>();
     if filtered_jobs.is_empty() {
-        return QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels: vec!["No downloads in this queue".into()], rows: vec![], row_ids: vec![], queue_summary: summary };
+        return QueueUiState { queue_labels: groups, queue_ids: group_ids, rows: vec![], row_ids: vec![], queue_summary: summary };
     }
 
     let row_ids = filtered_jobs.iter().map(|row| row.id.clone()).collect::<Vec<_>>();
@@ -602,11 +464,7 @@ fn load_queue_ui_state(selected_queue_id: i64) -> QueueUiState {
             }
         })
         .collect::<Vec<_>>();
-    let row_labels = filtered_jobs.into_iter()
-        .take(100)
-        .map(|row| format!("[{}] {} - {}", row.queue_name, row.file_name, row.status).into())
-        .collect();
-    QueueUiState { queue_labels: groups, queue_ids: group_ids, row_labels, rows, row_ids, queue_summary: summary }
+    QueueUiState { queue_labels: groups, queue_ids: group_ids, rows, row_ids, queue_summary: summary }
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -776,6 +634,57 @@ fn wire_download_toolbar_actions(app: &MainWindow, selected_queue: Arc<Mutex<i64
             set_status(&weak, "Opening selected folder");
         }
     });
+    app.on_move_download_up({
+        let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Moved up", |repo, id| { let _ = repo.reorder_queue_job(id, -1); })
+    });
+    app.on_move_download_down({
+        let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Moved down", |repo, id| { let _ = repo.reorder_queue_job(id, 1); })
+    });
+    app.on_requeue_download({
+        let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Requeued", |repo, id| { let _ = repo.update_queue_job_status(id, "Queued"); })
+    });
+}
+
+fn open_folder_picker() -> Option<String> {
+    let script = r#"
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = "Select Download Folder"
+    if ($dialog.ShowDialog() -eq "OK") {
+        $dialog.SelectedPath
+    }
+    "#;
+    let output = std::process::Command::new("powershell")
+        .args(["-Command", script])
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !path.is_empty() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+fn locate_register_script() -> Option<String> {
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let installed = exe_dir.join("native-messaging").join("windows").join("register-host.ps1");
+    if installed.exists() {
+        return Some(installed.to_string_lossy().to_string());
+    }
+    // Check dev path
+    let dev = std::path::PathBuf::from(r"D:\Repos\Flow\app\native-messaging\windows\register-host.ps1");
+    if dev.exists() {
+        return Some(dev.to_string_lossy().to_string());
+    }
+    None
 }
 
 fn enqueue_manual_url(queue_id: i64, url: &str, file_name: &str, output_dir: &str, start_now: bool) {
@@ -844,58 +753,7 @@ fn open_selected_path(selected_download: Arc<Mutex<Option<String>>>, folder: boo
     let _ = std::process::Command::new("explorer.exe").arg(target).spawn();
 }
 
-fn load_settings_sections() -> (String, String, String) {
-    let settings = load_settings(&flow_data_dir().join("settings.json"));
-    let appearance = format!(
-        "auto_start={} (registry={}) | system_tray={} | folder={}",
-        settings.auto_start,
-        is_windows_auto_start_enabled("FlowUI").unwrap_or(false),
-        settings.use_system_tray,
-        settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder),
-    );
-    let engine = format!(
-        "thread_count={} | max_concurrent={} | speed_limit_bps={} | per_host={} ({}) | proxy={:?}@{}:{} auth={}",
-        settings.thread_count,
-        settings.max_concurrent_downloads,
-        settings.global_speed_limit_bps.map(|v| v.to_string()).unwrap_or_else(|| "none".to_string()),
-        settings.per_host.len(),
-        settings.per_host.first().map(|v| v.host.as_str()).unwrap_or("no-rule"),
-        settings.proxy.mode,
-        settings.proxy.manual.host,
-        settings.proxy.manual.port,
-        if settings.proxy.manual.username.is_some() { "on" } else { "off" },
-    );
-    let browser = format!(
-        "browser_integration={} | clipboard_monitoring={}",
-        settings.browser_integration_enabled,
-        settings.clipboard_monitoring
-    );
-    (appearance, engine, browser)
-}
 
-fn load_queue_event_summary() -> String {
-    let db_path = flow_db_path();
-    let Ok(repo) = SqliteDownloadRepository::open(&db_path) else {
-        return "events unavailable".to_string();
-    };
-    if repo.init_schema().is_err() {
-        return "events unavailable".to_string();
-    }
-    let Ok(events) = repo.list_recent_queue_events(3) else {
-        return "events unavailable".to_string();
-    };
-    if events.is_empty() {
-        return "events: none".to_string();
-    }
-    format!(
-        "events: {}",
-        events
-            .into_iter()
-            .map(|event| format!("q{}:{}", event.queue_id, event.event_type))
-            .collect::<Vec<_>>()
-            .join(" | ")
-    )
-}
 
 fn mutate_settings<F>(mutator: F)
 where
@@ -913,23 +771,7 @@ fn default_downloads_folder() -> String {
         .unwrap_or_else(|_| "downloads".to_string())
 }
 
-fn locate_register_script() -> Option<String> {
-    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-    let installed = exe_dir.join("native-messaging").join("windows").join("register-host.ps1");
-    if installed.exists() {
-        return Some(installed.to_string_lossy().to_string());
-    }
-    let repo = exe_dir
-        .join("..")
-        .join("..")
-        .join("native-messaging")
-        .join("windows")
-        .join("register-host.ps1");
-    if repo.exists() {
-        return Some(repo.to_string_lossy().to_string());
-    }
-    None
-}
+
 
 fn load_clipboard_pending_json() -> Option<serde_json::Value> {
     let text = std::fs::read_to_string(flow_clipboard_pending_path()).ok()?;
