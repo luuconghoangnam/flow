@@ -5,12 +5,16 @@
   "description": "Native Messaging extension for Rust Download Manager",
   "permissions": [
     "downloads",
-    "nativeMessaging"
+    "nativeMessaging",
+    "webRequest"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "host_permissions": [
     "<all_urls>"
-  ]
+  ],
+  "action": {
+    "default_title": "Flow Download Manager"
+  }
 }

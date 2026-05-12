@@ -1,0 +1,11 @@
+[package]
+name = "flow-host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flow-core = { path = "../flow-core" }
+flow-messaging = { path = "../flow-messaging" }
+tokio = { version = "1.37", features = ["full"] }
+serde_json = "1.0"
+arboard = "3.6.1"

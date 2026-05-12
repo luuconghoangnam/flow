@@ -1,0 +1,9 @@
+{
+  "name": "com.flow.download_manager",
+  "description": "Flow Download Manager Native Messaging Host",
+  "path": "__FLOW_HOST_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://__EXTENSION_ID__/"
+  ]
+}

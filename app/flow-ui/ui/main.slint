@@ -1,0 +1,584 @@
+import { LineEdit } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    width: 980px;
+    height: 620px;
+    title: "Flow Download Manager";
+
+    in property <string> hero-title: "Fast native downloads, clean control.";
+    in property <[string]> download-items: ["No downloads yet"];
+    in property <[string]> queue-groups: ["Main"];
+    in property <int> selected-queue-index: 0;
+    in property <string> queue-config-summary: "Queue config";
+    in property <string> appearance-summary: "Appearance";
+    in property <string> engine-summary: "Download Engine";
+    in property <string> browser-summary: "Browser Integration";
+    in property <string> proxy-host-text: "127.0.0.1";
+    in property <string> perhost-first-text: "";
+    in property <string> clipboard-pending-summary: "";
+    in property <int> selected-download-index: -1;
+    callback retry-failed();
+    callback cleanup-finished();
+    callback select-queue(index: int);
+    callback create-queue();
+    callback toggle-queue();
+    callback delete-queue();
+    callback select-download(index: int);
+    callback move-download-up();
+    callback move-download-down();
+    callback requeue-download();
+    callback queue-max-minus();
+    callback queue-max-plus();
+    callback queue-toggle-stop-on-empty();
+    callback toggle-auto-start();
+    callback toggle-system-tray();
+    callback toggle-browser-integration();
+    callback toggle-clipboard-monitoring();
+    callback settings-thread-minus();
+    callback settings-thread-plus();
+    callback settings-max-minus();
+    callback settings-max-plus();
+    callback settings-use-downloads-folder();
+    callback toggle-proxy-mode();
+    callback proxy-port-minus();
+    callback proxy-port-plus();
+    callback proxy-set-localhost();
+    callback proxy-set-auth-sample();
+    callback proxy-clear-auth();
+    callback perhost-add-sample();
+    callback perhost-remove-last();
+    callback perhost-clear();
+    callback proxy-host-changed(value: string);
+    callback perhost-first-changed(value: string);
+    callback clipboard-queue();
+    callback clipboard-dismiss();
+
+    Rectangle {
+        background: #0f172a;
+
+        Rectangle {
+            x: -120px;
+            y: -80px;
+            width: 420px;
+            height: 260px;
+            border-radius: 200px;
+            background: #1e293b;
+            opacity: 0.35;
+        }
+
+        Rectangle {
+            x: 620px;
+            y: 420px;
+            width: 360px;
+            height: 220px;
+            border-radius: 180px;
+            background: #334155;
+            opacity: 0.25;
+        }
+
+        VerticalLayout {
+            spacing: 14px;
+            padding: 20px;
+
+            Rectangle {
+                height: 84px;
+                border-radius: 16px;
+                background: #111827;
+                border-width: 1px;
+                border-color: #334155;
+
+                Text {
+                    text: hero-title;
+                    color: #e2e8f0;
+                    font-size: 24px;
+                    font-weight: 700;
+                    x: 18px;
+                    y: 26px;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Rectangle {
+                    height: 32px;
+                    width: 104px;
+                    border-radius: 8px;
+                    background: #1f2937;
+                    border-width: 1px;
+                    border-color: #475569;
+                    TouchArea { clicked => { root.create-queue(); } }
+                    Text {
+                        text: "+ Queue";
+                        color: #e5e7eb;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle {
+                    height: 32px;
+                    width: 112px;
+                    border-radius: 8px;
+                    background: #1f2937;
+                    border-width: 1px;
+                    border-color: #475569;
+                    TouchArea { clicked => { root.toggle-queue(); } }
+                    Text {
+                        text: "Start/Stop";
+                        color: #e5e7eb;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle {
+                    height: 32px;
+                    width: 96px;
+                    border-radius: 8px;
+                    background: #1f2937;
+                    border-width: 1px;
+                    border-color: #475569;
+                    TouchArea { clicked => { root.delete-queue(); } }
+                    Text {
+                        text: "Delete";
+                        color: #e5e7eb;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                for queue[i] in queue-groups : Rectangle {
+                    height: 32px;
+                    width: 140px;
+                    border-radius: 8px;
+                    background: i == selected-queue-index ? #334155 : #111827;
+                    border-width: 1px;
+                    border-color: #475569;
+                    TouchArea {
+                        clicked => { root.select-queue(i); }
+                    }
+                    Text {
+                        text: queue;
+                        color: #e5e7eb;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 78px;
+                border-radius: 12px;
+                background: #111827;
+                border-width: 1px;
+                border-color: #334155;
+
+                Text {
+                    text: queue-config-summary;
+                    color: #d1d5db;
+                    x: 14px;
+                    y: 24px;
+                    font-size: 13px;
+                }
+            }
+
+            Rectangle {
+                height: 112px;
+                border-radius: 12px;
+                background: #111827;
+                border-width: 1px;
+                border-color: #334155;
+
+                Text {
+                    text: appearance-summary;
+                    color: #d1d5db;
+                    x: 14px;
+                    y: 10px;
+                    font-size: 13px;
+                }
+
+                Text {
+                    text: engine-summary;
+                    color: #d1d5db;
+                    x: 14px;
+                    y: 34px;
+                    font-size: 13px;
+                }
+
+                Text {
+                    text: browser-summary;
+                    color: #d1d5db;
+                    x: 14px;
+                    y: 58px;
+                    font-size: 13px;
+                }
+
+                HorizontalLayout {
+                    x: 14px;
+                    y: 78px;
+                    spacing: 8px;
+
+                    Rectangle {
+                        height: 28px;
+                        width: 116px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.toggle-auto-start(); } }
+                        Text { text: "Auto Start"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 124px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.toggle-system-tray(); } }
+                        Text { text: "System Tray"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 164px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.toggle-browser-integration(); } }
+                        Text { text: "Browser Integration"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 172px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.toggle-clipboard-monitoring(); } }
+                        Text { text: "Clipboard Monitoring"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 82px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.settings-thread-minus(); } }
+                        Text { text: "Thr -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 82px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.settings-thread-plus(); } }
+                        Text { text: "Thr +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 82px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.settings-max-minus(); } }
+                        Text { text: "Jobs -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 82px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.settings-max-plus(); } }
+                        Text { text: "Jobs +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 164px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.settings-use-downloads-folder(); } }
+                        Text { text: "Use Downloads Folder"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 124px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.toggle-proxy-mode(); } }
+                        Text { text: "Toggle Proxy"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 90px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.proxy-port-minus(); } }
+                        Text { text: "Port -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 90px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.proxy-port-plus(); } }
+                        Text { text: "Port +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 128px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.proxy-set-localhost(); } }
+                        Text { text: "Proxy Local"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 124px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.proxy-set-auth-sample(); } }
+                        Text { text: "Proxy Auth Set"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 124px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.proxy-clear-auth(); } }
+                        Text { text: "Proxy Auth Clear"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 128px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.perhost-add-sample(); } }
+                        Text { text: "Add Host Rule"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 128px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.perhost-remove-last(); } }
+                        Text { text: "Remove Last Host"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 28px;
+                        width: 128px;
+                        border-radius: 8px;
+                        background: #1f2937;
+                        border-width: 1px;
+                        border-color: #475569;
+                        TouchArea { clicked => { root.perhost-clear(); } }
+                        Text { text: "Clear Host Rules"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+
+                LineEdit {
+                    text: proxy-host-text;
+                    x: 680px;
+                    y: 10px;
+                    width: 200px;
+                    edited(text) => { root.proxy-host-changed(text); }
+                }
+
+                LineEdit {
+                    text: perhost-first-text;
+                    x: 680px;
+                    y: 44px;
+                    width: 200px;
+                    edited(text) => { root.perhost-first-changed(text); }
+                }
+            }
+
+            if clipboard-pending-summary != "" : Rectangle {
+                height: 64px;
+                border-radius: 12px;
+                background: #1f2937;
+                border-width: 1px;
+                border-color: #64748b;
+
+                Text {
+                    text: clipboard-pending-summary;
+                    color: #f1f5f9;
+                    x: 12px;
+                    y: 10px;
+                    font-size: 12px;
+                }
+
+                HorizontalLayout {
+                    x: 12px;
+                    y: 34px;
+                    spacing: 8px;
+                    Rectangle {
+                        height: 22px;
+                        width: 72px;
+                        border-radius: 6px;
+                        background: #334155;
+                        TouchArea { clicked => { root.clipboard-queue(); } }
+                        Text { text: "Queue"; color: #e2e8f0; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        height: 22px;
+                        width: 72px;
+                        border-radius: 6px;
+                        background: #334155;
+                        TouchArea { clicked => { root.clipboard-dismiss(); } }
+                        Text { text: "Dismiss"; color: #e2e8f0; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            Rectangle {
+                border-radius: 14px;
+                background: #0b1220;
+                border-width: 1px;
+                border-color: #263244;
+                height: 440px;
+
+                VerticalLayout {
+                    spacing: 8px;
+                    padding: 12px;
+
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Rectangle {
+                            height: 34px;
+                            width: 168px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea {
+                                clicked => { root.retry-failed(); }
+                            }
+                            Text {
+                                text: "Retry Failed";
+                                color: #d1d5db;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 210px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea {
+                                clicked => { root.cleanup-finished(); }
+                            }
+                            Text {
+                                text: "Cleanup Completed/Failed";
+                                color: #d1d5db;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 86px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea { clicked => { root.move-download-up(); } }
+                            Text { text: "Up"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 86px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea { clicked => { root.move-download-down(); } }
+                            Text { text: "Down"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 96px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea { clicked => { root.requeue-download(); } }
+                            Text { text: "Requeue"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 96px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea { clicked => { root.queue-max-minus(); } }
+                            Text { text: "Max -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 96px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea { clicked => { root.queue-max-plus(); } }
+                            Text { text: "Max +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Rectangle {
+                            height: 34px;
+                            width: 140px;
+                            border-radius: 8px;
+                            background: #1f2937;
+                            border-width: 1px;
+                            border-color: #334155;
+                            TouchArea { clicked => { root.queue-toggle-stop-on-empty(); } }
+                            Text { text: "Toggle Stop"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+
+                    for item[i] in download-items : Rectangle {
+                        height: 52px;
+                        border-radius: 10px;
+                        background: i == selected-download-index ? #1f2937 : #111827;
+                        border-width: 1px;
+                        border-color: #334155;
+                        TouchArea { clicked => { root.select-download(i); } }
+
+                        Text {
+                            text: item;
+                            color: #e5e7eb;
+                            x: 12px;
+                            y: 16px;
+                            font-size: 14px;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
