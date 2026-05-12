@@ -13,6 +13,7 @@ pub struct FlowSettings {
     pub browser_integration_enabled: bool,
     pub browser_extension_id: Option<String>,
     pub clipboard_monitoring: bool,
+    pub proxy_mode: u32, // 0: Direct, 1: System, 2: Manual
     pub proxy: ProxySettings,
     pub per_host: Vec<PerHostSettings>,
 }
@@ -29,6 +30,7 @@ impl Default for FlowSettings {
             browser_integration_enabled: true,
             browser_extension_id: None,
             clipboard_monitoring: false,
+            proxy_mode: 0, // Direct
             proxy: ProxySettings::default(),
             per_host: Vec::new(),
         }

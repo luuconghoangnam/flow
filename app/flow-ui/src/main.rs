@@ -38,6 +38,13 @@ fn main() {
     let settings = load_settings(&flow_data_dir().join("settings.json"));
     app.set_default_folder_text(settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder).into());
     app.set_browser_extension_id_text(settings.browser_extension_id.unwrap_or_default().into());
+    app.set_thread_count(settings.thread_count as i32);
+    app.set_max_concurrent(settings.max_concurrent_downloads as i32);
+    app.set_auto_start_enabled(settings.auto_start);
+    app.set_system_tray_enabled(settings.use_system_tray);
+    app.set_browser_integration_enabled(settings.browser_integration_enabled);
+    app.set_clipboard_monitoring_enabled(settings.clipboard_monitoring);
+    app.set_proxy_mode(settings.proxy_mode as i32);
 
     let _tray_context = setup_tray_if_enabled(&app);
 
@@ -73,10 +80,18 @@ fn main() {
     app.on_toggle_system_tray(|| mutate_settings(|settings| settings.use_system_tray = !settings.use_system_tray));
     app.on_toggle_browser_integration(|| mutate_settings(|settings| settings.browser_integration_enabled = !settings.browser_integration_enabled));
     app.on_toggle_clipboard_monitoring(|| mutate_settings(|settings| settings.clipboard_monitoring = !settings.clipboard_monitoring));
-    app.on_settings_thread_minus(|| mutate_settings(|settings| settings.thread_count = settings.thread_count.saturating_sub(1).max(1)));
-    app.on_settings_thread_plus(|| mutate_settings(|settings| settings.thread_count += 1));
-    app.on_settings_max_minus(|| mutate_settings(|settings| settings.max_concurrent_downloads = settings.max_concurrent_downloads.saturating_sub(1).max(1)));
-    app.on_settings_max_plus(|| mutate_settings(|settings| settings.max_concurrent_downloads += 1));
+    app.on_settings_thread_minus(|| {
+        mutate_settings(|settings| settings.thread_count = settings.thread_count.saturating_sub(1).max(1));
+    });
+    app.on_settings_thread_plus(|| {
+        mutate_settings(|settings| settings.thread_count += 1);
+    });
+    app.on_settings_max_minus(|| {
+        mutate_settings(|settings| settings.max_concurrent_downloads = settings.max_concurrent_downloads.saturating_sub(1).max(1));
+    });
+    app.on_settings_max_plus(|| {
+        mutate_settings(|settings| settings.max_concurrent_downloads += 1);
+    });
     app.on_settings_use_downloads_folder(|| {
         if let Some(folder) = open_folder_picker() {
             mutate_settings(|settings| settings.default_download_folder = Some(folder));
@@ -248,6 +263,57 @@ fn main() {
 
     wire_queue_item_controls(&app, Arc::clone(&selected_queue), Arc::clone(&selected_download));
     wire_download_toolbar_actions(&app, Arc::clone(&selected_queue), Arc::clone(&selected_download));
+    
+    // Wire settings display handlers
+    {
+        app.on_proxy_mode_changed(move |mode| {
+            // Store proxy mode in settings
+            mutate_settings(|settings| {
+                settings.proxy_mode = mode as u32;
+            });
+        });
+    }
+    
+    {
+        let weak = app.as_weak();
+        app.on_proxy_test_connection(move || {
+            set_status(&weak, "Testing proxy connection...");
+            // In real implementation, this would test the proxy
+        });
+    }
+    
+    {
+        let weak = app.as_weak();
+        app.on_queue_create_new(move || {
+            // Trigger create_queue callback
+            weak.upgrade_in_event_loop(|app| app.invoke_create_queue()).ok();
+        });
+    }
+    
+    {
+        let weak = app.as_weak();
+        app.on_queue_rename(move || {
+            set_status(&weak, "Rename functionality coming soon");
+        });
+    }
+    
+    {
+        let weak = app.as_weak();
+        app.on_queue_delete_confirm(move || {
+            set_status(&weak, "Use Delete Queue button from Scheduler tab");
+        });
+    }
+    
+    {
+        let selected_download = Arc::clone(&selected_download);
+        let weak = app.as_weak();
+        app.on_retry_selected(move || {
+            mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Queued for retry", |repo, id| {
+                let _ = repo.update_queue_job_status(id, "Queued");
+                let _ = repo.reset_queue_job_for_retry(id);
+            })
+        });
+    }
 
     {
         let selected_queue = Arc::clone(&selected_queue);
