@@ -39,6 +39,7 @@ impl Default for FlowSettings {
 pub struct ProxySettings {
     pub mode: ProxyMode,
     pub manual: ManualProxy,
+    pub pac_url: Option<String>,
     pub exclude_url_patterns: Vec<String>,
 }
 
@@ -47,6 +48,7 @@ impl Default for ProxySettings {
         Self {
             mode: ProxyMode::Direct,
             manual: ManualProxy::default(),
+            pac_url: None,
             exclude_url_patterns: Vec::new(),
         }
     }
@@ -58,6 +60,7 @@ pub enum ProxyMode {
     Direct,
     System,
     Manual,
+    Pac,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

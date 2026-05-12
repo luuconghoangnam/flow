@@ -25,6 +25,8 @@ export component MainWindow inherits Window {
     in property <string> perhost-thread-text: "";
     in property <string> perhost-user-text: "";
     in property <string> perhost-pass-text: "";
+    in property <string> global-speed-limit-text: "";
+    in property <string> proxy-pac-text: "";
     in property <string> clipboard-pending-summary: "";
     in property <int> selected-download-index: -1;
     callback retry-failed();
@@ -68,6 +70,8 @@ export component MainWindow inherits Window {
     callback perhost-user-changed(value: string);
     callback perhost-pass-changed(value: string);
     callback default-folder-changed(value: string);
+    callback global-speed-limit-changed(value: string);
+    callback proxy-pac-changed(value: string);
     callback browser-extension-id-changed(value: string);
     callback register-browser-host();
     callback clipboard-queue();
@@ -524,6 +528,22 @@ export component MainWindow inherits Window {
                     border-color: #475569;
                     TouchArea { clicked => { root.register-browser-host(); } }
                     Text { text: "Register Host"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                }
+
+                LineEdit {
+                    text: global-speed-limit-text;
+                    x: 1500px;
+                    y: 10px;
+                    width: 140px;
+                    edited(text) => { root.global-speed-limit-changed(text); }
+                }
+
+                LineEdit {
+                    text: proxy-pac-text;
+                    x: 680px;
+                    y: 78px;
+                    width: 200px;
+                    edited(text) => { root.proxy-pac-changed(text); }
                 }
             }
 

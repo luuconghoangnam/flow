@@ -61,6 +61,7 @@ pub enum DownloadEvent {
     Completed(DownloadTask),
     Cancelled { id: DownloadId },
     Failed { id: DownloadId, reason: String },
+    QueueEmpty { queue_id: i64 },
 }
 
 #[derive(Clone, Default)]
@@ -79,10 +80,11 @@ impl DownloadControl {
 
 pub struct DownloadEngine {
     client: reqwest::Client,
+    pub global_limiter: Option<SpeedLimiter>,
 }
 
 #[derive(Clone)]
-struct SpeedLimiter {
+pub struct SpeedLimiter {
     inner: Arc<tokio::sync::Mutex<SpeedLimiterState>>,
 }
 
@@ -93,7 +95,7 @@ struct SpeedLimiterState {
 }
 
 impl SpeedLimiter {
-    fn new(bps: u64) -> Self {
+    pub fn new(bps: u64) -> Self {
         Self {
             inner: Arc::new(tokio::sync::Mutex::new(SpeedLimiterState {
                 bps,
@@ -103,7 +105,7 @@ impl SpeedLimiter {
         }
     }
 
-    async fn consume(&self, bytes: usize) {
+    pub async fn consume(&self, bytes: usize) {
         let need = bytes as f64;
         loop {
             let mut state = self.inner.lock().await;
@@ -127,7 +129,12 @@ impl SpeedLimiter {
 
 impl DownloadEngine {
     pub fn new() -> Self {
-        Self { client: reqwest::Client::new() }
+        Self { client: reqwest::Client::new(), global_limiter: None }
+    }
+
+    pub fn with_global_limiter(mut self, limiter: Option<SpeedLimiter>) -> Self {
+        self.global_limiter = limiter;
+        self
     }
 
     pub async fn enqueue(&self, request: DownloadRequest) -> DownloadTask {
@@ -143,20 +150,19 @@ impl DownloadEngine {
         }
     }
 
-    pub async fn probe(&self, url: &str) -> Result<(Option<u64>, bool), reqwest::Error> {
-        let response = self.apply_request_headers(self.client.head(url), None).send().await?;
-        let total_bytes = response
-            .headers()
+    pub async fn probe(&self, url: &str, request: Option<&DownloadRequest>) -> Result<(Option<u64>, bool, reqwest::header::HeaderMap), reqwest::Error> {
+        let response = self.apply_request_headers(self.client.head(url), request).send().await?;
+        let headers = response.headers().clone();
+        let total_bytes = headers
             .get(CONTENT_LENGTH)
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<u64>().ok());
-        let accept_ranges = response
-            .headers()
+        let accept_ranges = headers
             .get(ACCEPT_RANGES)
             .and_then(|v| v.to_str().ok())
             .map(|v| v.eq_ignore_ascii_case("bytes"))
             .unwrap_or(false);
-        Ok((total_bytes, accept_ranges))
+        Ok((total_bytes, accept_ranges, headers))
     }
 
     pub fn make_chunk_plan(total_bytes: u64, connections: usize) -> Vec<ChunkPlan> {
@@ -220,7 +226,7 @@ impl DownloadEngine {
         } else {
             None
         };
-        let (total_bytes, _) = self.probe(&request.url).await.map_err(|e| e.to_string())?;
+        let (total_bytes, _, _) = self.probe(&request.url, Some(&request)).await.map_err(|e| e.to_string())?;
         task.total_bytes = total_bytes;
         task.downloaded_bytes = already_downloaded;
 
@@ -273,6 +279,7 @@ impl DownloadEngine {
             .await
             .map_err(|e| e.to_string())?;
         let limiter = request.speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
+        let global_limiter = self.global_limiter.clone();
 
         while let Some(chunk) = stream.next().await {
             if let Err(reason) = wait_if_paused_or_cancelled(&control).await {
@@ -282,6 +289,9 @@ impl DownloadEngine {
             let bytes = chunk.map_err(|e| e.to_string())?;
             if let Some(limiter) = &limiter {
                 limiter.consume(bytes.len()).await;
+            }
+            if let Some(global) = &global_limiter {
+                global.consume(bytes.len()).await;
             }
             file.write_all(&bytes).await.map_err(|e| e.to_string())?;
             already_downloaded += bytes.len() as u64;
@@ -321,7 +331,7 @@ impl DownloadEngine {
         let _ = tx.send(DownloadEvent::Queued(task.clone())).await;
 
         fs::create_dir_all(&request.output_dir).await.map_err(|e| e.to_string())?;
-        let (total_opt, accept_ranges) = match self.probe(&request.url).await {
+        let (total_opt, accept_ranges, probe_headers) = match self.probe(&request.url, Some(&request)).await {
             Ok(value) => value,
             Err(error) => {
                 let reason = error.to_string();
@@ -346,6 +356,28 @@ impl DownloadEngine {
 
         let persisted_chunks = prepare_resume_chunks(&persisted_chunks, &plans, &temp_dir).await;
         let persisted_total: u64 = persisted_chunks.iter().map(|c| c.downloaded).sum();
+        let output_file = unique_output_path(&request.output_dir.join(&request.file_name));
+        let metadata_path = resume_metadata_path(&output_file);
+
+        if persisted_total > 0 {
+            let previous_validation = read_resume_validation_metadata(&metadata_path);
+            validate_resume_headers(&probe_headers, previous_validation.as_ref())?;
+        } else {
+            let _ = write_resume_validation_metadata(
+                &metadata_path,
+                &ResumeValidationMetadata {
+                    etag: probe_headers
+                        .get("etag")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|v| v.to_string()),
+                    last_modified: probe_headers
+                        .get("last-modified")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|v| v.to_string()),
+                },
+            );
+        }
+
         let aggregate = Arc::new(AtomicU64::new(persisted_total));
         let task_id = task.id.clone();
         let request_headers = request_header_map(Some(&request));
@@ -382,6 +414,7 @@ impl DownloadEngine {
             let username = request.username.clone();
             let password = request.password.clone();
             let limiter = limiter.clone();
+            let global_limiter = self.global_limiter.clone();
             handles.push(tokio::spawn(async move {
                 let response = send_with_retry(|| apply_credentials(apply_header_map(client.get(&url).header(RANGE, range_value.clone()), &request_headers), username.as_deref(), password.as_deref()), 3).await?;
                 validate_range_response(&response, resume_start, chunk_end)?;
@@ -393,6 +426,9 @@ impl DownloadEngine {
                     let bytes = chunk.map_err(|e| e.to_string())?;
                     if let Some(limiter) = &limiter {
                         limiter.consume(bytes.len()).await;
+                    }
+                    if let Some(global) = &global_limiter {
+                        global.consume(bytes.len()).await;
                     }
                     file.write_all(&bytes).await.map_err(|e| e.to_string())?;
                     written += bytes.len() as u64;
@@ -436,7 +472,7 @@ impl DownloadEngine {
                 .await;
         }
 
-        let output_file = unique_output_path(&request.output_dir.join(&request.file_name));
+        // Output file was computed earlier
         verify_parts_complete(&temp_dir, &plans).await?;
         merge_parts(&temp_dir, plans.len(), &output_file).await?;
         verify_output_integrity(&output_file, total, request.expected_sha256_hex.as_deref()).await?;

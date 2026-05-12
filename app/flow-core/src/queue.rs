@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use tokio::sync::{mpsc, Semaphore};
 
-use crate::download::{DownloadControl, DownloadEngine, DownloadEvent, DownloadRequest};
+use crate::download::{DownloadControl, DownloadEngine, DownloadEvent, DownloadRequest, SpeedLimiter};
 use crate::storage::{DownloadRepository, QueueGroupRecord, QueueJobRecord, SqliteDownloadRepository};
 
 static ACTIVE_CONTROLS: Lazy<Mutex<std::collections::HashMap<String, DownloadControl>>> =
@@ -41,15 +41,17 @@ impl QueueScheduler {
 
     pub async fn run(mut self, tx: mpsc::Sender<DownloadEvent>) {
         let semaphore = std::sync::Arc::new(Semaphore::new(self.max_concurrent));
+        let global_limiter: Option<SpeedLimiter> = None;
         while let Some(job) = self.pending.pop_front() {
             let permit = match semaphore.clone().acquire_owned().await {
                 Ok(permit) => permit,
                 Err(_) => break,
             };
             let tx2 = tx.clone();
+            let global_limiter2 = global_limiter.clone();
             tokio::spawn(async move {
                 let _permit = permit;
-                let engine = DownloadEngine::new();
+                let engine = DownloadEngine::new().with_global_limiter(global_limiter2);
                 let request = DownloadRequest::from(job);
                 let control = DownloadControl::default();
                 let _ = engine.download_multi_connection(request, tx2, control).await;
@@ -71,6 +73,8 @@ impl QueueScheduler {
                 (group.id, std::sync::Arc::new(Semaphore::new(permits)))
             })
             .collect();
+        let settings = crate::settings::load_settings(&crate::paths::flow_data_dir().join("settings.json"));
+        let global_limiter = settings.global_speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
         while let Some(job) = jobs.recv().await {
             let mut batch = vec![job];
             while let Ok(next) = jobs.try_recv() {
@@ -96,9 +100,10 @@ impl QueueScheduler {
                 };
                 let events2 = events.clone();
                 let db_path2 = db_path.clone();
+                let global_limiter2 = global_limiter.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    run_job_with_retry(job, db_path2, events2, 3).await;
+                    run_job_with_retry(job, db_path2, events2, 3, global_limiter2).await;
                 });
             }
         }
@@ -128,6 +133,7 @@ async fn run_job_with_retry(
     db_path: PathBuf,
     events: mpsc::Sender<DownloadEvent>,
     attempts: usize,
+    global_limiter: Option<SpeedLimiter>,
 ) {
     let mut attempt = 0;
     loop {
@@ -139,7 +145,7 @@ async fn run_job_with_retry(
                 }
             }
         }
-        let engine = DownloadEngine::new();
+        let engine = DownloadEngine::new().with_global_limiter(global_limiter.clone());
         let request = DownloadRequest::from(job.clone());
         let control = DownloadControl::default();
         if let Ok(mut map) = ACTIVE_CONTROLS.lock() {
@@ -171,7 +177,7 @@ async fn run_job_with_retry(
                     let _ = repo.log_queue_event(job.queue_id, "job_failed", Some(&format!("{{\"id\":\"{}\",\"reason\":\"{}\"}}", job.id, reason.replace('"', "'"))));
                 }
             }
-            evaluate_stop_on_empty(&db_path, job.queue_id);
+            evaluate_stop_on_empty(&db_path, job.queue_id, Some(&events));
             break;
         }
 
@@ -185,7 +191,7 @@ async fn run_job_with_retry(
     }
 }
 
-fn evaluate_stop_on_empty(db_path: &PathBuf, queue_id: i64) {
+fn evaluate_stop_on_empty(db_path: &PathBuf, queue_id: i64, events: Option<&mpsc::Sender<DownloadEvent>>) {
     let Ok(repo) = SqliteDownloadRepository::open(db_path) else { return; };
     let Ok(Some(group)) = repo.get_queue_group(queue_id) else { return; };
     if !group.stop_on_empty {
@@ -198,6 +204,9 @@ fn evaluate_stop_on_empty(db_path: &PathBuf, queue_id: i64) {
     if !has_runnable {
         let _ = repo.set_queue_group_active(queue_id, false);
         let _ = repo.log_queue_event(queue_id, "queue_became_empty", None);
+        if let Some(events) = events {
+            let _ = events.try_send(DownloadEvent::QueueEmpty { queue_id });
+        }
     }
 }
 

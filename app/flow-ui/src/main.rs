@@ -44,6 +44,8 @@ fn main() {
     app.set_proxy_username_text(settings.proxy.manual.username.unwrap_or_default().into());
     app.set_proxy_password_text(settings.proxy.manual.password.unwrap_or_default().into());
     app.set_default_folder_text(settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder).into());
+    app.set_global_speed_limit_text(settings.global_speed_limit_bps.map(|v| v.to_string()).unwrap_or_default().into());
+    app.set_proxy_pac_text(settings.proxy.pac_url.clone().unwrap_or_default().into());
     app.set_perhost_first_text(settings.per_host.first().map(|v| v.host.clone()).unwrap_or_default().into());
     app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
     app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
@@ -91,9 +93,10 @@ fn main() {
     app.on_settings_use_downloads_folder(|| mutate_settings(|settings| settings.default_download_folder = Some(default_downloads_folder())));
     app.on_toggle_proxy_mode(|| mutate_settings(|settings| {
         settings.proxy.mode = match settings.proxy.mode {
-            flow_core::ProxyMode::Direct => flow_core::ProxyMode::Manual,
-            flow_core::ProxyMode::Manual => flow_core::ProxyMode::System,
-            flow_core::ProxyMode::System => flow_core::ProxyMode::Direct,
+            flow_core::ProxyMode::Direct => flow_core::ProxyMode::System,
+            flow_core::ProxyMode::System => flow_core::ProxyMode::Manual,
+            flow_core::ProxyMode::Manual => flow_core::ProxyMode::Pac,
+            flow_core::ProxyMode::Pac => flow_core::ProxyMode::Direct,
         };
     }));
     app.on_proxy_port_minus(|| mutate_settings(|settings| settings.proxy.manual.port = settings.proxy.manual.port.saturating_sub(1).max(1)));
@@ -138,6 +141,12 @@ fn main() {
     }));
     app.on_default_folder_changed(|value| mutate_settings(|settings| {
         settings.default_download_folder = if value.trim().is_empty() { None } else { Some(value.to_string()) };
+    }));
+    app.on_global_speed_limit_changed(|value| mutate_settings(|settings| {
+        settings.global_speed_limit_bps = value.parse::<u64>().ok();
+    }));
+    app.on_proxy_pac_changed(|value| mutate_settings(|settings| {
+        settings.proxy.pac_url = if value.is_empty() { None } else { Some(value.to_string()) };
     }));
     app.on_perhost_first_changed(|value| {
         mutate_settings(|settings| {

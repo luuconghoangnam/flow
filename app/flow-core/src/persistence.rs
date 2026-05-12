@@ -61,6 +61,7 @@ pub async fn persist_chunk_progress_worker(
                 repo.update_queue_job_status(&id.0, "Failed").map_err(|e| e.to_string())?;
                 should_signal = true;
             }
+            DownloadEvent::QueueEmpty { .. } => {}
         }
 
         if should_signal {

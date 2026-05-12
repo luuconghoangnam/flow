@@ -36,6 +36,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Run]
 Filename: "{app}\flow-host.exe"; Parameters: "--health"; Flags: runhidden
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\native-messaging\windows\register-host.ps1"" -ExtensionId ""ndlghhcdbcemhhnggkmckhnnfbnigpka"" -FirefoxExtensionId ""flow_download_manager@example.com"""; Flags: runhidden
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\native-messaging\windows\unregister-host.ps1"""; Flags: runhidden; RunOnceId: "FlowUnregisterNativeHost"
