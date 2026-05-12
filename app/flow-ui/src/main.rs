@@ -249,6 +249,7 @@ fn main() {
                     max_concurrent: 3,
                     stop_on_empty: false,
                     active: true,
+                    schedule_json: None,
                 };
                 let _ = repo.upsert_queue_group(&group);
                 if let Ok(mut selected) = selected_queue.lock() {

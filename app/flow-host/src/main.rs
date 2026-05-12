@@ -46,10 +46,10 @@ fn main() {
             repo.init_schema()?;
             repo.list_queue_groups()
         })
-        .unwrap_or_else(|_| vec![flow_core::QueueGroupRecord { id: 0, name: "Main".to_string(), max_concurrent: 3, stop_on_empty: false, active: true }]);
+        .unwrap_or_else(|_| vec![flow_core::QueueGroupRecord { id: 0, name: "Main".to_string(), max_concurrent: 3, stop_on_empty: false, active: true, schedule_json: None }]);
 
     download_runtime.spawn(async move {
-        QueueScheduler::run_channel(flow_db_path(), queue_groups, queue_rx, worker_events).await;
+        QueueScheduler::run_channel(flow_db_path(), queue_rx, worker_events).await;
     });
 
     let clipboard_queue = queue_tx.clone();
@@ -183,6 +183,7 @@ fn main() {
             max_concurrent: payload.max_concurrent.unwrap_or(3),
             stop_on_empty: payload.stop_on_empty.unwrap_or(false),
             active: payload.active.unwrap_or(true),
+            schedule_json: None,
         };
         repo.upsert_queue_group(&group).map_err(|e| e.to_string())?;
         serde_json::to_value(group).map_err(|e| e.to_string())
@@ -204,6 +205,7 @@ fn main() {
             max_concurrent: payload.max_concurrent.unwrap_or(current.max_concurrent),
             stop_on_empty: payload.stop_on_empty.unwrap_or(current.stop_on_empty),
             active: payload.active.unwrap_or(current.active),
+            schedule_json: None,
         };
         repo.upsert_queue_group(&group).map_err(|e| e.to_string())?;
         serde_json::to_value(group).map_err(|e| e.to_string())

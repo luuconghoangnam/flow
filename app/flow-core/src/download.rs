@@ -400,7 +400,11 @@ impl DownloadEngine {
 
         if persisted_total > 0 {
             let previous_validation = read_resume_validation_metadata(&metadata_path);
-            validate_resume_headers(&probe_headers, previous_validation.as_ref())?;
+            if let Err(e) = validate_resume_headers(&probe_headers, previous_validation.as_ref()) {
+                let _ = fs::remove_dir_all(&temp_dir).await;
+                let _ = std::fs::remove_file(&metadata_path);
+                return Err(format!("RESUME_SOURCE_CHANGED: {}", e));
+            }
         } else {
             let _ = write_resume_validation_metadata(
                 &metadata_path,

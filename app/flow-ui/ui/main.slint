@@ -1,9 +1,100 @@
-import { LineEdit } from "std-widgets.slint";
+import { LineEdit, ScrollView, ListView } from "std-widgets.slint";
+
+global Palette {
+    out property <color> bg: #0A0A0A;
+    out property <color> surface: #1E1E1E;
+    out property <color> border: #3A3A3A;
+    out property <color> text-primary: #E5E7EB;
+    out property <color> text-muted: #6B7280;
+    out property <color> accent-primary: #E64A00;
+    out property <color> accent-success: #22C55E;
+    out property <color> accent-warning: #EAB308;
+    out property <color> accent-info: #3B82F6;
+    out property <string> font-heading: "Orbitron";
+    out property <string> font-body: "JetBrains Mono";
+}
+
+component CyberButton inherits Rectangle {
+    in property <string> text;
+    in property <color> accent: Palette.accent-primary;
+    callback clicked <=> ta.clicked;
+    
+    background: ta.pressed ? accent : Palette.surface;
+    border-color: ta.pressed ? accent : Palette.border;
+    border-width: 1px;
+    height: 32px;
+    min-width: 100px;
+    
+    Path {
+        x: 0; y: 0; width: 8px; height: 8px;
+        commands: "M 0 0 L 8 0 L 0 8 Z";
+        fill: Palette.bg;
+    }
+    
+    txt := Text {
+        text: root.text;
+        color: ta.pressed ? Palette.bg : Palette.text-primary;
+        font-family: Palette.font-heading;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        x: 16px;
+        width: parent.width - 32px;
+    }
+    
+    ta := TouchArea { width: 100%; height: 100%; }
+}
+
+component CyberSidebarItem inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked <=> ta.clicked;
+    
+    height: 36px;
+    background: selected ? Palette.border : transparent;
+    
+    if selected: Rectangle {
+        x: 0; y: 0; width: 3px; height: 100%;
+        background: Palette.accent-primary;
+    }
+    
+    Text {
+        text: root.text;
+        color: selected ? Palette.accent-primary : Palette.text-primary;
+        font-family: Palette.font-body;
+        font-weight: selected ? 600 : 400;
+        x: 16px;
+        vertical-alignment: center;
+    }
+    
+    ta := TouchArea { width: 100%; height: 100%; }
+}
+
+component CyberInput inherits Rectangle {
+    in property <string> text;
+    in property <string> placeholder;
+    callback edited(string);
+    
+    height: 32px;
+    background: Palette.surface;
+    border-color: ta.has-focus ? Palette.accent-primary : Palette.border;
+    border-width: ta.has-focus ? 1.5px : 1px;
+    
+    ta := LineEdit {
+        text: root.text;
+        placeholder-text: root.placeholder;
+        x: 8px;
+        width: parent.width - 16px;
+        edited(t) => { root.edited(t); }
+    }
+}
 
 export component MainWindow inherits Window {
-    width: 980px;
-    height: 620px;
+    width: 1100px;
+    height: 700px;
     title: "Flow Download Manager";
+    background: Palette.bg;
+    default-font-family: Palette.font-body;
 
     in property <string> hero-title: "Fast native downloads, clean control.";
     in property <[string]> download-items: ["No downloads yet"];
@@ -74,601 +165,259 @@ export component MainWindow inherits Window {
     callback browser-extension-id-changed(value: string);
     callback register-browser-host();
 
-    Rectangle {
-        background: #0f172a;
+    property <int> current-tab: 0;
 
-        Rectangle {
-            x: -120px;
-            y: -80px;
-            width: 420px;
-            height: 260px;
-            border-radius: 200px;
-            background: #1e293b;
-            opacity: 0.35;
-        }
-
-        Rectangle {
-            x: 620px;
-            y: 420px;
-            width: 360px;
-            height: 220px;
-            border-radius: 180px;
-            background: #334155;
-            opacity: 0.25;
-        }
-
+    HorizontalLayout {
+        // Sidebar
         VerticalLayout {
-            spacing: 14px;
-            padding: 20px;
-
+            width: 220px;
             Rectangle {
-                height: 84px;
-                border-radius: 16px;
-                background: #111827;
-                border-width: 1px;
-                border-color: #334155;
-
-                Text {
-                    text: hero-title;
-                    color: #e2e8f0;
-                    font-size: 24px;
-                    font-weight: 700;
-                    x: 18px;
-                    y: 26px;
-                }
-            }
-
-            HorizontalLayout {
-                spacing: 8px;
+                background: Palette.surface;
                 Rectangle {
-                    height: 32px;
-                    width: 104px;
-                    border-radius: 8px;
-                    background: #1f2937;
-                    border-width: 1px;
-                    border-color: #475569;
-                    TouchArea { clicked => { root.create-queue(); } }
-                    Text {
-                        text: "+ Queue";
-                        color: #e5e7eb;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                    x: parent.width - 1px; y: 0; width: 1px; height: 100%; background: Palette.border;
                 }
-                Rectangle {
-                    height: 32px;
-                    width: 112px;
-                    border-radius: 8px;
-                    background: #1f2937;
-                    border-width: 1px;
-                    border-color: #475569;
-                    TouchArea { clicked => { root.toggle-queue(); } }
-                    Text {
-                        text: "Start/Stop";
-                        color: #e5e7eb;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-                Rectangle {
-                    height: 32px;
-                    width: 96px;
-                    border-radius: 8px;
-                    background: #1f2937;
-                    border-width: 1px;
-                    border-color: #475569;
-                    TouchArea { clicked => { root.delete-queue(); } }
-                    Text {
-                        text: "Delete";
-                        color: #e5e7eb;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-                for queue[i] in queue-groups : Rectangle {
-                    height: 32px;
-                    width: 140px;
-                    border-radius: 8px;
-                    background: i == selected-queue-index ? #334155 : #111827;
-                    border-width: 1px;
-                    border-color: #475569;
-                    TouchArea {
-                        clicked => { root.select-queue(i); }
-                    }
-                    Text {
-                        text: queue;
-                        color: #e5e7eb;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-
-            Rectangle {
-                height: 78px;
-                border-radius: 12px;
-                background: #111827;
-                border-width: 1px;
-                border-color: #334155;
-
-                LineEdit {
-                    text: queue-name-text;
-                    x: 14px;
-                    y: 8px;
-                    width: 280px;
-                    edited(text) => { root.queue-name-changed(text); }
-                }
-
-                Text {
-                    text: queue-config-summary;
-                    color: #d1d5db;
-                    x: 14px;
-                    y: 44px;
-                    font-size: 13px;
-                }
-            }
-
-            Rectangle {
-                height: 144px;
-                border-radius: 12px;
-                background: #111827;
-                border-width: 1px;
-                border-color: #334155;
-
-                Text {
-                    text: appearance-summary;
-                    color: #d1d5db;
-                    x: 14px;
-                    y: 10px;
-                    font-size: 13px;
-                }
-
-                Text {
-                    text: engine-summary;
-                    color: #d1d5db;
-                    x: 14px;
-                    y: 34px;
-                    font-size: 13px;
-                }
-
-                Text {
-                    text: browser-summary;
-                    color: #d1d5db;
-                    x: 14px;
-                    y: 58px;
-                    font-size: 13px;
-                }
-
-                Text {
-                    text: queue-event-summary;
-                    color: #d1d5db;
-                    x: 14px;
-                    y: 82px;
-                    font-size: 12px;
-                }
-
-                HorizontalLayout {
-                    x: 14px;
-                    y: 96px;
-                    spacing: 8px;
-
-                    Rectangle {
-                        height: 28px;
-                        width: 116px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.toggle-auto-start(); } }
-                        Text { text: "Auto Start"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 124px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.toggle-system-tray(); } }
-                        Text { text: "System Tray"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 164px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.toggle-browser-integration(); } }
-                        Text { text: "Browser Integration"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 172px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.toggle-clipboard-monitoring(); } }
-                        Text { text: "Clipboard Monitoring"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 82px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.settings-thread-minus(); } }
-                        Text { text: "Thr -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 82px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.settings-thread-plus(); } }
-                        Text { text: "Thr +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 82px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.settings-max-minus(); } }
-                        Text { text: "Jobs -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 82px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.settings-max-plus(); } }
-                        Text { text: "Jobs +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 164px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.settings-use-downloads-folder(); } }
-                        Text { text: "Use Downloads Folder"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 124px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.toggle-proxy-mode(); } }
-                        Text { text: "Toggle Proxy"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 90px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.proxy-port-minus(); } }
-                        Text { text: "Port -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 90px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.proxy-port-plus(); } }
-                        Text { text: "Port +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 128px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.proxy-set-localhost(); } }
-                        Text { text: "Proxy Local"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 124px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.proxy-set-auth-sample(); } }
-                        Text { text: "Proxy Auth Set"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 124px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.proxy-clear-auth(); } }
-                        Text { text: "Proxy Auth Clear"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 128px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.perhost-add-sample(); } }
-                        Text { text: "Add Host Rule"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 128px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.perhost-remove-last(); } }
-                        Text { text: "Remove Last Host"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                    Rectangle {
-                        height: 28px;
-                        width: 128px;
-                        border-radius: 8px;
-                        background: #1f2937;
-                        border-width: 1px;
-                        border-color: #475569;
-                        TouchArea { clicked => { root.perhost-clear(); } }
-                        Text { text: "Clear Host Rules"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                    }
-                }
-
-                LineEdit {
-                    text: proxy-host-text;
-                    x: 680px;
-                    y: 10px;
-                    width: 200px;
-                    edited(text) => { root.proxy-host-changed(text); }
-                }
-
-                LineEdit {
-                    text: proxy-port-text;
-                    x: 894px;
-                    y: 10px;
-                    width: 72px;
-                    edited(text) => { root.proxy-port-changed(text); }
-                }
-
-                LineEdit {
-                    text: perhost-first-text;
-                    x: 680px;
-                    y: 44px;
-                    width: 200px;
-                    edited(text) => { root.perhost-first-changed(text); }
-                }
-
-                LineEdit {
-                    text: proxy-username-text;
-                    x: 972px;
-                    y: 10px;
-                    width: 140px;
-                    edited(text) => { root.proxy-username-changed(text); }
-                }
-
-                LineEdit {
-                    text: proxy-password-text;
-                    x: 1118px;
-                    y: 10px;
-                    width: 140px;
-                    edited(text) => { root.proxy-password-changed(text); }
-                }
-
-                LineEdit {
-                    text: default-folder-text;
-                    x: 1264px;
-                    y: 10px;
-                    width: 220px;
-                    edited(text) => { root.default-folder-changed(text); }
-                }
-
-                LineEdit {
-                    text: perhost-thread-text;
-                    x: 894px;
-                    y: 44px;
-                    width: 140px;
-                    edited(text) => { root.perhost-thread-changed(text); }
-                }
-
-                LineEdit {
-                    text: perhost-user-text;
-                    x: 1040px;
-                    y: 44px;
-                    width: 140px;
-                    edited(text) => { root.perhost-user-changed(text); }
-                }
-
-                LineEdit {
-                    text: perhost-pass-text;
-                    x: 1186px;
-                    y: 44px;
-                    width: 140px;
-                    edited(text) => { root.perhost-pass-changed(text); }
-                }
-
-                LineEdit {
-                    text: browser-extension-id-text;
-                    x: 1332px;
-                    y: 44px;
-                    width: 240px;
-                    edited(text) => { root.browser-extension-id-changed(text); }
-                }
-
-                Rectangle {
-                    x: 1332px;
-                    y: 10px;
-                    width: 160px;
-                    height: 28px;
-                    border-radius: 8px;
-                    background: #1f2937;
-                    border-width: 1px;
-                    border-color: #475569;
-                    TouchArea { clicked => { root.register-browser-host(); } }
-                    Text { text: "Register Host"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
-                }
-
-                LineEdit {
-                    text: global-speed-limit-text;
-                    x: 1500px;
-                    y: 10px;
-                    width: 140px;
-                    edited(text) => { root.global-speed-limit-changed(text); }
-                }
-
-                LineEdit {
-                    text: proxy-pac-text;
-                    x: 680px;
-                    y: 78px;
-                    width: 200px;
-                    edited(text) => { root.proxy-pac-changed(text); }
-                }
-            }
-
-            Rectangle {
-                border-radius: 14px;
-                background: #0b1220;
-                border-width: 1px;
-                border-color: #263244;
-                height: 440px;
-
                 VerticalLayout {
-                    spacing: 8px;
-                    padding: 12px;
+                    padding-top: 24px;
+                    padding-bottom: 24px;
+                    spacing: 12px;
+                    
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        Text { 
+                            text: "FLOW"; 
+                            font-family: Palette.font-heading; 
+                            font-size: 28px; 
+                            color: Palette.accent-primary; 
+                            font-weight: 800; 
+                            letter-spacing: 4px;
+                        }
+                    }
+
+                    Rectangle { height: 24px; }
 
                     HorizontalLayout {
-                        spacing: 10px;
-                        Rectangle {
-                            height: 34px;
-                            width: 168px;
-                            border-radius: 8px;
-                            background: #1f2937;
+                        padding-left: 20px;
+                        Text { text: "CATEGORIES"; font-family: Palette.font-body; color: Palette.text-muted; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+                    }
+                    CyberSidebarItem { text: "All Downloads"; selected: current-tab == 0; clicked => { current-tab = 0; } }
+                    CyberSidebarItem { text: "Settings"; selected: current-tab == 1; clicked => { current-tab = 1; } }
+                    
+                    Rectangle { height: 16px; }
+
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        Text { text: "QUEUES"; font-family: Palette.font-body; color: Palette.text-muted; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+                    }
+                    for q[i] in root.queue-groups: CyberSidebarItem {
+                        text: q;
+                        selected: i == root.selected-queue-index && current-tab == 0;
+                        clicked => { root.select-queue(i); current-tab = 0; }
+                    }
+                    
+                    Rectangle {
+                        height: 36px;
+                        HorizontalLayout {
+                            padding-left: 20px;
+                            padding-right: 20px;
+                            CyberButton { text: "+ NEW QUEUE"; clicked => { root.create-queue(); } }
+                        }
+                    }
+                    
+                    Rectangle { height: 100%; } // spacer
+                }
+            }
+        }
+
+        // Main Content Area
+        VerticalLayout {
+            if current-tab == 0: VerticalLayout {
+                // Toolbar
+                Rectangle {
+                    height: 64px;
+                    background: Palette.bg;
+                    Rectangle {
+                        x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border;
+                    }
+                    HorizontalLayout {
+                        padding-left: 24px;
+                        padding-right: 24px;
+                        alignment: start;
+                        spacing: 12px;
+                        Rectangle { width: 1px; } // padding
+                        CyberButton { text: "START/STOP"; clicked => { root.toggle-queue(); } }
+                        CyberButton { text: "DELETE Q"; clicked => { root.delete-queue(); } }
+                        CyberButton { text: "RETRY"; clicked => { root.retry-failed(); } }
+                        CyberButton { text: "CLEANUP"; clicked => { root.cleanup-finished(); } }
+                        CyberButton { text: "UP"; clicked => { root.move-download-up(); } }
+                        CyberButton { text: "DOWN"; clicked => { root.move-download-down(); } }
+                        CyberButton { text: "REQUEUE"; clicked => { root.requeue-download(); } }
+                    }
+                }
+                
+                // Table Header
+                Rectangle {
+                    height: 36px;
+                    background: Palette.surface;
+                    Rectangle {
+                        x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border;
+                    }
+                    HorizontalLayout {
+                        padding-left: 24px;
+                        Text { text: "DOWNLOAD ITEMS"; font-family: Palette.font-body; color: Palette.text-muted; font-size: 12px; vertical-alignment: center; }
+                    }
+                }
+
+                // Download List
+                ScrollView {
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 8px;
+                        for item[i] in download-items : Rectangle {
+                            height: 60px;
+                            background: i == selected-download-index ? Palette.border : Palette.surface;
                             border-width: 1px;
-                            border-color: #334155;
-                            TouchArea {
-                                clicked => { root.retry-failed(); }
-                            }
+                            border-color: Palette.border;
+                            TouchArea { clicked => { root.select-download(i); } }
                             Text {
-                                text: "Retry Failed";
-                                color: #d1d5db;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
+                                text: item;
+                                color: Palette.text-primary;
+                                x: 16px;
+                                y: 20px;
+                                font-size: 13px;
                             }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 210px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea {
-                                clicked => { root.cleanup-finished(); }
-                            }
-                            Text {
-                                text: "Cleanup Completed/Failed";
-                                color: #d1d5db;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
+                    }
+                }
+            }
+            
+            if current-tab == 1: ScrollView {
+                VerticalLayout {
+                    padding: 32px;
+                    spacing: 32px;
+                    alignment: start;
+
+                    Text { text: "SETTINGS"; font-family: Palette.font-heading; font-size: 24px; color: Palette.text-primary; font-weight: 700; letter-spacing: 2px;}
+
+                    // Queue Config
+                    VerticalLayout {
+                        spacing: 16px;
+                        Text { text: "QUEUE CONFIG"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberInput { width: 300px; text: root.queue-name-text; edited(t) => { root.queue-name-changed(t); } }
+                            CyberButton { text: "MAX JOBS -"; clicked => { root.queue-max-minus(); } }
+                            CyberButton { text: "MAX JOBS +"; clicked => { root.queue-max-plus(); } }
+                            CyberButton { text: "STOP ON EMPTY"; clicked => { root.queue-toggle-stop-on-empty(); } }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 86px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea { clicked => { root.move-download-up(); } }
-                            Text { text: "Up"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { text: queue-config-summary; color: Palette.text-muted; font-size: 12px; }
+                    }
+
+                    // Appearance & System
+                    VerticalLayout {
+                        spacing: 16px;
+                        Text { text: "SYSTEM AND APPEARANCE"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberButton { text: "AUTO START"; clicked => { root.toggle-auto-start(); } }
+                            CyberButton { text: "SYSTEM TRAY"; clicked => { root.toggle-system-tray(); } }
+                            CyberButton { text: "CLIPBOARD"; clicked => { root.toggle-clipboard-monitoring(); } }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 86px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea { clicked => { root.move-download-down(); } }
-                            Text { text: "Down"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { text: appearance-summary; color: Palette.text-muted; font-size: 12px; }
+                    }
+
+                    // Engine
+                    VerticalLayout {
+                        spacing: 16px;
+                        Text { text: "DOWNLOAD ENGINE"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberButton { text: "THR -"; clicked => { root.settings-thread-minus(); } }
+                            CyberButton { text: "THR +"; clicked => { root.settings-thread-plus(); } }
+                            CyberButton { text: "GLOBAL MAX -"; clicked => { root.settings-max-minus(); } }
+                            CyberButton { text: "GLOBAL MAX +"; clicked => { root.settings-max-plus(); } }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 96px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea { clicked => { root.requeue-download(); } }
-                            Text { text: "Requeue"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text { text: "Speed Limit (bps):"; color: Palette.text-muted; vertical-alignment: center; width: 140px; }
+                            CyberInput { width: 200px; text: global-speed-limit-text; edited(t) => { root.global-speed-limit-changed(t); } }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 96px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea { clicked => { root.queue-max-minus(); } }
-                            Text { text: "Max -"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text { text: "Default Folder:"; color: Palette.text-muted; vertical-alignment: center; width: 140px; }
+                            CyberInput { width: 400px; text: default-folder-text; edited(t) => { root.default-folder-changed(t); } }
+                            CyberButton { text: "USE SYSTEM FOLDER"; clicked => { root.settings-use-downloads-folder(); } }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 96px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea { clicked => { root.queue-max-plus(); } }
-                            Text { text: "Max +"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        Text { text: engine-summary; color: Palette.text-muted; font-size: 12px; }
+                    }
+
+                    // Proxy
+                    VerticalLayout {
+                        spacing: 16px;
+                        Text { text: "NETWORK PROXY"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberButton { text: "TOGGLE PROXY"; clicked => { root.toggle-proxy-mode(); } }
+                            CyberButton { text: "PORT -"; clicked => { root.proxy-port-minus(); } }
+                            CyberButton { text: "PORT +"; clicked => { root.proxy-port-plus(); } }
+                            CyberButton { text: "LOCALHOST"; clicked => { root.proxy-set-localhost(); } }
                         }
-                        Rectangle {
-                            height: 34px;
-                            width: 140px;
-                            border-radius: 8px;
-                            background: #1f2937;
-                            border-width: 1px;
-                            border-color: #334155;
-                            TouchArea { clicked => { root.queue-toggle-stop-on-empty(); } }
-                            Text { text: "Toggle Stop"; color: #d1d5db; horizontal-alignment: center; vertical-alignment: center; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text { text: "Host:"; color: Palette.text-muted; vertical-alignment: center; width: 60px; }
+                            CyberInput { width: 200px; text: proxy-host-text; edited(t) => { root.proxy-host-changed(t); } }
+                            Text { text: "Port:"; color: Palette.text-muted; vertical-alignment: center; width: 40px; }
+                            CyberInput { width: 100px; text: proxy-port-text; edited(t) => { root.proxy-port-changed(t); } }
+                            Text { text: "PAC:"; color: Palette.text-muted; vertical-alignment: center; width: 40px; }
+                            CyberInput { width: 200px; text: proxy-pac-text; edited(t) => { root.proxy-pac-changed(t); } }
+                        }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text { text: "User:"; color: Palette.text-muted; vertical-alignment: center; width: 60px; }
+                            CyberInput { width: 160px; text: proxy-username-text; edited(t) => { root.proxy-username-changed(t); } }
+                            Text { text: "Pass:"; color: Palette.text-muted; vertical-alignment: center; width: 40px; }
+                            CyberInput { width: 160px; text: proxy-password-text; edited(t) => { root.proxy-password-changed(t); } }
+                            CyberButton { text: "SET AUTH SAMPLE"; clicked => { root.proxy-set-auth-sample(); } }
+                            CyberButton { text: "CLEAR AUTH"; clicked => { root.proxy-clear-auth(); } }
                         }
                     }
 
-                    for item[i] in download-items : Rectangle {
-                        height: 52px;
-                        border-radius: 10px;
-                        background: i == selected-download-index ? #1f2937 : #111827;
-                        border-width: 1px;
-                        border-color: #334155;
-                        TouchArea { clicked => { root.select-download(i); } }
-
-                        Text {
-                            text: item;
-                            color: #e5e7eb;
-                            x: 12px;
-                            y: 16px;
-                            font-size: 14px;
+                    // Browser Integration
+                    VerticalLayout {
+                        spacing: 16px;
+                        Text { text: "BROWSER INTEGRATION"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberButton { text: "TOGGLE INTEGRATION"; clicked => { root.toggle-browser-integration(); } }
+                            CyberButton { text: "REGISTER HOST"; clicked => { root.register-browser-host(); } }
+                        }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text { text: "Extension ID:"; color: Palette.text-muted; vertical-alignment: center; width: 100px; }
+                            CyberInput { width: 300px; text: browser-extension-id-text; edited(t) => { root.browser-extension-id-changed(t); } }
+                        }
+                        Text { text: browser-summary; color: Palette.text-muted; font-size: 12px; }
+                    }
+                    
+                    // Per-Host Settings
+                    VerticalLayout {
+                        spacing: 16px;
+                        Text { text: "PER-HOST RULES"; font-family: Palette.font-heading; color: Palette.accent-primary; font-size: 16px; }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberButton { text: "ADD SAMPLE RULE"; clicked => { root.perhost-add-sample(); } }
+                            CyberButton { text: "REMOVE LAST"; clicked => { root.perhost-remove-last(); } }
+                            CyberButton { text: "CLEAR ALL"; clicked => { root.perhost-clear(); } }
+                        }
+                        HorizontalLayout {
+                            spacing: 12px;
+                            CyberInput { placeholder: "Domain"; width: 200px; text: perhost-first-text; edited(t) => { root.perhost-first-changed(t); } }
+                            CyberInput { placeholder: "Threads"; width: 80px; text: perhost-thread-text; edited(t) => { root.perhost-thread-changed(t); } }
+                            CyberInput { placeholder: "User"; width: 120px; text: perhost-user-text; edited(t) => { root.perhost-user-changed(t); } }
+                            CyberInput { placeholder: "Pass"; width: 120px; text: perhost-pass-text; edited(t) => { root.perhost-pass-changed(t); } }
                         }
                     }
+                    
+                    Rectangle { height: 100px; } // bottom spacer
                 }
             }
         }
@@ -680,6 +429,7 @@ export component ClipboardDialog inherits Window {
     height: 220px;
     title: "New Download Detected";
     always-on-top: true;
+    background: Palette.bg;
 
     in property <string> url: "";
     in property <string> file-name: "";
@@ -689,50 +439,46 @@ export component ClipboardDialog inherits Window {
     callback dismiss();
 
     Rectangle {
-        background: #0f172a;
+        border-color: Palette.accent-primary;
+        border-width: 1px;
         VerticalLayout {
             padding: 24px;
             spacing: 16px;
             Text {
-                text: "New Download Detected";
-                font-size: 20px;
+                text: "NEW DOWNLOAD DETECTED";
+                font-family: Palette.font-heading;
+                font-size: 18px;
                 font-weight: 700;
-                color: #e2e8f0;
+                color: Palette.accent-primary;
+                letter-spacing: 2px;
             }
             Text {
                 text: "URL: " + root.url;
-                color: #94a3b8;
-                font-size: 13px;
+                color: Palette.text-muted;
+                font-size: 12px;
+                font-family: Palette.font-body;
                 overflow: elide;
             }
             Text {
-                text: "File: " + root.file-name;
-                color: #cbd5e1;
-                font-size: 14px;
-                font-weight: 500;
+                text: "FILE: " + root.file-name;
+                color: Palette.text-primary;
+                font-size: 13px;
+                font-weight: 700;
+                font-family: Palette.font-body;
             }
             Text {
-                text: "Save to: " + root.output-dir;
-                color: #64748b;
+                text: "DIR: " + root.output-dir;
+                color: Palette.text-muted;
                 font-size: 12px;
+                font-family: Palette.font-body;
                 overflow: elide;
             }
             Rectangle { height: 10px; } // Spacer
             HorizontalLayout {
                 spacing: 12px;
                 alignment: end;
-                Rectangle {
-                    width: 100px; height: 36px;
-                    background: #334155; border-radius: 8px;
-                    TouchArea { clicked => { root.dismiss(); } }
-                    Text { text: "Cancel"; color: white; horizontal-alignment: center; vertical-alignment: center; }
-                }
-                Rectangle {
-                    width: 140px; height: 36px;
-                    background: #3b82f6; border-radius: 8px;
-                    TouchArea { clicked => { root.queue(); } }
-                    Text { text: "Add to Queue"; color: white; horizontal-alignment: center; vertical-alignment: center; font-weight: 600; }
-                }
+                CyberButton { text: "DISMISS"; accent: Palette.text-muted; clicked => { root.dismiss(); } }
+                CyberButton { text: "INITIALIZE"; clicked => { root.queue(); } }
             }
         }
     }

@@ -8,6 +8,35 @@ use tokio::sync::{mpsc, Semaphore};
 use crate::download::{DownloadControl, DownloadEngine, DownloadEvent, DownloadRequest, SpeedLimiter};
 use crate::storage::{DownloadRepository, QueueGroupRecord, QueueJobRecord, SqliteDownloadRepository};
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct ScheduleConfig {
+    pub enabled: bool,
+    pub start_time_minutes: u32,
+    pub stop_time_minutes: u32,
+    pub days_of_week: Vec<u8>,
+}
+
+pub fn is_schedule_allowed(config_json: Option<&str>) -> bool {
+    let Some(json) = config_json else { return true; };
+    let Ok(config) = serde_json::from_str::<ScheduleConfig>(json) else { return true; };
+    if !config.enabled { return true; }
+    
+    use chrono::{Local, Timelike, Datelike};
+    let now = Local::now();
+    let current_minutes = now.hour() * 60 + now.minute();
+    let current_day = now.weekday().num_days_from_sunday() as u8;
+    
+    if !config.days_of_week.is_empty() && !config.days_of_week.contains(&current_day) {
+        return false;
+    }
+    
+    if config.start_time_minutes < config.stop_time_minutes {
+        current_minutes >= config.start_time_minutes && current_minutes <= config.stop_time_minutes
+    } else {
+        current_minutes >= config.start_time_minutes || current_minutes <= config.stop_time_minutes
+    }
+}
+
 static ACTIVE_CONTROLS: Lazy<Mutex<std::collections::HashMap<String, DownloadControl>>> =
     Lazy::new(|| Mutex::new(std::collections::HashMap::new()));
 
@@ -61,20 +90,11 @@ impl QueueScheduler {
 
     pub async fn run_channel(
         db_path: PathBuf,
-        queue_groups: Vec<QueueGroupRecord>,
         mut jobs: mpsc::Receiver<QueueJobRecord>,
         events: mpsc::Sender<DownloadEvent>,
     ) {
-        let semaphores: std::collections::HashMap<i64, std::sync::Arc<Semaphore>> = queue_groups
-            .into_iter()
-            .filter(|group| group.active)
-            .map(|group| {
-                let permits = group.max_concurrent.max(1) as usize;
-                (group.id, std::sync::Arc::new(Semaphore::new(permits)))
-            })
-            .collect();
-        let settings = crate::settings::load_settings(&crate::paths::flow_data_dir().join("settings.json"));
-        let global_limiter = settings.global_speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
+        let mut semaphores: std::collections::HashMap<i64, std::sync::Arc<Semaphore>> = std::collections::HashMap::new();
+        
         while let Some(job) = jobs.recv().await {
             let mut batch = vec![job];
             while let Ok(next) = jobs.try_recv() {
@@ -88,22 +108,41 @@ impl QueueScheduler {
             });
 
             for job in batch {
-                let semaphore = semaphores
-                    .get(&job.queue_id)
-                    .cloned();
-                let Some(semaphore) = semaphore else {
-                    continue;
+                let repo = match SqliteDownloadRepository::open(&db_path) {
+                    Ok(r) => r,
+                    Err(_) => continue,
                 };
+                let group = match repo.get_queue_group(job.queue_id) {
+                    Ok(Some(g)) => g,
+                    _ => continue,
+                };
+
+                if !group.active {
+                    let _ = repo.log_queue_event(job.queue_id, "schedule_blocked_inactive", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                    continue;
+                }
+
+                if !is_schedule_allowed(group.schedule_json.as_deref()) {
+                    let _ = repo.log_queue_event(job.queue_id, "schedule_blocked_time", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                    continue;
+                }
+
+                let permits = group.max_concurrent.max(1) as usize;
+                let semaphore = semaphores.entry(job.queue_id).or_insert_with(|| std::sync::Arc::new(Semaphore::new(permits))).clone();
+
                 let permit = match semaphore.acquire_owned().await {
                     Ok(permit) => permit,
-                    Err(_) => return,
+                    Err(_) => continue,
                 };
+                
+                let settings = crate::settings::load_settings(&crate::paths::flow_data_dir().join("settings.json"));
+                let global_limiter = settings.global_speed_limit_bps.filter(|v| *v > 0).map(SpeedLimiter::new);
+
                 let events2 = events.clone();
                 let db_path2 = db_path.clone();
-                let global_limiter2 = global_limiter.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    run_job_with_retry(job, db_path2, events2, 3, global_limiter2).await;
+                    run_job_with_retry(job, db_path2, events2, 3, global_limiter).await;
                 });
             }
         }
