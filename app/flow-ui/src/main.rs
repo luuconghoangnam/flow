@@ -2,8 +2,9 @@ slint::include_modules!();
 
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, is_windows_auto_start_enabled, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, SqliteDownloadRepository};
+use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, is_windows_auto_start_enabled, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, QueueJobRecord, SqliteDownloadRepository};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use slint::{CloseRequestResponse, ModelRc, SharedString, VecModel};
 use tray_icon::menu::{Menu, MenuItem};
@@ -356,6 +357,7 @@ fn main() {
     }
 
     wire_queue_item_controls(&app, Arc::clone(&selected_queue), Arc::clone(&selected_download));
+    wire_download_toolbar_actions(&app, Arc::clone(&selected_queue), Arc::clone(&selected_download));
 
     {
         let selected_queue = Arc::clone(&selected_queue);
@@ -619,6 +621,129 @@ fn wire_queue_item_controls(app: &MainWindow, selected_queue: Arc<Mutex<i64>>, s
             let _ = repo.upsert_queue_group(&group);
         })
     });
+}
+
+fn wire_download_toolbar_actions(app: &MainWindow, selected_queue: Arc<Mutex<i64>>, selected_download: Arc<Mutex<Option<String>>>) {
+    app.on_add_url({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            if let Ok(dialog) = AddUrlDialog::new() {
+                dialog.set_output_dir(default_downloads_folder().into());
+                let dialog_weak = dialog.as_weak();
+                dialog.on_cancel(move || {
+                    if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                });
+                let dialog_weak = dialog.as_weak();
+                dialog.on_download_later(move |url, file_name, output_dir| {
+                    enqueue_manual_url(queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), false);
+                    if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                });
+                let dialog_weak = dialog.as_weak();
+                dialog.on_start_now(move |url, file_name, output_dir| {
+                    enqueue_manual_url(queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), true);
+                    if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                });
+                let _ = dialog.show();
+            }
+        }
+    });
+    app.on_resume_selected({
+        let selected_download = Arc::clone(&selected_download);
+        move || mutate_selected_job(selected_download.clone(), |repo, id| { let _ = repo.update_queue_job_status(id, "Queued"); })
+    });
+    app.on_stop_selected({
+        let selected_download = Arc::clone(&selected_download);
+        move || mutate_selected_job(selected_download.clone(), |repo, id| {
+            let _ = pause_active_job(id);
+            let _ = repo.update_queue_job_status(id, "Paused");
+        })
+    });
+    app.on_stop_all({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || pause_all_jobs(selected_queue.lock().map(|v| *v).unwrap_or(0))
+    });
+    app.on_delete_selected({
+        let selected_download = Arc::clone(&selected_download);
+        move || mutate_selected_job(selected_download.clone(), |repo, id| {
+            let _ = pause_active_job(id);
+            let _ = repo.delete_download_job(id);
+        })
+    });
+    app.on_open_selected({
+        let selected_download = Arc::clone(&selected_download);
+        move || open_selected_path(selected_download.clone(), false)
+    });
+    app.on_open_selected_folder({
+        let selected_download = Arc::clone(&selected_download);
+        move || open_selected_path(selected_download.clone(), true)
+    });
+}
+
+fn enqueue_manual_url(queue_id: i64, url: &str, file_name: &str, output_dir: &str, start_now: bool) {
+    let url = url.trim();
+    if url.is_empty() { return; }
+    let output_dir = if output_dir.trim().is_empty() { default_downloads_folder() } else { output_dir.trim().to_string() };
+    let file_name = if file_name.trim().is_empty() { infer_file_name(url) } else { file_name.trim().to_string() };
+    let millis = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let job = QueueJobRecord {
+        id: format!("manual-{millis}"),
+        queue_id,
+        url: url.to_string(),
+        output_dir,
+        file_name,
+        connections: load_settings(&flow_data_dir().join("settings.json")).thread_count,
+        expected_sha256_hex: None,
+        headers_json: None,
+        referrer: None,
+        cookies: None,
+        user_agent: None,
+        username: None,
+        password: None,
+        proxy_url: None,
+        proxy_username: None,
+        proxy_password: None,
+        status: if start_now { "Queued" } else { "Paused" }.to_string(),
+        priority: 0,
+        queue_order: millis as i64,
+        attempt_count: 0,
+        last_error: None,
+    };
+    if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
+        let _ = repo.init_schema();
+        let _ = repo.upsert_queue_job(&job);
+    }
+}
+
+fn infer_file_name(url: &str) -> String {
+    url.split('?').next().unwrap_or(url)
+        .rsplit('/')
+        .next()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("download.bin")
+        .to_string()
+}
+
+fn pause_all_jobs(queue_id: i64) {
+    if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
+        let _ = repo.init_schema();
+        if let Ok(jobs) = repo.list_queue_jobs() {
+            for job in jobs.into_iter().filter(|job| queue_id == 0 || job.queue_id == queue_id) {
+                let _ = pause_active_job(&job.id);
+                let _ = repo.update_queue_job_status(&job.id, "Paused");
+            }
+        }
+    }
+}
+
+fn open_selected_path(selected_download: Arc<Mutex<Option<String>>>, folder: bool) {
+    let Some(id) = selected_download.lock().ok().and_then(|v| v.clone()) else { return; };
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else { return; };
+    let _ = repo.init_schema();
+    let Ok(Some(job)) = repo.get_queue_job(&id) else { return; };
+    let file_path = std::path::PathBuf::from(&job.output_dir).join(&job.file_name);
+    let target = if folder { std::path::PathBuf::from(&job.output_dir) } else { file_path };
+    let _ = std::process::Command::new("explorer.exe").arg(target).spawn();
 }
 
 fn load_settings_sections() -> (String, String, String) {

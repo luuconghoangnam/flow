@@ -82,6 +82,8 @@ export component MainWindow inherits Window {
     callback toggle-queue(); callback delete-queue(); callback select-download(index: int); callback move-download-up();
     callback move-download-down(); callback requeue-download(); callback queue-max-minus(); callback queue-max-plus();
     callback queue-toggle-stop-on-empty(); callback queue-name-changed(value: string); callback toggle-auto-start();
+    callback add-url(); callback resume-selected(); callback stop-selected(); callback stop-all(); callback delete-selected();
+    callback open-selected(); callback open-selected-folder();
     callback toggle-system-tray(); callback toggle-browser-integration(); callback toggle-clipboard-monitoring();
     callback settings-thread-minus(); callback settings-thread-plus(); callback settings-max-minus(); callback settings-max-plus();
     callback settings-use-downloads-folder(); callback toggle-proxy-mode(); callback proxy-port-minus(); callback proxy-port-plus();
@@ -105,23 +107,27 @@ export component MainWindow inherits Window {
                 Text { text: "Downloads"; color: Palette.text-primary; font-size: 12px; }
                 Text { text: "View"; color: Palette.text-primary; font-size: 12px; }
                 Text { text: "Help"; color: Palette.text-primary; font-size: 12px; }
+                Rectangle { width: 100%; }
+                Text { text: "FLOW 1.0"; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
             }
         }
 
-        Rectangle { // command bar
-            height: 62px; background: Palette.surface;
-            Rectangle { x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
-            HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 8px;
-                CyberButton { text: "+ Add URL"; clicked => { current-tab = 0; } }
-                CyberButton { text: "▶ Resume"; clicked => { root.toggle-queue(); current-tab = 0; } }
-                CyberButton { text: "■ Stop"; clicked => { root.toggle-queue(); current-tab = 0; } }
-                CyberButton { text: "⏹ Stop All"; clicked => { root.toggle-queue(); current-tab = 0; } }
-                CyberButton { text: "🗑 Delete"; clicked => { root.delete-queue(); current-tab = 0; } }
-                CyberButton { text: "↻ Retry"; clicked => { root.retry-failed(); current-tab = 0; } }
-                CyberButton { text: "🕒 Scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
-                CyberButton { text: "⚙ Settings"; active: current-tab == 2; clicked => { current-tab = 2; } }
+        Rectangle { // compact classic command bar
+            height: 46px; background: #D7D7D7;
+            Rectangle { x: 0; y: parent.height - 1px; width: 100%; height: 1px; background: #9A9A9A; }
+            HorizontalLayout { padding-left: 8px; padding-right: 8px; spacing: 5px;
+                CyberButton { text: "Add URL"; clicked => { root.add-url(); current-tab = 0; } }
+                CyberButton { text: "Resume"; clicked => { root.resume-selected(); current-tab = 0; } }
+                CyberButton { text: "Stop"; clicked => { root.stop-selected(); current-tab = 0; } }
+                CyberButton { text: "Stop All"; clicked => { root.stop-all(); current-tab = 0; } }
+                CyberButton { text: "Delete"; clicked => { root.delete-selected(); current-tab = 0; } }
+                CyberButton { text: "Retry"; clicked => { root.retry-failed(); current-tab = 0; } }
+                CyberButton { text: "Open"; clicked => { root.open-selected(); current-tab = 0; } }
+                CyberButton { text: "Folder"; clicked => { root.open-selected-folder(); current-tab = 0; } }
+                CyberButton { text: "Scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
+                CyberButton { text: "Options"; active: current-tab == 2; clicked => { current-tab = 2; } }
                 Rectangle { width: 100%; }
-                Text { text: root.queue-event-summary; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                Text { text: root.queue-event-summary; color: #303030; font-size: 11px; vertical-alignment: center; }
             }
         }
 
@@ -181,6 +187,15 @@ export component MainWindow inherits Window {
                             CyberButton { text: "Down"; clicked => { root.move-download-down(); } }
                             CyberButton { text: "Requeue"; clicked => { root.requeue-download(); } }
                             CyberButton { text: "Cleanup"; clicked => { root.cleanup-finished(); } }
+                            Rectangle { width: 100%; }
+                            Text { text: "Selected Queue: " + root.queue-name-text; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                        }
+                    }
+                    Rectangle { height: 24px; background: #0F0F0F; border-color: Palette.border; border-width: 1px;
+                        HorizontalLayout { padding-left: 8px; padding-right: 8px;
+                            Text { text: "Status: " + root.queue-event-summary; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
+                            Rectangle { width: 100%; }
+                            Text { text: "Items: " + download-items.length; color: Palette.text-muted; font-size: 11px; vertical-alignment: center; }
                         }
                     }
                 }
@@ -191,33 +206,61 @@ export component MainWindow inherits Window {
             background: Palette.bg;
             VerticalLayout { padding: 16px; spacing: 10px;
                 Text { text: "Scheduler"; color: Palette.accent-primary; font-family: Palette.font-heading; font-size: 20px; }
-                Text { text: root.queue-config-summary; color: Palette.text-primary; font-size: 12px; }
-                CyberButton { text: "Start / Stop Queue"; clicked => { root.toggle-queue(); } }
+                Rectangle { background: Palette.panel; border-color: Palette.border; border-width: 1px;
+                    VerticalLayout { padding: 12px; spacing: 8px;
+                        Text { text: "Queue Window"; color: Palette.text-primary; font-size: 12px; }
+                        Text { text: root.queue-config-summary; color: Palette.text-muted; font-size: 12px; }
+                        Text { text: "Runtime event: " + root.queue-event-summary; color: Palette.text-muted; font-size: 12px; }
+                    }
+                }
+                HorizontalLayout { spacing: 8px;
+                    CyberButton { text: "Start / Stop Queue"; clicked => { root.toggle-queue(); } }
+                    CyberButton { text: "Retry Failed"; clicked => { root.retry-failed(); } }
+                    CyberButton { text: "Delete Queue"; clicked => { root.delete-queue(); } }
+                    CyberButton { text: "Max -"; clicked => { root.queue-max-minus(); } }
+                    CyberButton { text: "Max +"; clicked => { root.queue-max-plus(); } }
+                    CyberButton { text: "Stop Empty"; clicked => { root.queue-toggle-stop-on-empty(); } }
+                }
             }
         }
 
         if current-tab == 2: ScrollView {
             VerticalLayout { padding: 16px; spacing: 12px;
                 Text { text: "Settings"; color: Palette.accent-primary; font-family: Palette.font-heading; font-size: 20px; }
-                HorizontalLayout { spacing: 8px;
-                    CyberButton { text: "Auto Start"; clicked => { root.toggle-auto-start(); } }
-                    CyberButton { text: "System Tray"; clicked => { root.toggle-system-tray(); } }
-                    CyberButton { text: "Clipboard"; clicked => { root.toggle-clipboard-monitoring(); } }
+                Rectangle { background: Palette.panel; border-color: Palette.border; border-width: 1px;
+                    VerticalLayout { padding: 12px; spacing: 10px;
+                        Text { text: "System"; color: Palette.text-primary; font-size: 12px; }
+                        HorizontalLayout { spacing: 8px;
+                            CyberButton { text: "Auto Start"; clicked => { root.toggle-auto-start(); } }
+                            CyberButton { text: "System Tray"; clicked => { root.toggle-system-tray(); } }
+                            CyberButton { text: "Clipboard"; clicked => { root.toggle-clipboard-monitoring(); } }
+                        }
+                    }
                 }
-                Text { text: root.appearance-summary; color: Palette.text-muted; font-size: 12px; }
-                HorizontalLayout { spacing: 8px;
-                    CyberButton { text: "Thr -"; clicked => { root.settings-thread-minus(); } }
-                    CyberButton { text: "Thr +"; clicked => { root.settings-thread-plus(); } }
-                    CyberButton { text: "Jobs -"; clicked => { root.settings-max-minus(); } }
-                    CyberButton { text: "Jobs +"; clicked => { root.settings-max-plus(); } }
+                Rectangle { background: Palette.panel; border-color: Palette.border; border-width: 1px;
+                    VerticalLayout { padding: 12px; spacing: 10px;
+                        Text { text: "Engine"; color: Palette.text-primary; font-size: 12px; }
+                        HorizontalLayout { spacing: 8px;
+                            CyberButton { text: "Thr -"; clicked => { root.settings-thread-minus(); } }
+                            CyberButton { text: "Thr +"; clicked => { root.settings-thread-plus(); } }
+                            CyberButton { text: "Jobs -"; clicked => { root.settings-max-minus(); } }
+                            CyberButton { text: "Jobs +"; clicked => { root.settings-max-plus(); } }
+                        }
+                        HorizontalLayout { spacing: 8px; Text { text: "Folder"; width: 80px; color: Palette.text-muted; }
+                            CyberInput { width: 420px; text: default-folder-text; edited(t) => { root.default-folder-changed(t); } }
+                            CyberButton { text: "Use Downloads"; clicked => { root.settings-use-downloads-folder(); } }
+                        }
+                    }
                 }
-                HorizontalLayout { spacing: 8px; Text { text: "Folder"; width: 80px; color: Palette.text-muted; }
-                    CyberInput { width: 420px; text: default-folder-text; edited(t) => { root.default-folder-changed(t); } }
-                    CyberButton { text: "Use Downloads"; clicked => { root.settings-use-downloads-folder(); } }
-                }
-                HorizontalLayout { spacing: 8px;
-                    CyberButton { text: "Toggle Browser"; clicked => { root.toggle-browser-integration(); } }
-                    CyberButton { text: "Register Host"; clicked => { root.register-browser-host(); } }
+                Rectangle { background: Palette.panel; border-color: Palette.border; border-width: 1px;
+                    VerticalLayout { padding: 12px; spacing: 10px;
+                        Text { text: "Browser"; color: Palette.text-primary; font-size: 12px; }
+                        HorizontalLayout { spacing: 8px;
+                            CyberButton { text: "Toggle Browser"; clicked => { root.toggle-browser-integration(); } }
+                            CyberButton { text: "Register Host"; clicked => { root.register-browser-host(); } }
+                        }
+                        Text { text: root.browser-summary; color: Palette.text-muted; font-size: 11px; }
+                    }
                 }
             }
         }
@@ -308,6 +351,51 @@ export component ClipboardDialog inherits Window {
                 CyberButton { text: "Download Later"; min-width: 140px; clicked => { root.queue_later(); } }
                 CyberButton { text: "Start Download"; min-width: 140px; active: true; clicked => { root.start_now(); } }
                 CyberButton { text: "Cancel"; min-width: 110px; clicked => { root.dismiss(); } }
+            }
+        }
+    }
+}
+
+export component AddUrlDialog inherits Window {
+    width: 560px;
+    height: 230px;
+    title: "Add URL";
+    always-on-top: true;
+    background: #ECECEC;
+
+    in-out property <string> url: "";
+    in-out property <string> file-name: "";
+    in-out property <string> output-dir: "";
+
+    callback download_later(string, string, string);
+    callback start_now(string, string, string);
+    callback cancel();
+
+    Rectangle {
+        background: #ECECEC;
+        border-color: #8A8A8A;
+        border-width: 1px;
+        VerticalLayout {
+            padding: 12px;
+            spacing: 8px;
+            HorizontalLayout { spacing: 8px;
+                Text { text: "Address"; width: 78px; color: #202020; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
+                CyberInput { text: root.url; placeholder: "https://example.com/file.zip"; edited(t) => { root.url = t; } }
+            }
+            HorizontalLayout { spacing: 8px;
+                Text { text: "File name"; width: 78px; color: #202020; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
+                CyberInput { text: root.file-name; placeholder: "Leave blank to infer from URL"; edited(t) => { root.file-name = t; } }
+            }
+            HorizontalLayout { spacing: 8px;
+                Text { text: "Save to"; width: 78px; color: #202020; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
+                CyberInput { text: root.output-dir; edited(t) => { root.output-dir = t; } }
+                CyberButton { text: "..."; min-width: 34px; }
+            }
+            Rectangle { height: 12px; background: transparent; }
+            HorizontalLayout { spacing: 10px; alignment: end;
+                CyberButton { text: "Download Later"; min-width: 130px; clicked => { root.download_later(root.url, root.file-name, root.output-dir); } }
+                CyberButton { text: "Start Download"; min-width: 130px; active: true; clicked => { root.start_now(root.url, root.file-name, root.output-dir); } }
+                CyberButton { text: "Cancel"; min-width: 90px; clicked => { root.cancel(); } }
             }
         }
     }
