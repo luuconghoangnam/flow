@@ -137,6 +137,8 @@ Muc tieu: chuyen doi sang Rust/Slint trong `D:\Repos\Flow` voi du chuc nang desk
   - settings chia thanh summary sections theo huong IDM: Appearance / Download Engine / Browser Integration
   - `download.create/start` co the mang `queue_id` de dua job vao named queue
   - host commands `queue.move` / `queue.requeue`
+  - move up/down semantics sua theo ordered list thuc te trong queue (khong dua vao queue_order +/- 1 mong manh)
+  - sau moi mutation move/requeue: normalize lai `queue_order` de tranh drift theo thoi gian
   - `stop_on_empty` bat dau deactivate queue group khi queue het job runnable
   - toggle inactive queue trong UI se pause active jobs; bat lai queue se chuyen `Paused` -> `Queued`
   - queue runtime event log table (`queue_events`) cho semantics start/stop/empty/failed

@@ -13,8 +13,16 @@ export component MainWindow inherits Window {
     in property <string> appearance-summary: "Appearance";
     in property <string> engine-summary: "Download Engine";
     in property <string> browser-summary: "Browser Integration";
+    in property <string> queue-event-summary: "Queue events";
     in property <string> proxy-host-text: "127.0.0.1";
+    in property <string> proxy-port-text: "2080";
+    in property <string> proxy-username-text: "";
+    in property <string> proxy-password-text: "";
+    in property <string> default-folder-text: "";
     in property <string> perhost-first-text: "";
+    in property <string> perhost-thread-text: "";
+    in property <string> perhost-user-text: "";
+    in property <string> perhost-pass-text: "";
     in property <string> clipboard-pending-summary: "";
     in property <int> selected-download-index: -1;
     callback retry-failed();
@@ -49,7 +57,14 @@ export component MainWindow inherits Window {
     callback perhost-remove-last();
     callback perhost-clear();
     callback proxy-host-changed(value: string);
+    callback proxy-username-changed(value: string);
+    callback proxy-password-changed(value: string);
+    callback proxy-port-changed(value: string);
     callback perhost-first-changed(value: string);
+    callback perhost-thread-changed(value: string);
+    callback perhost-user-changed(value: string);
+    callback perhost-pass-changed(value: string);
+    callback default-folder-changed(value: string);
     callback clipboard-queue();
     callback clipboard-dismiss();
 
@@ -180,7 +195,7 @@ export component MainWindow inherits Window {
             }
 
             Rectangle {
-                height: 112px;
+                height: 144px;
                 border-radius: 12px;
                 background: #111827;
                 border-width: 1px;
@@ -210,9 +225,17 @@ export component MainWindow inherits Window {
                     font-size: 13px;
                 }
 
+                Text {
+                    text: queue-event-summary;
+                    color: #d1d5db;
+                    x: 14px;
+                    y: 82px;
+                    font-size: 12px;
+                }
+
                 HorizontalLayout {
                     x: 14px;
-                    y: 78px;
+                    y: 96px;
                     spacing: 8px;
 
                     Rectangle {
@@ -406,11 +429,67 @@ export component MainWindow inherits Window {
                 }
 
                 LineEdit {
+                    text: proxy-port-text;
+                    x: 894px;
+                    y: 10px;
+                    width: 72px;
+                    edited(text) => { root.proxy-port-changed(text); }
+                }
+
+                LineEdit {
                     text: perhost-first-text;
                     x: 680px;
                     y: 44px;
                     width: 200px;
                     edited(text) => { root.perhost-first-changed(text); }
+                }
+
+                LineEdit {
+                    text: proxy-username-text;
+                    x: 972px;
+                    y: 10px;
+                    width: 140px;
+                    edited(text) => { root.proxy-username-changed(text); }
+                }
+
+                LineEdit {
+                    text: proxy-password-text;
+                    x: 1118px;
+                    y: 10px;
+                    width: 140px;
+                    edited(text) => { root.proxy-password-changed(text); }
+                }
+
+                LineEdit {
+                    text: default-folder-text;
+                    x: 1264px;
+                    y: 10px;
+                    width: 220px;
+                    edited(text) => { root.default-folder-changed(text); }
+                }
+
+                LineEdit {
+                    text: perhost-thread-text;
+                    x: 894px;
+                    y: 44px;
+                    width: 140px;
+                    edited(text) => { root.perhost-thread-changed(text); }
+                }
+
+                LineEdit {
+                    text: perhost-user-text;
+                    x: 1040px;
+                    y: 44px;
+                    width: 140px;
+                    edited(text) => { root.perhost-user-changed(text); }
+                }
+
+                LineEdit {
+                    text: perhost-pass-text;
+                    x: 1186px;
+                    y: 44px;
+                    width: 140px;
+                    edited(text) => { root.perhost-pass-changed(text); }
                 }
             }
 

@@ -76,6 +76,10 @@ fn main() {
 
     let create_queue = queue_tx.clone();
     let create = move |payload: BrowserDownloadMessage| {
+        let settings = load_settings(&flow_settings_path());
+        if !settings.browser_integration_enabled {
+            return Err("BAD_REQUEST: Browser integration is disabled in settings".to_string());
+        }
         if !is_supported_download_url(&payload.url) {
             return Err("BAD_REQUEST: Only http(s) downloads are supported".to_string());
         }
@@ -424,10 +428,15 @@ async fn process_clipboard_decision_loop(queue_tx: mpsc::Sender<QueueJobRecord>)
 async fn enqueue_request(request: DownloadRequest, queue_tx: &mpsc::Sender<QueueJobRecord>) -> Result<String, String> {
     let repo = SqliteDownloadRepository::open(&flow_db_path()).map_err(|e| e.to_string())?;
     repo.init_schema().map_err(|e| e.to_string())?;
+    let queue_id = if repo.get_queue_group(request.queue_id).map_err(|e| e.to_string())?.is_some() {
+        request.queue_id
+    } else {
+        0
+    };
     let preview = DownloadEngine::new().enqueue(request.clone()).await;
     let job = QueueJobRecord {
         id: preview.id.0.clone(),
-        queue_id: request.queue_id,
+        queue_id,
         url: request.url,
         output_dir: request.output_dir.to_string_lossy().to_string(),
         file_name: request.file_name,

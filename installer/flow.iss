@@ -22,6 +22,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Source: "{#BuildDir}\flow-ui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildDir}\flow-host.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceRoot}\native-messaging\windows\com.flow.download_manager.json"; DestDir: "{app}\native-messaging\windows"; Flags: ignoreversion
+Source: "{#SourceRoot}\native-messaging\windows\com.flow.download_manager.firefox.json"; DestDir: "{app}\native-messaging\windows"; Flags: ignoreversion
 Source: "{#SourceRoot}\native-messaging\windows\register-host.ps1"; DestDir: "{app}\native-messaging\windows"; Flags: ignoreversion
 Source: "{#SourceRoot}\native-messaging\windows\unregister-host.ps1"; DestDir: "{app}\native-messaging\windows"; Flags: ignoreversion
 Source: "{#SourceRoot}\extension\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs

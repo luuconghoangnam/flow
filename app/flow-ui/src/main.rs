@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, is_windows_auto_start_enabled, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, SqliteDownloadRepository};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use slint::{ModelRc, SharedString, VecModel};
+use slint::{CloseRequestResponse, ModelRc, SharedString, VecModel};
 use tray_icon::menu::{Menu, MenuItem};
 use tray_icon::TrayIconBuilder;
 
@@ -35,10 +35,18 @@ fn main() {
     app.set_appearance_summary(appearance.into());
     app.set_engine_summary(engine.into());
     app.set_browser_summary(browser.into());
+    app.set_queue_event_summary(load_queue_event_summary().into());
     app.set_clipboard_pending_summary(load_clipboard_pending_summary().into());
     let settings = load_settings(&flow_data_dir().join("settings.json"));
     app.set_proxy_host_text(settings.proxy.manual.host.into());
+    app.set_proxy_port_text(settings.proxy.manual.port.to_string().into());
+    app.set_proxy_username_text(settings.proxy.manual.username.unwrap_or_default().into());
+    app.set_proxy_password_text(settings.proxy.manual.password.unwrap_or_default().into());
+    app.set_default_folder_text(settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder).into());
     app.set_perhost_first_text(settings.per_host.first().map(|v| v.host.clone()).unwrap_or_default().into());
+    app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
+    app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
+    app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
 
     let _tray_context = setup_tray_if_enabled(&app);
 
@@ -113,6 +121,22 @@ fn main() {
     }));
     app.on_perhost_clear(|| mutate_settings(|settings| settings.per_host.clear()));
     app.on_proxy_host_changed(|value| mutate_settings(|settings| settings.proxy.manual.host = value.to_string()));
+    app.on_proxy_port_changed(|value| {
+        mutate_settings(|settings| {
+            if let Ok(port) = value.parse::<u16>() {
+                settings.proxy.manual.port = port.max(1);
+            }
+        })
+    });
+    app.on_proxy_username_changed(|value| mutate_settings(|settings| {
+        settings.proxy.manual.username = if value.trim().is_empty() { None } else { Some(value.to_string()) };
+    }));
+    app.on_proxy_password_changed(|value| mutate_settings(|settings| {
+        settings.proxy.manual.password = if value.trim().is_empty() { None } else { Some(value.to_string()) };
+    }));
+    app.on_default_folder_changed(|value| mutate_settings(|settings| {
+        settings.default_download_folder = if value.trim().is_empty() { None } else { Some(value.to_string()) };
+    }));
     app.on_perhost_first_changed(|value| {
         mutate_settings(|settings| {
             if let Some(first) = settings.per_host.first_mut() {
@@ -125,6 +149,28 @@ fn main() {
                     user_agent: None,
                     thread_count: None,
                 });
+            }
+        })
+    });
+    app.on_perhost_thread_changed(|value| {
+        mutate_settings(|settings| {
+            let parsed = value.parse::<usize>().ok();
+            if let Some(first) = settings.per_host.first_mut() {
+                first.thread_count = parsed;
+            }
+        })
+    });
+    app.on_perhost_user_changed(|value| {
+        mutate_settings(|settings| {
+            if let Some(first) = settings.per_host.first_mut() {
+                first.username = if value.trim().is_empty() { None } else { Some(value.to_string()) };
+            }
+        })
+    });
+    app.on_perhost_pass_changed(|value| {
+        mutate_settings(|settings| {
+            if let Some(first) = settings.per_host.first_mut() {
+                first.password = if value.trim().is_empty() { None } else { Some(value.to_string()) };
             }
         })
     });
@@ -193,6 +239,7 @@ fn main() {
                     app.set_appearance_summary(appearance.into());
                     app.set_engine_summary(engine.into());
                     app.set_browser_summary(browser.into());
+                    app.set_queue_event_summary(load_queue_event_summary().into());
                     app.set_selected_download_index(-1);
                 });
             }
@@ -255,6 +302,7 @@ fn main() {
                     app.set_appearance_summary(appearance.into());
                     app.set_engine_summary(engine.into());
                     app.set_browser_summary(browser.into());
+                    app.set_queue_event_summary(load_queue_event_summary().into());
                     app.set_selected_download_index(-1);
                 });
             }
@@ -327,10 +375,18 @@ fn main() {
                     app.set_appearance_summary(appearance.into());
                     app.set_engine_summary(engine.into());
                     app.set_browser_summary(browser.into());
+                    app.set_queue_event_summary(load_queue_event_summary().into());
                     app.set_clipboard_pending_summary(load_clipboard_pending_summary().into());
                     let settings = load_settings(&flow_data_dir().join("settings.json"));
                     app.set_proxy_host_text(settings.proxy.manual.host.into());
+                    app.set_proxy_port_text(settings.proxy.manual.port.to_string().into());
+                    app.set_proxy_username_text(settings.proxy.manual.username.unwrap_or_default().into());
+                    app.set_proxy_password_text(settings.proxy.manual.password.unwrap_or_default().into());
+                    app.set_default_folder_text(settings.default_download_folder.clone().unwrap_or_else(default_downloads_folder).into());
                     app.set_perhost_first_text(settings.per_host.first().map(|v| v.host.clone()).unwrap_or_default().into());
+                    app.set_perhost_thread_text(settings.per_host.first().and_then(|v| v.thread_count).map(|v| v.to_string()).unwrap_or_default().into());
+                    app.set_perhost_user_text(settings.per_host.first().and_then(|v| v.username.clone()).unwrap_or_default().into());
+                    app.set_perhost_pass_text(settings.per_host.first().and_then(|v| v.password.clone()).unwrap_or_default().into());
                     app.set_selected_download_index(selected_index);
                 });
             }
@@ -357,6 +413,8 @@ fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
         .build()
         .ok()?;
 
+    app.window().on_close_requested(|| CloseRequestResponse::HideWindow);
+
     let show_hide_id = show_hide.id().clone();
     let quit_id = quit.id().clone();
     let app_weak = app.as_weak();
@@ -377,7 +435,7 @@ fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
                         }
                     });
                 } else if event.id == quit_id {
-                    std::process::exit(0);
+                    slint::quit_event_loop().ok();
                 }
             }
         },
@@ -499,6 +557,30 @@ fn load_settings_sections() -> (String, String, String) {
         settings.clipboard_monitoring
     );
     (appearance, engine, browser)
+}
+
+fn load_queue_event_summary() -> String {
+    let db_path = flow_db_path();
+    let Ok(repo) = SqliteDownloadRepository::open(&db_path) else {
+        return "events unavailable".to_string();
+    };
+    if repo.init_schema().is_err() {
+        return "events unavailable".to_string();
+    }
+    let Ok(events) = repo.list_recent_queue_events(3) else {
+        return "events unavailable".to_string();
+    };
+    if events.is_empty() {
+        return "events: none".to_string();
+    }
+    format!(
+        "events: {}",
+        events
+            .into_iter()
+            .map(|event| format!("q{}:{}", event.queue_id, event.event_type))
+            .collect::<Vec<_>>()
+            .join(" | ")
+    )
 }
 
 fn mutate_settings<F>(mutator: F)

@@ -530,28 +530,53 @@ impl DownloadRepository for SqliteDownloadRepository {
     fn reorder_queue_job(&self, id: &str, direction: i64) -> Result<()> {
         let current = self.get_queue_job(id)?;
         let Some(current) = current else { return Ok(()); };
-        let target_order = current.queue_order + direction;
+
         let mut statement = self.connection.prepare(
-            "SELECT id, queue_order FROM queue_jobs WHERE queue_id = ?2 AND queue_order = ?1 ORDER BY priority DESC LIMIT 1",
+            "
+            SELECT id, queue_order
+            FROM queue_jobs
+            WHERE queue_id = ?1
+            ORDER BY priority DESC, queue_order ASC, created_at ASC
+            ",
         )?;
-        let mut rows = statement.query((target_order, current.queue_id))?;
-        if let Some(row) = rows.next()? {
-            let other_id: String = row.get(0)?;
-            let other_order: i64 = row.get(1)?;
-            self.connection.execute("UPDATE queue_jobs SET queue_order = ?2 WHERE id = ?1", (&current.id, other_order))?;
-            self.connection.execute("UPDATE queue_jobs SET queue_order = ?2 WHERE id = ?1", (&other_id, current.queue_order))?;
+        let ordered = statement
+            .query_map([current.queue_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+        let Some(current_index) = ordered.iter().position(|(job_id, _)| job_id == &current.id) else {
+            return Ok(());
+        };
+        let target_index = if direction < 0 {
+            current_index.saturating_sub(1)
+        } else {
+            (current_index + 1).min(ordered.len().saturating_sub(1))
+        };
+        if current_index == target_index {
+            return Ok(());
         }
+
+        let (other_id, other_order) = &ordered[target_index];
+        self.connection.execute("UPDATE queue_jobs SET queue_order = ?2 WHERE id = ?1", (&current.id, *other_order))?;
+        self.connection.execute("UPDATE queue_jobs SET queue_order = ?2 WHERE id = ?1", (other_id, current.queue_order))?;
+        normalize_queue_order(&self.connection, current.queue_id)?;
         Ok(())
     }
 
     fn push_queue_job_to_end(&self, id: &str) -> Result<()> {
-        let max_order: i64 = self
-            .connection
-            .query_row("SELECT COALESCE(MAX(queue_order), 0) FROM queue_jobs", [], |row| row.get(0))?;
+        let current = self.get_queue_job(id)?;
+        let Some(current) = current else { return Ok(()); };
+        let max_order: i64 = self.connection.query_row(
+            "SELECT COALESCE(MAX(queue_order), 0) FROM queue_jobs WHERE queue_id = ?1",
+            [current.queue_id],
+            |row| row.get(0),
+        )?;
         self.connection.execute(
             "UPDATE queue_jobs SET queue_order = ?2, updated_at = unixepoch() WHERE id = ?1",
             (id, max_order + 1),
         )?;
+        normalize_queue_order(&self.connection, current.queue_id)?;
         Ok(())
     }
 
@@ -607,5 +632,26 @@ fn add_optional_column(connection: &Connection, table: &str, column: &str, defin
         return Ok(());
     }
     connection.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"), [])?;
+    Ok(())
+}
+
+fn normalize_queue_order(connection: &Connection, queue_id: i64) -> Result<()> {
+    let mut statement = connection.prepare(
+        "
+        SELECT id
+        FROM queue_jobs
+        WHERE queue_id = ?1
+        ORDER BY priority DESC, queue_order ASC, created_at ASC
+        ",
+    )?;
+    let ids = statement
+        .query_map([queue_id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>>>()?;
+    for (index, id) in ids.into_iter().enumerate() {
+        connection.execute(
+            "UPDATE queue_jobs SET queue_order = ?2 WHERE id = ?1",
+            (id, index as i64),
+        )?;
+    }
     Ok(())
 }

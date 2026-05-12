@@ -14,6 +14,12 @@ use tokio::sync::mpsc;
 use crate::model::{DownloadId, DownloadStatus, DownloadTask};
 use crate::storage::{ChunkProgress, DownloadRepository};
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ResumeValidationMetadata {
+    etag: Option<String>,
+    last_modified: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct DownloadRequest {
     pub url: String,
@@ -161,8 +167,14 @@ impl DownloadEngine {
 
         task.status = DownloadStatus::Downloading;
         let mut output_file = unique_output_path(&request.output_dir.join(&request.file_name));
+        let metadata_path = resume_metadata_path(&output_file);
 
         let mut already_downloaded = existing_size(&output_file).await.unwrap_or(0);
+        let previous_validation = if already_downloaded > 0 {
+            read_resume_validation_metadata(&metadata_path)
+        } else {
+            None
+        };
         let (total_bytes, _) = self.probe(&request.url).await.map_err(|e| e.to_string())?;
         task.total_bytes = total_bytes;
         task.downloaded_bytes = already_downloaded;
@@ -187,6 +199,26 @@ impl DownloadEngine {
                     output_file = unique_output_path(&request.output_dir.join(&task.file_name));
                 }
             }
+        }
+
+        if already_downloaded > 0 {
+            validate_resume_headers(response.headers(), previous_validation.as_ref())?;
+        } else {
+            let _ = write_resume_validation_metadata(
+                &metadata_path,
+                &ResumeValidationMetadata {
+                    etag: response
+                        .headers()
+                        .get("etag")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|v| v.to_string()),
+                    last_modified: response
+                        .headers()
+                        .get("last-modified")
+                        .and_then(|v| v.to_str().ok())
+                        .map(|v| v.to_string()),
+                },
+            );
         }
         let mut stream = response.bytes_stream();
         let mut file = OpenOptions::new()
@@ -406,6 +438,57 @@ fn unique_output_path(path: &Path) -> PathBuf {
     }
 
     unreachable!()
+}
+
+fn resume_metadata_path(output_file: &Path) -> PathBuf {
+    let file_name = output_file
+        .file_name()
+        .and_then(|v| v.to_str())
+        .unwrap_or("download.bin")
+        .to_string();
+    output_file
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!(".{file_name}.resume.json"))
+}
+
+fn read_resume_validation_metadata(path: &Path) -> Option<ResumeValidationMetadata> {
+    let text = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+fn write_resume_validation_metadata(path: &Path, metadata: &ResumeValidationMetadata) -> Result<(), String> {
+    let text = serde_json::to_string(metadata).map_err(|e| e.to_string())?;
+    std::fs::write(path, text).map_err(|e| e.to_string())
+}
+
+fn validate_resume_headers(
+    response_headers: &HeaderMap,
+    previous: Option<&ResumeValidationMetadata>,
+) -> Result<(), String> {
+    let Some(previous) = previous else {
+        return Ok(());
+    };
+
+    let current_etag = response_headers
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_string());
+    let current_last_modified = response_headers
+        .get("last-modified")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_string());
+
+    if previous.etag.is_some() && current_etag.is_some() && previous.etag != current_etag {
+        return Err("File changed on server (ETag mismatch)".to_string());
+    }
+    if previous.last_modified.is_some()
+        && current_last_modified.is_some()
+        && previous.last_modified != current_last_modified
+    {
+        return Err("File changed on server (Last-Modified mismatch)".to_string());
+    }
+    Ok(())
 }
 
 pub async fn run_multi_connection_with_repository(
