@@ -322,6 +322,8 @@ export component MainWindow inherits Window {
     callback settings-use-downloads-folder(); callback register-browser-host();
     callback queue-create-new(); callback queue-rename(); callback queue-delete-confirm();
     callback proxy-mode-changed(mode: int); callback proxy-test-connection();
+    callback queue-schedule-toggle-enabled(); callback queue-schedule-start-minus(); callback queue-schedule-start-plus();
+    callback queue-schedule-stop-minus(); callback queue-schedule-stop-plus(); callback queue-schedule-toggle-day(day: int);
     callback tasks-start-all(); callback tasks-pause-all();
     callback file-batch-download(); callback app-exit();
     callback downloads-select-all(); callback downloads-clear-selection(); callback toggle-download-checked(index: int); callback downloads-sort-by-name();
@@ -333,6 +335,16 @@ export component MainWindow inherits Window {
 
     in-out property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
     in-out property <bool> queue-stop-on-empty: false;
+    in-out property <bool> queue-schedule-enabled: false;
+    in-out property <string> queue-schedule-start: "08:00";
+    in-out property <string> queue-schedule-stop: "18:00";
+    in-out property <bool> queue-day-sun: true;
+    in-out property <bool> queue-day-mon: true;
+    in-out property <bool> queue-day-tue: true;
+    in-out property <bool> queue-day-wed: true;
+    in-out property <bool> queue-day-thu: true;
+    in-out property <bool> queue-day-fri: true;
+    in-out property <bool> queue-day-sat: true;
     in-out property <int> active-menu: -1;
     property <length> menu-popup-width: 180px;
     property <length> menu-popup-x: 6px + (active-menu * 72px);
@@ -508,42 +520,44 @@ export component MainWindow inherits Window {
                                 height: 22px;
                                 background: i == root.selected-download-index ? Palette.selection-bg : (Math.mod(i, 2) == 1 ? Palette.row-even : Palette.row-odd);
                                 
-                            Rectangle {
-                                width: 28px;
-                                Rectangle {
-                                    x: 8px;
-                                    y: 5px;
-                                    width: 12px;
-                                    height: 12px;
-                                    border-width: 1px;
-                                    border-color: row.checked ? Palette.accent-primary : Palette.border;
-                                    background: row.checked ? Palette.accent-primary : Palette.panel;
-                                    if row.checked: Text {
-                                        text: "✓";
-                                        color: Palette.bg;
-                                        font-size: 9px;
-                                        font-weight: 700;
-                                        horizontal-alignment: center;
-                                        vertical-alignment: center;
+                                HorizontalLayout {
+                                    padding-left: 8px; padding-right: 8px; spacing: 0;
+                                    Rectangle {
+                                        width: 28px;
+                                        Rectangle {
+                                            x: 8px;
+                                            y: 5px;
+                                            width: 12px;
+                                            height: 12px;
+                                            border-width: 1px;
+                                            border-color: row.checked ? Palette.accent-primary : Palette.border;
+                                            background: row.checked ? Palette.accent-primary : Palette.panel;
+                                            if row.checked: Text {
+                                                text: "✓";
+                                                color: Palette.bg;
+                                                font-size: 9px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                        TouchArea { clicked => { root.toggle-download-checked(i); } }
                                     }
+                                    Text { text: row.name; width: 272px; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; overflow: elide; }
+                                    Text { text: row.size; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: right; color: Palette.text-muted; }
+                                    VerticalLayout {
+                                        width: 100px; alignment: center; padding-left: 8px; padding-right: 8px;
+                                        Text { text: row.status; font-size: 9px; font-weight: 600; color: (row.is-error ? Palette.error : Palette.success); horizontal-alignment: center; }
+                                        if row.has-progress: Rectangle {
+                                            height: 2px; background: Palette.border;
+                                            Rectangle { x: 0; width: parent.width * row.progress / 100; background: Palette.accent-primary; height: 100%; }
+                                        }
+                                    }
+                                    Text { text: row.speed; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                                    Text { text: row.time-left; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                                    Text { text: row.date-added; width: 130px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
                                 }
-                                TouchArea { clicked => { root.toggle-download-checked(i); } }
-                            }
-                            Text { text: row.name; width: 272px; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; overflow: elide; }
-                            Text { text: row.size; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: right; color: Palette.text-muted; }
-                            VerticalLayout {
-                                width: 100px; alignment: center; padding-left: 8px; padding-right: 8px;
-                                Text { text: row.status; font-size: 9px; font-weight: 600; color: (row.is-error ? Palette.error : Palette.success); horizontal-alignment: center; }
-                                if row.has-progress: Rectangle {
-                                    height: 2px; background: Palette.border;
-                                    Rectangle { x: 0; width: parent.width * row.progress / 100; background: Palette.accent-primary; height: 100%; }
-                                }
-                            }
-                            Text { text: row.speed; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                            Text { text: row.time-left; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                            Text { text: row.date-added; width: 130px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                        }
-                        TouchArea { clicked => { root.select-download(i); } }
+                                TouchArea { clicked => { root.select-download(i); } }
                             }
                         }
                     }
@@ -611,6 +625,43 @@ export component MainWindow inherits Window {
                                         background: root.queue-stop-on-empty ? Palette.accent-primary : Palette.panel;
                                         TouchArea { clicked => { root.queue-stop-on-empty = !root.queue-stop-on-empty; root.queue-toggle-stop-on-empty(); } }
                                     }
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 8px;
+                                Text { text: "Scheduler"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
+                                HorizontalLayout {
+                                    spacing: 12px; alignment: start;
+                                    Text { text: "Enable Schedule:"; width: 120px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                                    Rectangle {
+                                        width: 50px; height: 20px; border-width: 1px; border-color: Palette.border;
+                                        background: root.queue-schedule-enabled ? Palette.success : Palette.panel;
+                                        TouchArea { clicked => { root.queue-schedule-enabled = !root.queue-schedule-enabled; root.queue-schedule-toggle-enabled(); } }
+                                        Text { text: root.queue-schedule-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    spacing: 12px; alignment: start;
+                                    Text { text: "Start Time:"; width: 120px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                                    ToolbarButton { text: "-"; min-width: 32px; icon-type: "minus"; height: 26px; clicked => { root.queue-schedule-start-minus(); } }
+                                    Text { text: root.queue-schedule-start; width: 64px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; color: Palette.text-primary; }
+                                    ToolbarButton { text: "+"; min-width: 32px; icon-type: "plus"; height: 26px; clicked => { root.queue-schedule-start-plus(); } }
+                                    Text { text: "Stop Time:"; width: 80px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                                    ToolbarButton { text: "-"; min-width: 32px; icon-type: "minus"; height: 26px; clicked => { root.queue-schedule-stop-minus(); } }
+                                    Text { text: root.queue-schedule-stop; width: 64px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; color: Palette.text-primary; }
+                                    ToolbarButton { text: "+"; min-width: 32px; icon-type: "plus"; height: 26px; clicked => { root.queue-schedule-stop-plus(); } }
+                                }
+                                HorizontalLayout {
+                                    spacing: 6px; alignment: start;
+                                    Text { text: "Active Days:"; width: 120px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-sun ? Palette.accent-primary : Palette.border; background: root.queue-day-sun ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-sun = !root.queue-day-sun; root.queue-schedule-toggle-day(0); } } Text { text: "Su"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-mon ? Palette.accent-primary : Palette.border; background: root.queue-day-mon ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-mon = !root.queue-day-mon; root.queue-schedule-toggle-day(1); } } Text { text: "Mo"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-tue ? Palette.accent-primary : Palette.border; background: root.queue-day-tue ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-tue = !root.queue-day-tue; root.queue-schedule-toggle-day(2); } } Text { text: "Tu"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-wed ? Palette.accent-primary : Palette.border; background: root.queue-day-wed ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-wed = !root.queue-day-wed; root.queue-schedule-toggle-day(3); } } Text { text: "We"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-thu ? Palette.accent-primary : Palette.border; background: root.queue-day-thu ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-thu = !root.queue-day-thu; root.queue-schedule-toggle-day(4); } } Text { text: "Th"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-fri ? Palette.accent-primary : Palette.border; background: root.queue-day-fri ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-fri = !root.queue-day-fri; root.queue-schedule-toggle-day(5); } } Text { text: "Fr"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
+                                    Rectangle { width: 34px; height: 24px; border-width: 1px; border-color: root.queue-day-sat ? Palette.accent-primary : Palette.border; background: root.queue-day-sat ? Palette.selection-bg : Palette.panel; TouchArea { clicked => { root.queue-day-sat = !root.queue-day-sat; root.queue-schedule-toggle-day(6); } } Text { text: "Sa"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; } }
                                 }
                             }
 

@@ -93,6 +93,19 @@ fn main() {
     app.set_browser_integration_enabled(settings.browser_integration_enabled);
     app.set_clipboard_monitoring_enabled(settings.clipboard_monitoring);
     app.set_proxy_mode(settings.proxy_mode as i32);
+    let initial_queue_id = *selected_queue.lock().expect("selected queue lock");
+    let scheduler_state = load_queue_scheduler_state(initial_queue_id);
+    app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
+    app.set_queue_schedule_enabled(scheduler_state.enabled);
+    app.set_queue_schedule_start(scheduler_state.start_text.into());
+    app.set_queue_schedule_stop(scheduler_state.stop_text.into());
+    app.set_queue_day_sun(scheduler_state.days[0]);
+    app.set_queue_day_mon(scheduler_state.days[1]);
+    app.set_queue_day_tue(scheduler_state.days[2]);
+    app.set_queue_day_wed(scheduler_state.days[3]);
+    app.set_queue_day_thu(scheduler_state.days[4]);
+    app.set_queue_day_fri(scheduler_state.days[5]);
+    app.set_queue_day_sat(scheduler_state.days[6]);
 
     let _tray_context = setup_tray_if_enabled(&app);
 
@@ -198,6 +211,7 @@ fn main() {
     {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads_for_create = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
@@ -222,7 +236,7 @@ fn main() {
                 if let Ok(mut selected) = selected_download.lock() {
                     *selected = None;
                 }
-                if let Ok(mut checked) = checked_downloads.lock() {
+                if let Ok(mut checked) = checked_downloads_for_create.lock() {
                     checked.clear();
                 }
                 let state = load_queue_ui_state(next_id, &sort_state, &category_filter);
@@ -267,6 +281,7 @@ fn main() {
     {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads_for_delete_queue = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
@@ -285,7 +300,7 @@ fn main() {
                 if let Ok(mut selected) = selected_download.lock() {
                     *selected = None;
                 }
-                if let Ok(mut checked) = checked_downloads.lock() {
+                if let Ok(mut checked) = checked_downloads_for_delete_queue.lock() {
                     checked.clear();
                 }
                 let state = load_queue_ui_state(0, &sort_state, &category_filter);
@@ -397,6 +412,7 @@ fn main() {
     {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads_for_queue_rename = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
@@ -419,6 +435,7 @@ fn main() {
                     let dialog_save = dialog.as_weak();
                     let weak_save = weak.clone();
                     let selected_download_for_save = Arc::clone(&selected_download);
+                    let checked_downloads_for_save = Arc::clone(&checked_downloads_for_queue_rename);
                     let sort_state_for_save = Arc::clone(&sort_state);
                     let category_filter_for_save = Arc::clone(&category_filter);
                     dialog.on_save(move |value| {
@@ -428,6 +445,7 @@ fn main() {
                                     &weak_save,
                                     queue_id,
                                     selected_download_for_save.clone(),
+                                    checked_downloads_for_save.clone(),
                                     &sort_state_for_save,
                                     &category_filter_for_save,
                                 );
@@ -480,6 +498,7 @@ fn main() {
                 }
                 let selected_now = selected_queue.lock().map(|v| *v).unwrap_or(0);
                 let state = load_queue_ui_state(selected_now, &sort_state, &category_filter);
+                let scheduler_state = load_queue_scheduler_state(selected_now);
                 let weak2 = weak.clone();
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_selected_queue_index(index);
@@ -487,6 +506,17 @@ fn main() {
                     app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
                     app.set_queue_config_summary(state.queue_summary.into());
                     app.set_queue_name_text(load_selected_queue_name(selected_now).into());
+                    app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
+                    app.set_queue_schedule_enabled(scheduler_state.enabled);
+                    app.set_queue_schedule_start(scheduler_state.start_text.into());
+                    app.set_queue_schedule_stop(scheduler_state.stop_text.into());
+                    app.set_queue_day_sun(scheduler_state.days[0]);
+                    app.set_queue_day_mon(scheduler_state.days[1]);
+                    app.set_queue_day_tue(scheduler_state.days[2]);
+                    app.set_queue_day_wed(scheduler_state.days[3]);
+                    app.set_queue_day_thu(scheduler_state.days[4]);
+                    app.set_queue_day_fri(scheduler_state.days[5]);
+                    app.set_queue_day_sat(scheduler_state.days[6]);
                 });
             }
         });
@@ -495,6 +525,7 @@ fn main() {
     {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads_for_category = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
@@ -505,7 +536,7 @@ fn main() {
             if let Ok(mut selected) = selected_download.lock() {
                 *selected = None;
             }
-            if let Ok(mut checked) = checked_downloads.lock() {
+            if let Ok(mut checked) = checked_downloads_for_category.lock() {
                 checked.clear();
             }
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
@@ -513,7 +544,7 @@ fn main() {
                 &weak,
                 queue_id,
                 selected_download.clone(),
-                checked_downloads.clone(),
+                checked_downloads_for_category.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -707,6 +738,7 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
@@ -723,7 +755,7 @@ fn main() {
                 }
                 let _ = repo.set_queue_group_active(queue_id, true);
             }
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, &format!("Started {resumed} paused task(s)"));
         }
     });
@@ -732,12 +764,13 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             pause_all_jobs(queue_id);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, "Paused all tasks in current queue");
         }
     });
@@ -746,6 +779,7 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
@@ -783,6 +817,7 @@ fn main() {
                 let queue_ids_for_queue = queue_ids.clone();
                 let selected_queue_for_queue = Arc::clone(&selected_queue);
                 let selected_download_for_queue = Arc::clone(&selected_download);
+                let checked_downloads_for_queue = Arc::clone(&checked_downloads);
                 let sort_state_for_queue = Arc::clone(&sort_state);
                 let category_filter_for_queue = Arc::clone(&category_filter);
                 let dialog_queue = dialog.as_weak();
@@ -808,7 +843,7 @@ fn main() {
                     if let Ok(mut selected) = selected_queue_for_queue.lock() {
                         *selected = target_queue;
                     }
-                    refresh_queue_ui(&weak_queue, target_queue, selected_download_for_queue.clone(), &sort_state_for_queue, &category_filter_for_queue);
+                    refresh_queue_ui(&weak_queue, target_queue, selected_download_for_queue.clone(), checked_downloads_for_queue.clone(), &sort_state_for_queue, &category_filter_for_queue);
                     set_status(&weak_queue, &format!("Batch queued: {queued} item(s) in {normalized_category}; invalid/skipped: {invalid}"));
                     if let Some(dlg) = dialog_queue.upgrade() {
                         let _ = dlg.hide();
@@ -819,6 +854,7 @@ fn main() {
                 let queue_ids_for_start = queue_ids.clone();
                 let selected_queue_for_start = Arc::clone(&selected_queue);
                 let selected_download_for_start = Arc::clone(&selected_download);
+                let checked_downloads_for_start = Arc::clone(&checked_downloads);
                 let sort_state_for_start = Arc::clone(&sort_state);
                 let category_filter_for_start = Arc::clone(&category_filter);
                 let dialog_start = dialog.as_weak();
@@ -844,7 +880,7 @@ fn main() {
                     if let Ok(mut selected) = selected_queue_for_start.lock() {
                         *selected = target_queue;
                     }
-                    refresh_queue_ui(&weak_start, target_queue, selected_download_for_start.clone(), &sort_state_for_start, &category_filter_for_start);
+                    refresh_queue_ui(&weak_start, target_queue, selected_download_for_start.clone(), checked_downloads_for_start.clone(), &sort_state_for_start, &category_filter_for_start);
                     set_status(&weak_start, &format!("Batch start queued: {queued} item(s) in {normalized_category}; invalid/skipped: {invalid}"));
                     if let Some(dlg) = dialog_start.upgrade() {
                         let _ = dlg.hide();
@@ -912,12 +948,13 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::Name);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by name");
         }
     });
@@ -926,12 +963,13 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::Size);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by size");
         }
     });
@@ -940,12 +978,13 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::Status);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by status");
         }
     });
@@ -954,12 +993,13 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::DateAdded);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by date added");
         }
     });
@@ -968,11 +1008,12 @@ fn main() {
         let weak = app.as_weak();
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             set_status(&weak, "Refreshed downloads view");
         }
     });
@@ -1133,6 +1174,150 @@ fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
     })
 }
 
+fn queue_scheduler_state_default() -> QueueSchedulerState {
+    QueueSchedulerState {
+        stop_on_empty: false,
+        enabled: false,
+        start_text: "08:00".to_string(),
+        stop_text: "18:00".to_string(),
+        days: [true, true, true, true, true, true, true],
+    }
+}
+
+#[derive(Clone)]
+struct QueueSchedulerState {
+    stop_on_empty: bool,
+    enabled: bool,
+    start_text: String,
+    stop_text: String,
+    days: [bool; 7],
+}
+
+fn load_queue_scheduler_state(queue_id: i64) -> QueueSchedulerState {
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else {
+        return queue_scheduler_state_default();
+    };
+    let _ = repo.init_schema();
+    let Ok(Some(group)) = repo.get_queue_group(queue_id) else {
+        return queue_scheduler_state_default();
+    };
+    let schedule = parse_schedule_config(group.schedule_json.as_deref());
+    QueueSchedulerState {
+        stop_on_empty: group.stop_on_empty,
+        enabled: schedule.enabled,
+        start_text: format_schedule_time(schedule.start_time_minutes),
+        stop_text: format_schedule_time(schedule.stop_time_minutes),
+        days: schedule_days_to_flags(&schedule.days_of_week),
+    }
+}
+
+#[derive(Clone)]
+struct UiScheduleConfig {
+    enabled: bool,
+    start_time_minutes: u32,
+    stop_time_minutes: u32,
+    days_of_week: Vec<u8>,
+}
+
+fn parse_schedule_config(config_json: Option<&str>) -> UiScheduleConfig {
+    let default = UiScheduleConfig {
+        enabled: false,
+        start_time_minutes: 8 * 60,
+        stop_time_minutes: 18 * 60,
+        days_of_week: vec![0, 1, 2, 3, 4, 5, 6],
+    };
+    let Some(json) = config_json else {
+        return default;
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(json) else {
+        return default;
+    };
+    let enabled = value.get("enabled").and_then(|v| v.as_bool()).unwrap_or(default.enabled);
+    let start_time_minutes = value
+        .get("start_time_minutes")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
+        .unwrap_or(default.start_time_minutes);
+    let stop_time_minutes = value
+        .get("stop_time_minutes")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32)
+        .unwrap_or(default.stop_time_minutes);
+    let days_of_week = value
+        .get("days_of_week")
+        .and_then(|v| v.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_u64())
+                .filter(|day| *day <= 6)
+                .map(|day| day as u8)
+                .collect::<Vec<_>>()
+        })
+        .filter(|days| !days.is_empty())
+        .unwrap_or_else(|| default.days_of_week.clone());
+    UiScheduleConfig {
+        enabled,
+        start_time_minutes,
+        stop_time_minutes,
+        days_of_week,
+    }
+}
+
+fn serialize_schedule_config(config: &UiScheduleConfig) -> Option<String> {
+    let mut map = serde_json::Map::new();
+    map.insert("enabled".to_string(), serde_json::Value::Bool(config.enabled));
+    map.insert("start_time_minutes".to_string(), serde_json::Value::Number(serde_json::Number::from(config.start_time_minutes)));
+    map.insert("stop_time_minutes".to_string(), serde_json::Value::Number(serde_json::Number::from(config.stop_time_minutes)));
+    map.insert(
+        "days_of_week".to_string(),
+        serde_json::Value::Array(
+            config
+                .days_of_week
+                .iter()
+                .map(|day| serde_json::Value::Number(serde_json::Number::from(*day)))
+                .collect(),
+        ),
+    );
+    Some(serde_json::Value::Object(map).to_string())
+}
+
+fn format_schedule_time(minutes: u32) -> String {
+    let normalized = minutes % (24 * 60);
+    format!("{:02}:{:02}", normalized / 60, normalized % 60)
+}
+
+fn schedule_days_to_flags(days: &[u8]) -> [bool; 7] {
+    let mut flags = [false; 7];
+    if days.is_empty() {
+        return [true, true, true, true, true, true, true];
+    }
+    for day in days {
+        if (*day as usize) < 7 {
+            flags[*day as usize] = true;
+        }
+    }
+    flags
+}
+
+fn shift_schedule_minutes(current: u32, delta_minutes: i32) -> u32 {
+    let day_minutes = 24 * 60;
+    let shifted = (current as i32 + delta_minutes).rem_euclid(day_minutes as i32);
+    shifted as u32
+}
+
+fn toggle_schedule_day(days: &mut Vec<u8>, day: u8) {
+    if day > 6 {
+        return;
+    }
+    if let Some(index) = days.iter().position(|value| *value == day) {
+        days.remove(index);
+    } else {
+        days.push(day);
+        days.sort_unstable();
+    }
+}
+
 fn load_queue_ui_state(
     selected_queue_id: i64,
     sort_state: &Arc<Mutex<SortState>>,
@@ -1284,6 +1469,7 @@ fn refresh_queue_ui(
         .and_then(|id| state.row_ids.iter().position(|row_id| row_id == id))
         .map(|idx| idx as i32)
         .unwrap_or(-1);
+    let scheduler_state = load_queue_scheduler_state(queue_id);
     let _ = weak.upgrade_in_event_loop(move |app| {
         app.set_selected_queue_index(selected_queue_index);
         app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
@@ -1291,6 +1477,17 @@ fn refresh_queue_ui(
         app.set_queue_config_summary(state.queue_summary.into());
         app.set_queue_name_text(load_selected_queue_name(queue_id).into());
         app.set_selected_download_index(selected_index);
+        app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
+        app.set_queue_schedule_enabled(scheduler_state.enabled);
+        app.set_queue_schedule_start(scheduler_state.start_text.into());
+        app.set_queue_schedule_stop(scheduler_state.stop_text.into());
+        app.set_queue_day_sun(scheduler_state.days[0]);
+        app.set_queue_day_mon(scheduler_state.days[1]);
+        app.set_queue_day_tue(scheduler_state.days[2]);
+        app.set_queue_day_wed(scheduler_state.days[3]);
+        app.set_queue_day_thu(scheduler_state.days[4]);
+        app.set_queue_day_fri(scheduler_state.days[5]);
+        app.set_queue_day_sat(scheduler_state.days[6]);
     });
 }
 
@@ -1363,6 +1560,60 @@ fn wire_queue_item_controls(app: &MainWindow, selected_queue: Arc<Mutex<i64>>, s
             let _ = repo.upsert_queue_group(&group);
         })
     });
+    app.on_queue_schedule_toggle_enabled({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || mutate_selected_queue(selected_queue.clone(), |repo, mut group| {
+            let mut schedule = parse_schedule_config(group.schedule_json.as_deref());
+            schedule.enabled = !schedule.enabled;
+            group.schedule_json = serialize_schedule_config(&schedule);
+            let _ = repo.upsert_queue_group(&group);
+        })
+    });
+    app.on_queue_schedule_start_minus({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || mutate_selected_queue(selected_queue.clone(), |repo, mut group| {
+            let mut schedule = parse_schedule_config(group.schedule_json.as_deref());
+            schedule.start_time_minutes = shift_schedule_minutes(schedule.start_time_minutes, -30);
+            group.schedule_json = serialize_schedule_config(&schedule);
+            let _ = repo.upsert_queue_group(&group);
+        })
+    });
+    app.on_queue_schedule_start_plus({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || mutate_selected_queue(selected_queue.clone(), |repo, mut group| {
+            let mut schedule = parse_schedule_config(group.schedule_json.as_deref());
+            schedule.start_time_minutes = shift_schedule_minutes(schedule.start_time_minutes, 30);
+            group.schedule_json = serialize_schedule_config(&schedule);
+            let _ = repo.upsert_queue_group(&group);
+        })
+    });
+    app.on_queue_schedule_stop_minus({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || mutate_selected_queue(selected_queue.clone(), |repo, mut group| {
+            let mut schedule = parse_schedule_config(group.schedule_json.as_deref());
+            schedule.stop_time_minutes = shift_schedule_minutes(schedule.stop_time_minutes, -30);
+            group.schedule_json = serialize_schedule_config(&schedule);
+            let _ = repo.upsert_queue_group(&group);
+        })
+    });
+    app.on_queue_schedule_stop_plus({
+        let selected_queue = Arc::clone(&selected_queue);
+        move || mutate_selected_queue(selected_queue.clone(), |repo, mut group| {
+            let mut schedule = parse_schedule_config(group.schedule_json.as_deref());
+            schedule.stop_time_minutes = shift_schedule_minutes(schedule.stop_time_minutes, 30);
+            group.schedule_json = serialize_schedule_config(&schedule);
+            let _ = repo.upsert_queue_group(&group);
+        })
+    });
+    app.on_queue_schedule_toggle_day({
+        let selected_queue = Arc::clone(&selected_queue);
+        move |day| mutate_selected_queue(selected_queue.clone(), |repo, mut group| {
+            let mut schedule = parse_schedule_config(group.schedule_json.as_deref());
+            toggle_schedule_day(&mut schedule.days_of_week, day as u8);
+            group.schedule_json = serialize_schedule_config(&schedule);
+            let _ = repo.upsert_queue_group(&group);
+        })
+    });
 }
 
 fn wire_download_toolbar_actions(
@@ -1376,6 +1627,7 @@ fn wire_download_toolbar_actions(
     app.on_add_url({
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
         let sort_state = Arc::clone(&sort_state);
         let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
@@ -1411,6 +1663,7 @@ fn wire_download_toolbar_actions(
                 let weak_later = weak.clone();
                 let selected_queue_for_later = Arc::clone(&selected_queue);
                 let selected_download_for_later = Arc::clone(&selected_download);
+                let checked_downloads_for_later = Arc::clone(&checked_downloads);
                 let sort_state_for_later = Arc::clone(&sort_state);
                 let category_filter_for_later = Arc::clone(&category_filter);
                 dialog.on_download_later(move |url, file_name, output_dir, queue_index, category| {
@@ -1428,6 +1681,7 @@ fn wire_download_toolbar_actions(
                                 &weak_later,
                                 selected_queue_id,
                                 selected_download_for_later.clone(),
+                                checked_downloads_for_later.clone(),
                                 &sort_state_for_later,
                                 &category_filter_for_later,
                             );
@@ -1442,6 +1696,7 @@ fn wire_download_toolbar_actions(
                 let weak_now = weak.clone();
                 let selected_queue_for_start = Arc::clone(&selected_queue);
                 let selected_download_for_start = Arc::clone(&selected_download);
+                let checked_downloads_for_start = Arc::clone(&checked_downloads);
                 let sort_state_for_start = Arc::clone(&sort_state);
                 let category_filter_for_start = Arc::clone(&category_filter);
                 dialog.on_start_now(move |url, file_name, output_dir, queue_index, category| {
@@ -1459,6 +1714,7 @@ fn wire_download_toolbar_actions(
                                 &weak_now,
                                 selected_queue_id,
                                 selected_download_for_start.clone(),
+                                checked_downloads_for_start.clone(),
                                 &sort_state_for_start,
                                 &category_filter_for_start,
                             );
