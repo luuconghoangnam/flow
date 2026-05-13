@@ -332,6 +332,8 @@ export component MainWindow inherits Window {
     callback tools-browser-integration(); callback tools-per-host-settings(); callback tools-open-settings();
     callback help-about(); callback help-check-updates(); callback help-online-help(); callback help-donate(); callback help-translators();
     callback menu-tasks(); callback menu-file(); callback menu-downloads(); callback menu-view(); callback menu-tools(); callback menu-help();
+    callback tasks-delete-finished(); callback tasks-delete-unfinished(); callback tasks-delete-current-queue();
+    callback file-open-add-url(); callback file-open-batch-download(); callback file-open-settings();
 
     in-out property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
     in-out property <bool> queue-stop-on-empty: false;
@@ -891,13 +893,17 @@ export component MainWindow inherits Window {
                 MenuItem { text: "Pause All"; clicked => { root.tasks-pause-all(); root.active-menu = -1; } }
                 MenuItem { text: "Stop All"; clicked => { root.stop-all(); root.active-menu = -1; } }
                 MenuItem { text: "Retry Failed"; clicked => { root.retry-failed(); root.active-menu = -1; } }
+                MenuItem { text: "Delete Finished"; clicked => { root.tasks-delete-finished(); root.active-menu = -1; } }
+                MenuItem { text: "Delete Unfinished"; clicked => { root.tasks-delete-unfinished(); root.active-menu = -1; } }
+                MenuItem { text: "Delete Current Queue"; clicked => { root.tasks-delete-current-queue(); root.active-menu = -1; } }
                 MenuItem { text: "Cleanup"; clicked => { root.cleanup-finished(); root.active-menu = -1; } }
             }
 
             if active-menu == 1: VerticalLayout {
                 spacing: 2px;
-                MenuItem { text: "Add URL"; clicked => { root.add-url(); current-tab = 0; root.active-menu = -1; } }
-                MenuItem { text: "Batch Download"; clicked => { root.file-batch-download(); root.active-menu = -1; } }
+                MenuItem { text: "Add URL"; clicked => { root.file-open-add-url(); current-tab = 0; root.active-menu = -1; } }
+                MenuItem { text: "Batch Download"; clicked => { root.file-open-batch-download(); root.active-menu = -1; } }
+                MenuItem { text: "Settings"; clicked => { root.file-open-settings(); current-tab = 2; root.active-menu = -1; } }
                 MenuItem { text: "Exit"; clicked => { root.app-exit(); root.active-menu = -1; } }
             }
 
@@ -914,6 +920,8 @@ export component MainWindow inherits Window {
             if active-menu == 3: VerticalLayout {
                 spacing: 2px;
                 MenuItem { text: "Refresh"; clicked => { root.view-refresh(); root.active-menu = -1; } }
+                MenuItem { text: "Sort by Name"; clicked => { root.downloads-sort-by-name(); root.active-menu = -1; } }
+                MenuItem { text: "Sort by Size"; clicked => { root.downloads-sort-by-size(); root.active-menu = -1; } }
                 MenuItem { text: "Show Toolbar"; clicked => { root.view-toggle-toolbar(); root.active-menu = -1; } }
                 MenuItem { text: "Show Status Bar"; clicked => { root.view-toggle-status-bar(); root.active-menu = -1; } }
             }
@@ -964,6 +972,11 @@ export component AddUrlDialog inherits Window {
     in-out property <string> url: "";
     in-out property <string> file-name: "";
     in-out property <string> output-dir: "";
+    in property <string> resolved-file-name: "download.bin";
+    in property <string> resolved-output-dir: "";
+    in property <string> category-hint: "General";
+    in property <string> dialog-hint: "Paste a direct HTTP or HTTPS link.";
+    in property <bool> url-valid: true;
     in property <[string]> queue-options: ["Main"];
     in-out property <int> queue-index: 0;
     in-out property <string> category: "General";
@@ -991,67 +1004,81 @@ export component AddUrlDialog inherits Window {
         // Content
         VerticalLayout {
             padding: 20px; spacing: 14px;
+
+            Rectangle {
+                height: 64px;
+                background: Palette.panel;
+                border-color: root.url-valid ? Palette.border : Palette.error;
+                border-width: 1px;
+                VerticalLayout {
+                    padding-left: 12px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px;
+                    spacing: 4px;
+                    Text { text: root.dialog-hint; font-size: 11px; font-weight: 600; color: root.url-valid ? Palette.text-primary : Palette.error; overflow: elide; }
+                    Text { text: "Resolved file: " + root.resolved-file-name; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                    Text { text: "Save to: " + root.resolved-output-dir + "  •  Category: " + root.category-hint; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                }
+            }
             
             // URL Input
-                VerticalLayout {
-                    spacing: 6px;
-                    Text { text: "Download URL"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Download URL"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
                 StandardInput { 
                     width: 100%; 
                     text: root.url; 
                     placeholder: "https://example.com/file.zip"; 
                     edited(t) => { root.url = t; } 
                 }
+            }
 
-                // Category
-                VerticalLayout {
-                    spacing: 6px;
-                    Text { text: "Category"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
-                    StandardInput {
-                        width: 100%;
-                        text: root.category;
-                        placeholder: "General";
-                        edited(t) => { root.category = t; }
-                    }
+            // Category
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Category"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                StandardInput {
+                    width: 100%;
+                    text: root.category;
+                    placeholder: "General";
+                    edited(t) => { root.category = t; }
                 }
+            }
 
-                // Queue Selection
-                VerticalLayout {
-                    spacing: 6px;
-                    Text { text: "Queue"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
-                    HorizontalLayout {
-                        spacing: 8px;
-                        ToolbarButton {
-                            text: "-";
-                            min-width: 38px;
-                            height: 32px;
-                            icon-type: "minus";
-                            enabled: root.queue-index > 0;
-                            clicked => { root.queue-index -= 1; }
+            // Queue Selection
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Queue"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    ToolbarButton {
+                        text: "-";
+                        min-width: 38px;
+                        height: 32px;
+                        icon-type: "minus";
+                        enabled: root.queue-index > 0;
+                        clicked => { root.queue-index -= 1; }
+                    }
+                    Rectangle {
+                        height: 32px;
+                        width: 100%;
+                        background: Palette.panel;
+                        border-color: Palette.border;
+                        border-width: 1px;
+                        Text {
+                            text: root.queue-index >= 0 && root.queue-index < root.queue-options.length ? root.queue-options[root.queue-index] : "Main";
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: Palette.text-primary;
                         }
-                        Rectangle {
-                            height: 32px;
-                            width: 100%;
-                            background: Palette.panel;
-                            border-color: Palette.border;
-                            border-width: 1px;
-                            Text {
-                                text: root.queue-index >= 0 && root.queue-index < root.queue-options.length ? root.queue-options[root.queue-index] : "Main";
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                                font-size: 11px;
-                                font-weight: 600;
-                                color: Palette.text-primary;
-                            }
-                        }
-                        ToolbarButton {
-                            text: "+";
-                            min-width: 38px;
-                            height: 32px;
-                            icon-type: "plus";
-                            enabled: root.queue-index + 1 < root.queue-options.length;
-                            clicked => { root.queue-index += 1; }
-                        }
+                    }
+                    ToolbarButton {
+                        text: "+";
+                        min-width: 38px;
+                        height: 32px;
+                        icon-type: "plus";
+                        enabled: root.queue-index + 1 < root.queue-options.length;
+                        clicked => { root.queue-index += 1; }
                     }
                 }
             }
@@ -1533,6 +1560,11 @@ export component PerHostSettingsDialog inherits Window {
     background: Palette.bg;
 
     in property <string> entry-position: "0/0";
+    in property <string> dialog-summary: "No host rule selected";
+    in property <bool> has-entry: false;
+    in property <bool> can-go-prev: false;
+    in property <bool> can-go-next: false;
+    in property <bool> can-delete-entry: false;
     in-out property <string> host-pattern: "";
     in-out property <string> username: "";
     in-out property <string> password: "";
@@ -1565,10 +1597,23 @@ export component PerHostSettingsDialog inherits Window {
 
             HorizontalLayout {
                 spacing: 8px;
-                ToolbarButton { text: "Prev"; height: 30px; clicked => { root.prev-entry(); } }
-                ToolbarButton { text: "Next"; height: 30px; clicked => { root.next-entry(); } }
+                ToolbarButton { text: "Prev"; height: 30px; enabled: root.can-go-prev; clicked => { root.prev-entry(); } }
+                ToolbarButton { text: "Next"; height: 30px; enabled: root.can-go-next; clicked => { root.next-entry(); } }
                 ToolbarButton { text: "Add New"; height: 30px; clicked => { root.add-entry(); } }
                 Rectangle { width: 100%; }
+            }
+
+            Rectangle {
+                height: 56px;
+                background: Palette.panel;
+                border-color: Palette.border;
+                border-width: 1px;
+                VerticalLayout {
+                    padding-left: 12px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px;
+                    spacing: 4px;
+                    Text { text: root.dialog-summary; font-size: 11px; font-weight: 600; color: Palette.text-primary; overflow: elide; }
+                    Text { text: root.has-entry ? "Set credentials, custom user agent, or thread limits for this host rule." : "No rules yet. Click Add New to create your first host-specific override."; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                }
             }
 
             VerticalLayout {
@@ -1608,7 +1653,7 @@ export component PerHostSettingsDialog inherits Window {
             height: 56px; background: Palette.panel;
             HorizontalLayout {
                 padding-left: 16px; padding-right: 16px; spacing: 8px;
-                ToolbarButton { text: "Delete"; height: 34px; clicked => { root.delete-entry(); } }
+                ToolbarButton { text: "Delete"; height: 34px; enabled: root.can-delete-entry; clicked => { root.delete-entry(); } }
                 Rectangle { width: 100%; }
                 ToolbarButton { text: "Save"; height: 34px; clicked => { root.save-entry(root.host-pattern, root.username, root.password, root.user-agent, root.thread-count-text); } }
                 ToolbarButton { text: "Close"; height: 34px; clicked => { root.close-dialog(); } }

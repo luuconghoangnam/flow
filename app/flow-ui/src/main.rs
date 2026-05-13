@@ -892,6 +892,79 @@ fn main() {
         }
     });
 
+    app.on_file_open_add_url({
+        let weak = app.as_weak();
+        move || {
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.invoke_add_url();
+            });
+        }
+    });
+
+    app.on_file_open_batch_download({
+        let weak = app.as_weak();
+        move || {
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.invoke_file_batch_download();
+            });
+        }
+    });
+
+    app.on_file_open_settings({
+        let weak = app.as_weak();
+        move || {
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.set_current_tab(2);
+                app.set_status_message("Settings tab opened".into());
+            });
+        }
+    });
+
+    app.on_tasks_delete_finished({
+        let weak = app.as_weak();
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
+        move || {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            let removed = delete_jobs_for_current_queue(queue_id, &["Completed"], false);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
+            set_status(&weak, &format!("Deleted {removed} finished item(s) from current queue"));
+        }
+    });
+
+    app.on_tasks_delete_unfinished({
+        let weak = app.as_weak();
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
+        move || {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            let removed = delete_jobs_for_current_queue(queue_id, &["Queued", "Downloading", "Paused", "Failed", "Cancelled"], false);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
+            set_status(&weak, &format!("Deleted {removed} unfinished item(s) from current queue"));
+        }
+    });
+
+    app.on_tasks_delete_current_queue({
+        let weak = app.as_weak();
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
+        move || {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            let removed = delete_jobs_for_current_queue(queue_id, &[], true);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
+            set_status(&weak, &format!("Deleted {removed} item(s) from current queue"));
+        }
+    });
+
     app.on_app_exit({
         let weak = app.as_weak();
         move || {
@@ -1318,6 +1391,28 @@ fn toggle_schedule_day(days: &mut Vec<u8>, day: u8) {
     }
 }
 
+fn delete_jobs_for_current_queue(queue_id: i64, statuses: &[&str], delete_all: bool) -> usize {
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else {
+        return 0;
+    };
+    let _ = repo.init_schema();
+    let Ok(jobs) = repo.list_queue_jobs() else {
+        return 0;
+    };
+    let mut removed = 0usize;
+    for job in jobs.into_iter().filter(|job| job.queue_id == queue_id) {
+        let matches_status = delete_all || statuses.iter().any(|status| *status == job.status);
+        if !matches_status {
+            continue;
+        }
+        let _ = flow_core::queue::pause_active_job(&job.id);
+        if repo.delete_download_job(&job.id).is_ok() {
+            removed += 1;
+        }
+    }
+    removed
+}
+
 fn load_queue_ui_state(
     selected_queue_id: i64,
     sort_state: &Arc<Mutex<SortState>>,
@@ -1640,17 +1735,25 @@ fn wire_download_toolbar_actions(
                 .position(|id| *id == queue_id)
                 .unwrap_or(0) as i32;
             if let Ok(dialog) = AddUrlDialog::new() {
+                let default_folder = resolve_default_download_folder();
+                let default_file = infer_file_name("");
                 dialog.set_url("".into());
                 dialog.set_file_name("".into());
-                dialog.set_output_dir(resolve_default_download_folder().into());
+                dialog.set_output_dir(default_folder.clone().into());
                 dialog.set_category("General".into());
+                dialog.set_resolved_file_name(default_file.into());
+                dialog.set_resolved_output_dir(default_folder.clone().into());
+                dialog.set_category_hint("General".into());
+                dialog.set_dialog_hint("Paste a direct HTTP or HTTPS link. Flow will infer the file name and category automatically.".into());
+                dialog.set_url_valid(true);
                 dialog.set_queue_options(ModelRc::new(VecModel::from(queue_state.queue_labels.clone())));
                 dialog.set_queue_index(selected_queue_index);
                 let dialog_weak = dialog.as_weak();
                 dialog.on_choose_folder(move || {
                     if let Some(folder) = open_folder_picker() {
                         if let Some(dlg) = dialog_weak.upgrade() {
-                            dlg.set_output_dir(folder.into());
+                            dlg.set_output_dir(folder.clone().into());
+                            dlg.set_resolved_output_dir(folder.into());
                         }
                     }
                 });
@@ -1671,8 +1774,21 @@ fn wire_download_toolbar_actions(
                         .get(queue_index as usize)
                         .copied()
                         .unwrap_or(queue_id);
-                    let category = normalize_category_input(file_name.as_str(), url.as_str(), category.as_str());
-                    match enqueue_manual_url(selected_queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), false, category.as_str()) {
+                    let submit = match prepare_manual_download_submission(url.as_str(), file_name.as_str(), output_dir.as_str(), category.as_str()) {
+                        Ok(submit) => submit,
+                        Err(message) => {
+                            set_status(&weak_later, &message);
+                            if let Some(dlg) = dialog_weak.upgrade() {
+                                dlg.set_url_valid(false);
+                                dlg.set_dialog_hint(message.clone().into());
+                                dlg.set_resolved_file_name(resolve_manual_file_name(url.as_str(), file_name.as_str()).into());
+                                dlg.set_resolved_output_dir(resolve_manual_output_dir(output_dir.as_str()).into());
+                                dlg.set_category_hint(resolve_manual_category(file_name.as_str(), url.as_str(), category.as_str()).into());
+                            }
+                            return;
+                        }
+                    };
+                    match enqueue_manual_url(selected_queue_id, submit.url.as_str(), submit.file_name.as_str(), submit.output_dir.as_str(), false, submit.category.as_str()) {
                         Ok(created_name) => {
                             if let Ok(mut selected) = selected_queue_for_later.lock() {
                                 *selected = selected_queue_id;
@@ -1685,7 +1801,7 @@ fn wire_download_toolbar_actions(
                                 &sort_state_for_later,
                                 &category_filter_for_later,
                             );
-                            set_status(&weak_later, &format!("Queued {created_name} in {}", category));
+                            set_status(&weak_later, &format!("Queued {created_name} in {}", submit.category));
                             if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
                         }
                         Err(message) => set_status(&weak_later, &message),
@@ -1704,8 +1820,21 @@ fn wire_download_toolbar_actions(
                         .get(queue_index as usize)
                         .copied()
                         .unwrap_or(queue_id);
-                    let category = normalize_category_input(file_name.as_str(), url.as_str(), category.as_str());
-                    match enqueue_manual_url(selected_queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), true, category.as_str()) {
+                    let submit = match prepare_manual_download_submission(url.as_str(), file_name.as_str(), output_dir.as_str(), category.as_str()) {
+                        Ok(submit) => submit,
+                        Err(message) => {
+                            set_status(&weak_now, &message);
+                            if let Some(dlg) = dialog_weak.upgrade() {
+                                dlg.set_url_valid(false);
+                                dlg.set_dialog_hint(message.clone().into());
+                                dlg.set_resolved_file_name(resolve_manual_file_name(url.as_str(), file_name.as_str()).into());
+                                dlg.set_resolved_output_dir(resolve_manual_output_dir(output_dir.as_str()).into());
+                                dlg.set_category_hint(resolve_manual_category(file_name.as_str(), url.as_str(), category.as_str()).into());
+                            }
+                            return;
+                        }
+                    };
+                    match enqueue_manual_url(selected_queue_id, submit.url.as_str(), submit.file_name.as_str(), submit.output_dir.as_str(), true, submit.category.as_str()) {
                         Ok(created_name) => {
                             if let Ok(mut selected) = selected_queue_for_start.lock() {
                                 *selected = selected_queue_id;
@@ -1718,7 +1847,7 @@ fn wire_download_toolbar_actions(
                                 &sort_state_for_start,
                                 &category_filter_for_start,
                             );
-                            set_status(&weak_now, &format!("Queued {created_name} to start in {}", category));
+                            set_status(&weak_now, &format!("Queued {created_name} to start in {}", submit.category));
                             if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
                         }
                         Err(message) => set_status(&weak_now, &message),
@@ -2044,6 +2173,54 @@ fn parse_batch_urls(urls_text: &str) -> (Vec<String>, usize) {
     (out, invalid)
 }
 
+fn resolve_manual_file_name(url: &str, file_name: &str) -> String {
+    if file_name.trim().is_empty() {
+        infer_file_name(url)
+    } else {
+        file_name.trim().to_string()
+    }
+}
+
+fn resolve_manual_output_dir(output_dir: &str) -> String {
+    if output_dir.trim().is_empty() {
+        resolve_default_download_folder()
+    } else {
+        output_dir.trim().to_string()
+    }
+}
+
+fn resolve_manual_category(file_name: &str, url: &str, category: &str) -> String {
+    normalize_category_input(file_name, url, category)
+}
+
+struct ManualDownloadSubmission {
+    url: String,
+    file_name: String,
+    output_dir: String,
+    category: String,
+}
+
+fn prepare_manual_download_submission(url: &str, file_name: &str, output_dir: &str, category: &str) -> Result<ManualDownloadSubmission, String> {
+    let normalized_url = url.trim().to_string();
+    if normalized_url.is_empty() {
+        return Err("Download URL cannot be empty".to_string());
+    }
+    if !is_http_url(normalized_url.as_str()) {
+        return Err("Only HTTP and HTTPS URLs are supported in this dialog".to_string());
+    }
+    let resolved_file_name = resolve_manual_file_name(normalized_url.as_str(), file_name);
+    let resolved_output_dir = resolve_manual_output_dir(output_dir);
+    if resolved_output_dir.trim().is_empty() {
+        return Err("Download folder cannot be empty".to_string());
+    }
+    Ok(ManualDownloadSubmission {
+        url: normalized_url.clone(),
+        file_name: resolved_file_name.clone(),
+        output_dir: resolved_output_dir,
+        category: resolve_manual_category(resolved_file_name.as_str(), normalized_url.as_str(), category),
+    })
+}
+
 fn enqueue_batch_urls(urls_text: &str, output_dir: &str, queue_id: i64, start_now: bool, category: &str) -> (usize, usize) {
     let (urls, mut invalid) = parse_batch_urls(urls_text);
     let mut queued = 0usize;
@@ -2103,6 +2280,7 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
 
     {
         let dialog_weak = dialog.as_weak();
+        let weak_status = weak.clone();
         let entries = entries.clone();
         let current_index = current_index.clone();
         dialog.on_add_entry(move || {
@@ -2118,6 +2296,7 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
                     *idx = items.len().saturating_sub(1);
                 }
             }
+            set_status(&weak_status, "New per-host rule created. Fill the host pattern, then save.");
             if let Some(dlg) = dialog_weak.upgrade() {
                 sync_per_host_dialog(&dlg, entries.clone(), current_index.clone());
             }
@@ -2130,7 +2309,7 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
         let entries = entries.clone();
         let current_index = current_index.clone();
         dialog.on_save_entry(move |host, username, password, user_agent, thread_count_text| {
-            let host = host.trim().to_string();
+            let host = normalize_host_pattern(host.as_str());
             if host.is_empty() {
                 set_status(&weak_status, "Host pattern cannot be empty");
                 return;
@@ -2148,6 +2327,14 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
             };
 
             if let (Ok(mut items), Ok(idx)) = (entries.lock(), current_index.lock()) {
+                let current_slot = if items.is_empty() { None } else { Some((*idx).min(items.len().saturating_sub(1))) };
+                let duplicate = items.iter().enumerate().any(|(entry_idx, item)| {
+                    item.host.eq_ignore_ascii_case(host.as_str()) && Some(entry_idx) != current_slot
+                });
+                if duplicate {
+                    set_status(&weak_status, "A rule for this host pattern already exists");
+                    return;
+                }
                 if items.is_empty() {
                     items.push(PerHostSettings {
                         host: host.clone(),
@@ -2157,7 +2344,7 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
                         thread_count,
                     });
                 } else {
-                    let index = (*idx).min(items.len().saturating_sub(1));
+                    let index = current_slot.unwrap_or(0);
                     items[index] = PerHostSettings {
                         host: host.clone(),
                         username: none_if_empty(username.as_str()),
@@ -2168,7 +2355,7 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
                 }
                 save_per_host_entries(items.as_slice());
             }
-            set_status(&weak_status, "Per-host entry saved");
+            set_status(&weak_status, &format!("Per-host rule saved for {host}"));
             if let Some(dlg) = dialog_weak.upgrade() {
                 sync_per_host_dialog(&dlg, entries.clone(), current_index.clone());
             }
@@ -2184,12 +2371,17 @@ fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
             if let (Ok(mut items), Ok(mut idx)) = (entries.lock(), current_index.lock()) {
                 if !items.is_empty() {
                     let remove_at = (*idx).min(items.len().saturating_sub(1));
+                    let removed_host = items.get(remove_at).map(|item| item.host.clone()).unwrap_or_default();
                     items.remove(remove_at);
                     if *idx > 0 {
                         *idx -= 1;
                     }
                     save_per_host_entries(items.as_slice());
-                    set_status(&weak_status, "Per-host entry deleted");
+                    if removed_host.is_empty() {
+                        set_status(&weak_status, "Per-host entry deleted");
+                    } else {
+                        set_status(&weak_status, &format!("Removed host rule {removed_host}"));
+                    }
                 } else {
                     set_status(&weak_status, "No per-host entry to delete");
                 }
@@ -2219,13 +2411,18 @@ fn sync_per_host_dialog(dialog: &PerHostSettingsDialog, entries: Arc<Mutex<Vec<P
         idx = items.len() - 1;
     }
     let total = items.len();
-    let (host, username, password, user_agent, thread_count_text) = if total == 0 {
+    let has_entry = total > 0;
+    let can_go_prev = has_entry && idx > 0;
+    let can_go_next = has_entry && idx + 1 < total;
+    let can_delete_entry = has_entry;
+    let (host, username, password, user_agent, thread_count_text, summary) = if total == 0 {
         (
             String::new(),
             String::new(),
             String::new(),
             String::new(),
             String::new(),
+            "No host overrides configured".to_string(),
         )
     } else {
         let item = &items[idx];
@@ -2235,12 +2432,23 @@ fn sync_per_host_dialog(dialog: &PerHostSettingsDialog, entries: Arc<Mutex<Vec<P
             item.password.clone().unwrap_or_default(),
             item.user_agent.clone().unwrap_or_default(),
             item.thread_count.map(|v| v.to_string()).unwrap_or_default(),
+            format!(
+                "Rule for {}{}{}",
+                if item.host.trim().is_empty() { "(unsaved host pattern)" } else { item.host.trim() },
+                if item.thread_count.is_some() { " • custom threads" } else { "" },
+                if item.user_agent.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false) { " • custom UA" } else { "" }
+            ),
         )
     };
     if let Ok(mut write_idx) = index.lock() {
         *write_idx = idx;
     }
     dialog.set_entry_position(format!("{}/{}", if total == 0 { 0 } else { idx + 1 }, total).into());
+    dialog.set_dialog_summary(summary.into());
+    dialog.set_has_entry(has_entry);
+    dialog.set_can_go_prev(can_go_prev);
+    dialog.set_can_go_next(can_go_next);
+    dialog.set_can_delete_entry(can_delete_entry);
     dialog.set_host_pattern(host.into());
     dialog.set_username(username.into());
     dialog.set_password(password.into());
@@ -2252,6 +2460,10 @@ fn save_per_host_entries(entries: &[PerHostSettings]) {
     mutate_settings(|settings| {
         settings.per_host = entries.to_vec();
     });
+}
+
+fn normalize_host_pattern(value: &str) -> String {
+    value.trim().trim_start_matches("http://").trim_start_matches("https://").trim_end_matches('/').to_ascii_lowercase()
 }
 
 fn none_if_empty(value: &str) -> Option<String> {
