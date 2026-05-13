@@ -10,7 +10,6 @@ mod home_action_state;
 mod home_action_status;
 mod home_actions;
 mod queue_actions;
-mod selection_affordance;
 mod selection_model;
 
 use std::sync::mpsc::channel;
@@ -23,6 +22,7 @@ use home_action_descriptors::{derive_downloads_menu_presentation, derive_home_ac
 use home_action_menu_presentation::{apply_downloads_menu_presentation, map_submenu_rows};
 use home_action_registry::{HomeActionRegistry, derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_open_file_or_properties, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
 use home_action_state::{derive_home_action_state, HomeActionState};
+use home_action_status::{classify_download_activity, DownloadActivity};
 
 
 use queue_actions::{clear_selection_after_delete, effective_checked_ids, mutate_selected_job_with_status, open_multiple_selected_paths, pause_all_jobs, selected_open_result, stop_all_result};
@@ -44,6 +44,10 @@ struct QueueUiState {
     rows: Vec<DownloadRow>,
     row_ids: Vec<String>,
     queue_summary: String,
+    active_count: i32,
+    total_jobs: i32,
+    downloaded_bytes: u64,
+    total_bytes: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1618,7 +1622,17 @@ fn load_queue_ui_state(
 ) -> QueueUiState {
     let db_path = flow_db_path();
     let Some(repo) = SqliteDownloadRepository::open(&db_path).ok() else {
-        return QueueUiState { queue_labels: vec![], queue_ids: vec![], rows: vec![], row_ids: vec![], queue_summary: "DB Error".to_string() };
+        return QueueUiState {
+            queue_labels: vec![],
+            queue_ids: vec![],
+            rows: vec![],
+            row_ids: vec![],
+            queue_summary: "DB Error".to_string(),
+            active_count: 0,
+            total_jobs: 0,
+            downloaded_bytes: 0,
+            total_bytes: 0,
+        };
     };
     let _ = repo.init_schema();
 
@@ -1629,7 +1643,17 @@ fn load_queue_ui_state(
         .map(|g| format!("{} | max {} | stop_on_empty {} | {}", g.name, g.max_concurrent, g.stop_on_empty, if g.active { "active" } else { "paused" }))
         .unwrap_or_else(|| "Queue config unavailable".to_string());
     let Ok(jobs) = repo.list_queue_view_rows() else {
-        return QueueUiState { queue_labels: groups, queue_ids: group_ids, rows: vec![], row_ids: vec![], queue_summary: summary };
+        return QueueUiState {
+            queue_labels: groups,
+            queue_ids: group_ids,
+            rows: vec![],
+            row_ids: vec![],
+            queue_summary: summary,
+            active_count: 0,
+            total_jobs: 0,
+            downloaded_bytes: 0,
+            total_bytes: 0,
+        };
     };
     let category = category_filter.lock().map(|v| *v).unwrap_or(CategoryFilter::All);
     let mut filtered_jobs = jobs
@@ -1647,8 +1671,26 @@ fn load_queue_ui_state(
     let active_sort = sort_state.lock().map(|v| *v).unwrap_or_default();
     sort_queue_rows(&mut filtered_jobs, active_sort);
 
+    let total_jobs = filtered_jobs.len() as i32;
+    let active_count = filtered_jobs
+        .iter()
+        .filter(|row| matches!(classify_download_activity(row.status.as_str()), DownloadActivity::Downloading | DownloadActivity::Queued))
+        .count() as i32;
+    let downloaded_bytes = filtered_jobs.iter().map(|row| row.downloaded_bytes).sum::<u64>();
+    let total_bytes = filtered_jobs.iter().filter_map(|row| row.total_bytes).sum::<u64>();
+
     if filtered_jobs.is_empty() {
-        return QueueUiState { queue_labels: groups, queue_ids: group_ids, rows: vec![], row_ids: vec![], queue_summary: summary };
+        return QueueUiState {
+            queue_labels: groups,
+            queue_ids: group_ids,
+            rows: vec![],
+            row_ids: vec![],
+            queue_summary: summary,
+            active_count,
+            total_jobs,
+            downloaded_bytes,
+            total_bytes,
+        };
     }
 
     let row_ids = filtered_jobs.iter().map(|row| row.id.clone()).collect::<Vec<_>>();
@@ -1679,7 +1721,17 @@ fn load_queue_ui_state(
             }
         })
         .collect::<Vec<_>>();
-    QueueUiState { queue_labels: groups, queue_ids: group_ids, rows, row_ids, queue_summary: summary }
+    QueueUiState {
+        queue_labels: groups,
+        queue_ids: group_ids,
+        rows,
+        row_ids,
+        queue_summary: summary,
+        active_count,
+        total_jobs,
+        downloaded_bytes,
+        total_bytes,
+    }
 }
 
 fn sort_queue_rows(rows: &mut [flow_core::QueueViewRow], sort: SortState) {
@@ -1789,6 +1841,16 @@ fn refresh_queue_ui(
         app.set_queue_schedule_enabled(scheduler_state.enabled);
         app.set_queue_schedule_start(scheduler_state.start_text.into());
         app.set_queue_schedule_stop(scheduler_state.stop_text.into());
+        app.set_footer_active_count(state.active_count);
+        app.set_footer_speed_text(format_bytes(state.downloaded_bytes).into());
+        app.set_footer_total_text(
+            if state.total_bytes > 0 {
+                format!("{} / {}", state.total_jobs, format_bytes(state.total_bytes))
+            } else {
+                state.total_jobs.to_string()
+            }
+            .into(),
+        );
         app.set_queue_day_sun(scheduler_state.days[0]);
         app.set_queue_day_mon(scheduler_state.days[1]);
         app.set_queue_day_tue(scheduler_state.days[2]);
@@ -2212,9 +2274,16 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
-            let result = selected_open_result(open_multiple_selected_paths(&ids, false), false);
-            set_status(&weak, &result.status_message);
+            execute_downloads_menu_command(
+                "open-or-properties",
+                -1,
+                queue_id,
+                selected_download.clone(),
+                checked_downloads.clone(),
+                &sort_state,
+                &category_filter,
+                &weak,
+            );
         }
     });
     app.on_open_selected_folder({

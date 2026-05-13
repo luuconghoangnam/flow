@@ -542,6 +542,9 @@ export component MainWindow inherits Window {
     in property <bool> can-move-selected-up: false;
     in property <bool> can-move-selected-down: false;
     in property <bool> can-requeue-selected: false;
+    in property <int> footer-active-count: 0;
+    in property <string> footer-speed-text: "0 B";
+    in property <string> footer-total-text: "0";
     in property <[string]> move-queue-labels: [];
     in property <[string]> move-category-labels: [];
     in-out property <bool> show-properties-dialog: false;
@@ -673,8 +676,8 @@ export component MainWindow inherits Window {
             Rectangle {
                 width: root.categories-panel-width; background: Palette.surface;
                 VerticalLayout {
-                    padding-left: 6px; padding-right: 6px; padding-top: 8px; padding-bottom: 8px;
-                    spacing: 3px;
+                    padding-left: 5px; padding-right: 5px; padding-top: 6px; padding-bottom: 6px;
+                    spacing: 2px;
                     
                     Text { text: "CATEGORIES"; font-size: 10px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.5px; }
                     TreeItem { text: "All Downloads"; icon-type: "all"; active: root.selected-category-index == 0; clicked => { root.selected-category-index = 0; root.select-category(0); } }
@@ -742,16 +745,19 @@ export component MainWindow inherits Window {
                     padding-left: 0px; padding-right: 0px; padding-top: 0px; padding-bottom: 0px;
                     spacing: 0px;
                 if current-tab == 0: VerticalLayout {
-                    padding-left: 4px; padding-right: 4px; padding-top: 0px; padding-bottom: 0px;
+                    padding-left: 2px; padding-right: 2px; padding-top: 0px; padding-bottom: 0px;
                     spacing: 0px;
-                    Rectangle { height: 4px; background: transparent; }
+                    Rectangle { height: 2px; background: transparent; }
                     // Header for Table
                     Rectangle {
                         height: 22px; background: Palette.panel;
                         HorizontalLayout {
-                            padding-left: 8px; padding-right: 8px; spacing: 0;
+                            padding-left: 6px; padding-right: 6px; spacing: 0;
                             Rectangle {
-                                width: 300px;
+                                width: 28px;
+                            }
+                            Rectangle {
+                                width: 272px;
                                 Text { text: "File Name"; width: 100%; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; }
                                 TouchArea { clicked => { root.downloads-sort-by-name(); } }
                             }
@@ -777,6 +783,7 @@ export component MainWindow inherits Window {
                                 Text { text: "Date Added"; width: 100%; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
                                 TouchArea { clicked => { root.downloads-sort-by-date-added(); } }
                             }
+                            Rectangle { width: 100%; }
                         }
                         Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
                     }
@@ -784,11 +791,11 @@ export component MainWindow inherits Window {
                     // Table Body
                     ScrollView {
                         HorizontalLayout {
-                            padding-left: 4px; padding-right: 4px; spacing: 0px;
+                            padding-left: 2px; padding-right: 2px; spacing: 0px;
                             VerticalLayout {
                                 padding: 0; spacing: 0;
                             if root.download-rows.length == 0: Rectangle {
-                                height: 120px;
+                                height: 116px;
                                 background: transparent;
                                 VerticalLayout {
                                     alignment: center;
@@ -800,25 +807,26 @@ export component MainWindow inherits Window {
                                 }
                             }
                             for row[i] in root.download-rows: Rectangle {
-                                height: 22px;
+                                height: 21px;
                                 background: i == root.selected-download-index ? Palette.selection-bg : (Math.mod(i, 2) == 1 ? Palette.row-even : Palette.row-odd);
+                                Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: #2A2C30; }
                                 
                                 HorizontalLayout {
-                                    padding-left: 8px; padding-right: 8px; spacing: 0;
+                                    padding-left: 6px; padding-right: 6px; spacing: 0;
                                     Rectangle {
                                         width: 28px;
                                         Rectangle {
                                             x: 8px;
-                                            y: 5px;
-                                            width: 12px;
-                                            height: 12px;
+                                            y: 4px;
+                                            width: 11px;
+                                            height: 11px;
                                             border-width: 1px;
                                             border-color: row.checked ? Palette.accent-primary : Palette.border;
                                             background: row.checked ? Palette.accent-primary : Palette.panel;
                                             if row.checked: Text {
                                                 text: "✓";
                                                 color: Palette.bg;
-                                                font-size: 9px;
+                                                font-size: 8px;
                                                 font-weight: 700;
                                                 horizontal-alignment: center;
                                                 vertical-alignment: center;
@@ -839,6 +847,7 @@ export component MainWindow inherits Window {
                                     Text { text: row.speed; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
                                     Text { text: row.time-left; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
                                     Text { text: row.date-added; width: 130px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                                    Rectangle { width: 100%; }
                                 }
                                 TouchArea { clicked => { root.select-download(i); } }
                             }
@@ -1145,9 +1154,9 @@ export component MainWindow inherits Window {
                         Text { text: root.status-message; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; font-weight: 400; }
                         Rectangle { width: 1px; background: Palette.border; height: 12px; y: 5px; }
                         Rectangle { width: 100%; }
-                        Text { text: "Active: 0"; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
-                        Text { text: "Speed: 0 KB/s"; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
-                        Text { text: "Total Jobs: " + download-rows.length; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
+                        Text { text: "Active: " + footer-active-count; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
+                        Text { text: "Transferred: " + footer-speed-text; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
+                        Text { text: "Total: " + footer-total-text; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
                     }
                 }
             }
