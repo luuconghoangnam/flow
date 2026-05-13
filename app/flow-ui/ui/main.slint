@@ -610,6 +610,10 @@ export component MainWindow inherits Window {
     in-out property <bool> status-bar-visible: true;
     in-out property <bool> merge-topbar-with-titlebar: false;
     in-out property <length> categories-panel-width: 200px;
+    in-out property <bool> show-overlay-notification: false;
+    in-out property <string> overlay-notification-text: "";
+    in-out property <bool> drag-overlay-visible: false;
+    in-out property <string> drag-overlay-text: "Drop URLs to queue download";
     callback categories-width-delta(delta: length);
 
     VerticalLayout {
@@ -1152,6 +1156,58 @@ export component MainWindow inherits Window {
 
     }
 
+    // Overlay stack: notifications -> drag overlay -> menu/popup -> dialogs
+    if root.show-overlay-notification: Rectangle {
+        x: root.width - 290px;
+        y: 58px;
+        width: 270px;
+        height: 34px;
+        background: #2A2E31EE;
+        border-color: Palette.border;
+        border-width: 1px;
+        border-radius: 6px;
+        HorizontalLayout {
+            padding-left: 12px; padding-right: 12px;
+            Text {
+                text: root.overlay-notification-text;
+                color: Palette.text-primary;
+                font-size: 10px;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    if root.drag-overlay-visible: Rectangle {
+        x: 0; y: 0; width: root.width; height: root.height;
+        background: #0B0D1088;
+        Rectangle {
+            x: (parent.width - 260px) / 2;
+            y: (parent.height - 96px) / 2;
+            width: 260px;
+            height: 96px;
+            background: #24282CDD;
+            border-color: Palette.accent-primary;
+            border-width: 1px;
+            border-radius: 10px;
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    text: root.drag-overlay-text;
+                    color: Palette.text-primary;
+                    font-size: 14px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "Release to add items to the active queue";
+                    color: Palette.text-muted;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+
     if active-menu >= 0: Rectangle {
         x: 0; y: 0; width: root.width; height: root.height;
         background: #00000000;
@@ -1229,10 +1285,13 @@ export component MainWindow inherits Window {
         }
     }
 
-    // Delete Confirmation Overlay
-    if root.show-delete-confirm: Rectangle {
+    if root.show-delete-confirm || root.show-properties-dialog || root.show-file-checksum-dialog: Rectangle {
+        x: 0; y: 0; width: root.width; height: root.height;
         background: #00000088;
-        Rectangle {
+
+        if root.show-delete-confirm: Rectangle {
+            x: (parent.width - 420px) / 2;
+            y: (parent.height - 180px) / 2;
             width: 420px; height: 180px;
             background: Palette.surface; border-color: Palette.border; border-width: 1px;
             VerticalLayout {
@@ -1246,12 +1305,10 @@ export component MainWindow inherits Window {
                 }
             }
         }
-    }
 
-    // Properties Overlay
-    if root.show-properties-dialog: Rectangle {
-        background: #00000088;
-        Rectangle {
+        if root.show-properties-dialog: Rectangle {
+            x: (parent.width - 520px) / 2;
+            y: (parent.height - 280px) / 2;
             width: 520px; height: 280px;
             background: Palette.surface; border-color: Palette.border; border-width: 1px;
             VerticalLayout {
@@ -1271,6 +1328,32 @@ export component MainWindow inherits Window {
                 HorizontalLayout {
                     spacing: 12px; alignment: end;
                     ToolbarButton { text: "Close"; height: 36px; clicked => { root.close-properties-dialog(); } }
+                }
+            }
+        }
+
+        if root.show-file-checksum-dialog: Rectangle {
+            x: (parent.width - 540px) / 2;
+            y: (parent.height - 300px) / 2;
+            width: 540px; height: 300px;
+            background: Palette.surface; border-color: Palette.border; border-width: 1px;
+            VerticalLayout {
+                padding: 20px; spacing: 12px;
+                Text { text: "File Checksum"; font-size: 16px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle {
+                    border-width: 1px; border-color: Palette.border; background: Palette.panel;
+                    height: 200px;
+                    Text {
+                        x: 12px; y: 12px; width: parent.width - 24px;
+                        text: root.file-checksum-summary;
+                        color: Palette.text-primary;
+                        font-size: 11px;
+                        wrap: word-wrap;
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 12px; alignment: end;
+                    ToolbarButton { text: "Close"; height: 36px; clicked => { root.close-file-checksum-dialog(); } }
                 }
             }
         }
