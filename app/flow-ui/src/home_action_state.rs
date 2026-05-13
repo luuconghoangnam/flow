@@ -4,6 +4,7 @@ use std::collections::HashSet;
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HomeActionState {
     pub(crate) selected_ids: Vec<String>,
+    pub(crate) selected_categories: Vec<String>,
     pub(crate) default_item_index: Option<usize>,
     pub(crate) resumable_ids: Vec<String>,
     pub(crate) pausable_ids: Vec<String>,
@@ -16,6 +17,8 @@ pub(crate) struct HomeActionState {
     pub(crate) can_move_up: bool,
     pub(crate) can_move_down: bool,
     pub(crate) can_requeue: bool,
+    pub(crate) can_edit: bool,
+    pub(crate) can_file_checksum: bool,
 }
 
 pub(crate) fn derive_home_action_state(
@@ -42,6 +45,10 @@ pub(crate) fn derive_home_action_state(
     let selected_ids = selected_indexes
         .iter()
         .filter_map(|index| row_ids.get(*index).cloned())
+        .collect::<Vec<_>>();
+    let selected_categories = selected_indexes
+        .iter()
+        .filter_map(|index| rows.get(*index).map(|row| row.category.to_string()))
         .collect::<Vec<_>>();
 
     let default_item_index = main_selected_id
@@ -104,9 +111,22 @@ pub(crate) fn derive_home_action_state(
         .map(|index| index + 1 < rows.len())
         .unwrap_or(false);
     let can_requeue = !requeueable_ids.is_empty();
+    let can_edit = default_item_index
+        .and_then(|index| rows.get(index))
+        .map(|row| {
+            let status = row.status.to_ascii_lowercase();
+            !(status.contains("downloading") || status.contains("queued"))
+        })
+        .unwrap_or(false);
+    let can_file_checksum = selected_indexes.iter().any(|index| {
+        rows.get(*index)
+            .map(|row| row.status.to_ascii_lowercase().contains("finished"))
+            .unwrap_or(false)
+    });
 
     HomeActionState {
         selected_ids,
+        selected_categories,
         default_item_index,
         resumable_ids,
         pausable_ids,
@@ -119,5 +139,7 @@ pub(crate) fn derive_home_action_state(
         can_move_up,
         can_move_down,
         can_requeue,
+        can_edit,
+        can_file_checksum,
     }
 }

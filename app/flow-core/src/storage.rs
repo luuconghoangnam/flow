@@ -21,6 +21,7 @@ pub struct QueueJobRecord {
     pub url: String,
     pub output_dir: String,
     pub file_name: String,
+    pub category: String,
     pub connections: usize,
     pub expected_sha256_hex: Option<String>,
     pub headers_json: Option<String>,
@@ -87,6 +88,7 @@ pub trait DownloadRepository {
     fn log_queue_event(&self, queue_id: i64, event_type: &str, payload_json: Option<&str>) -> Result<()>;
     fn list_recent_queue_events(&self, limit: usize) -> Result<Vec<QueueRuntimeEvent>>;
     fn update_queue_job_status(&self, id: &str, status: &str) -> Result<()>;
+    fn update_queue_job_category(&self, id: &str, category: &str) -> Result<()>;
     fn update_queue_job_attempt(&self, id: &str, attempt_count: i64, last_error: Option<&str>) -> Result<()>;
     fn get_queue_job(&self, id: &str) -> Result<Option<QueueJobRecord>>;
     fn list_queue_jobs(&self) -> Result<Vec<QueueJobRecord>>;
@@ -141,6 +143,7 @@ impl DownloadRepository for SqliteDownloadRepository {
                 url TEXT NOT NULL,
                 output_dir TEXT NOT NULL,
                 file_name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'General',
                 connections INTEGER NOT NULL,
                 expected_sha256_hex TEXT,
                 headers_json TEXT,
@@ -181,6 +184,7 @@ impl DownloadRepository for SqliteDownloadRepository {
         )?;
         add_optional_column(&self.connection, "queue_jobs", "attempt_count", "INTEGER NOT NULL DEFAULT 0")?;
         add_optional_column(&self.connection, "queue_jobs", "queue_id", "INTEGER NOT NULL DEFAULT 0")?;
+        add_optional_column(&self.connection, "queue_jobs", "category", "TEXT NOT NULL DEFAULT 'General'")?;
         add_optional_column(&self.connection, "queue_jobs", "last_error", "TEXT")?;
         add_optional_column(&self.connection, "queue_jobs", "headers_json", "TEXT")?;
         add_optional_column(&self.connection, "queue_jobs", "referrer", "TEXT")?;
@@ -280,13 +284,14 @@ impl DownloadRepository for SqliteDownloadRepository {
     fn upsert_queue_job(&self, job: &QueueJobRecord) -> Result<()> {
         self.connection.execute(
             "
-            INSERT INTO queue_jobs (id, queue_id, url, output_dir, file_name, connections, expected_sha256_hex, headers_json, referrer, cookies, user_agent, username, password, proxy_url, proxy_username, proxy_password, status, priority, queue_order, attempt_count, last_error)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
+            INSERT INTO queue_jobs (id, queue_id, url, output_dir, file_name, category, connections, expected_sha256_hex, headers_json, referrer, cookies, user_agent, username, password, proxy_url, proxy_username, proxy_password, status, priority, queue_order, attempt_count, last_error)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)
             ON CONFLICT(id) DO UPDATE SET
                 status = excluded.status,
                 priority = excluded.priority,
                 attempt_count = excluded.attempt_count,
                 last_error = excluded.last_error,
+                category = excluded.category,
                 headers_json = excluded.headers_json,
                 referrer = excluded.referrer,
                 cookies = excluded.cookies,
@@ -305,6 +310,7 @@ impl DownloadRepository for SqliteDownloadRepository {
                 &job.url,
                 &job.output_dir,
                 &job.file_name,
+                &job.category,
                 job.connections as i64,
                 &job.expected_sha256_hex,
                 &job.headers_json,
@@ -441,6 +447,14 @@ impl DownloadRepository for SqliteDownloadRepository {
         Ok(())
     }
 
+    fn update_queue_job_category(&self, id: &str, category: &str) -> Result<()> {
+        self.connection.execute(
+            "UPDATE queue_jobs SET category = ?2, updated_at = unixepoch() WHERE id = ?1",
+            (id, category),
+        )?;
+        Ok(())
+    }
+
     fn update_queue_job_attempt(&self, id: &str, attempt_count: i64, last_error: Option<&str>) -> Result<()> {
         self.connection.execute(
             "UPDATE queue_jobs SET attempt_count = ?2, last_error = ?3, updated_at = unixepoch() WHERE id = ?1",
@@ -451,7 +465,7 @@ impl DownloadRepository for SqliteDownloadRepository {
 
     fn get_queue_job(&self, id: &str) -> Result<Option<QueueJobRecord>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, queue_id, url, output_dir, file_name, connections, expected_sha256_hex, headers_json, referrer, cookies, user_agent, username, password, proxy_url, proxy_username, proxy_password, status, priority, queue_order, attempt_count, last_error FROM queue_jobs WHERE id = ?1",
+            "SELECT id, queue_id, url, output_dir, file_name, category, connections, expected_sha256_hex, headers_json, referrer, cookies, user_agent, username, password, proxy_url, proxy_username, proxy_password, status, priority, queue_order, attempt_count, last_error FROM queue_jobs WHERE id = ?1",
         )?;
         let mut rows = statement.query([id])?;
         if let Some(row) = rows.next()? {
@@ -463,7 +477,7 @@ impl DownloadRepository for SqliteDownloadRepository {
 
     fn list_queue_jobs(&self) -> Result<Vec<QueueJobRecord>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, queue_id, url, output_dir, file_name, connections, expected_sha256_hex, headers_json, referrer, cookies, user_agent, username, password, proxy_url, proxy_username, proxy_password, status, priority, queue_order, attempt_count, last_error FROM queue_jobs ORDER BY queue_id ASC, priority DESC, queue_order ASC, created_at ASC",
+            "SELECT id, queue_id, url, output_dir, file_name, category, connections, expected_sha256_hex, headers_json, referrer, cookies, user_agent, username, password, proxy_url, proxy_username, proxy_password, status, priority, queue_order, attempt_count, last_error FROM queue_jobs ORDER BY queue_id ASC, priority DESC, queue_order ASC, created_at ASC",
         )?;
         let rows = statement.query_map([], row_to_queue_job)?;
         let mut jobs = Vec::new();
@@ -654,29 +668,30 @@ impl DownloadRepository for SqliteDownloadRepository {
 }
 
 fn row_to_queue_job(row: &rusqlite::Row<'_>) -> Result<QueueJobRecord> {
-    let connections: i64 = row.get(5)?;
+    let connections: i64 = row.get(6)?;
     Ok(QueueJobRecord {
         id: row.get(0)?,
         queue_id: row.get(1)?,
         url: row.get(2)?,
         output_dir: row.get(3)?,
         file_name: row.get(4)?,
+        category: row.get::<_, Option<String>>(5)?.unwrap_or_else(|| "General".to_string()),
         connections: connections.max(1) as usize,
-        expected_sha256_hex: row.get(6)?,
-        headers_json: row.get(7)?,
-        referrer: row.get(8)?,
-        cookies: row.get(9)?,
-        user_agent: row.get(10)?,
-        username: row.get(11)?,
-        password: row.get(12)?,
-        proxy_url: row.get(13)?,
-        proxy_username: row.get(14)?,
-        proxy_password: row.get(15)?,
-        status: row.get(16)?,
-        priority: row.get(17)?,
-        queue_order: row.get(18)?,
-        attempt_count: row.get(19)?,
-        last_error: row.get(20)?,
+        expected_sha256_hex: row.get(7)?,
+        headers_json: row.get(8)?,
+        referrer: row.get(9)?,
+        cookies: row.get(10)?,
+        user_agent: row.get(11)?,
+        username: row.get(12)?,
+        password: row.get(13)?,
+        proxy_url: row.get(14)?,
+        proxy_username: row.get(15)?,
+        proxy_password: row.get(16)?,
+        status: row.get(17)?,
+        priority: row.get(18)?,
+        queue_order: row.get(19)?,
+        attempt_count: row.get(20)?,
+        last_error: row.get(21)?,
     })
 }
 

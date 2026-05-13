@@ -10,6 +10,11 @@ pub(crate) struct MoveQueueTarget {
     pub(crate) label: String,
 }
 
+#[derive(Clone, Debug, Default)]
+pub(crate) struct MoveCategoryTarget {
+    pub(crate) label: String,
+}
+
 pub(crate) struct MoveSelectionResult {
     pub(crate) moved_count: usize,
     pub(crate) target_queue_id: i64,
@@ -17,8 +22,12 @@ pub(crate) struct MoveSelectionResult {
 }
 
 pub(crate) struct CopyLinksResult {
-    pub(crate) copied_count: usize,
     pub(crate) status_message: String,
+}
+
+pub(crate) struct MoveCategoryResult {
+    pub(crate) moved_count: usize,
+    pub(crate) category: String,
 }
 
 pub(crate) fn available_move_queue_targets(
@@ -91,13 +100,11 @@ pub(crate) fn move_selected_jobs_to_queue(ids: &[String], target_queue_id: i64) 
 pub(crate) fn copy_selected_links(ids: &[String]) -> CopyLinksResult {
     if ids.is_empty() {
         return CopyLinksResult {
-            copied_count: 0,
             status_message: "No selected downloads to copy".to_string(),
         };
     }
     let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else {
         return CopyLinksResult {
-            copied_count: 0,
             status_message: "Queue database is not available".to_string(),
         };
     };
@@ -108,7 +115,6 @@ pub(crate) fn copy_selected_links(ids: &[String]) -> CopyLinksResult {
         .collect::<Vec<_>>();
     if links.is_empty() {
         return CopyLinksResult {
-            copied_count: 0,
             status_message: "No selected downloads to copy".to_string(),
         };
     }
@@ -127,7 +133,6 @@ pub(crate) fn copy_selected_links(ids: &[String]) -> CopyLinksResult {
         .map(|status| status.success())
         .unwrap_or(false);
     CopyLinksResult {
-        copied_count: links.len(),
         status_message: if copied {
             format!("Copied {} download link(s)", links.len())
         } else {
@@ -141,8 +146,9 @@ pub(crate) fn build_properties_summary(id: &str) -> Option<String> {
     let _ = repo.init_schema();
     let job = repo.get_queue_job(id).ok().flatten()?;
     Some(format!(
-        "File: {}\nStatus: {}\nQueue ID: {}\nFolder: {}\nURL: {}\nConnections: {}\nAttempts: {}{}",
+        "File: {}\nCategory: {}\nStatus: {}\nQueue ID: {}\nFolder: {}\nURL: {}\nConnections: {}\nAttempts: {}{}",
         job.file_name,
+        job.category,
         job.status,
         job.queue_id,
         job.output_dir,
@@ -154,4 +160,61 @@ pub(crate) fn build_properties_summary(id: &str) -> Option<String> {
             .map(|err| format!("\nLast Error: {}", err))
             .unwrap_or_default(),
     ))
+}
+
+pub(crate) fn available_move_category_targets() -> Vec<MoveCategoryTarget> {
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else { return Vec::new(); };
+    let _ = repo.init_schema();
+    let mut categories = repo
+        .list_queue_jobs()
+        .ok()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|job| job.category)
+        .filter(|category| !category.trim().is_empty())
+        .collect::<Vec<_>>();
+    categories.sort();
+    categories.dedup();
+    if !categories.iter().any(|category| category.eq_ignore_ascii_case("General")) {
+        categories.insert(0, "General".to_string());
+    }
+    categories
+        .into_iter()
+        .map(|label| MoveCategoryTarget { label })
+        .collect()
+}
+
+pub(crate) fn move_selected_jobs_to_category(ids: &[String], category: &str) -> Option<MoveCategoryResult> {
+    if ids.is_empty() {
+        return None;
+    }
+    let normalized = category.trim();
+    if normalized.is_empty() {
+        return None;
+    }
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else { return None; };
+    let _ = repo.init_schema();
+    let mut moved_count = 0usize;
+    let mut first_queue_id = None;
+    for id in ids {
+        let Ok(Some(job)) = repo.get_queue_job(id) else { continue; };
+        if job.category.eq_ignore_ascii_case(normalized) {
+            continue;
+        }
+        first_queue_id.get_or_insert(job.queue_id);
+        if repo.update_queue_job_category(id, normalized).is_ok() {
+            moved_count += 1;
+        }
+    }
+    if moved_count == 0 {
+        return None;
+    }
+    if let Some(queue_id) = first_queue_id {
+        let payload = format!("{{\"count\":{},\"category\":\"{}\"}}", moved_count, normalized);
+        let _ = repo.log_queue_event(queue_id, "job_moved_category", Some(&payload));
+    }
+    Some(MoveCategoryResult {
+        moved_count,
+        category: normalized.to_string(),
+    })
 }

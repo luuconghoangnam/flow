@@ -453,6 +453,7 @@ async fn enqueue_request(request: DownloadRequest, queue_tx: &mpsc::Sender<Queue
         url: request.url,
         output_dir: request.output_dir.to_string_lossy().to_string(),
         file_name: request.file_name,
+        category: "General".to_string(),
         connections: request.connections,
         expected_sha256_hex: request.expected_sha256_hex,
         headers_json: serde_json::to_string(&request.headers).ok(),
