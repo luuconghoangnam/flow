@@ -48,13 +48,35 @@ impl Default for SortState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CategoryFilter {
+    All,
+    Unfinished,
+    Finished,
+}
+
+impl CategoryFilter {
+    fn from_index(index: i32) -> Self {
+        match index {
+            1 => Self::Unfinished,
+            2 => Self::Finished,
+            _ => Self::All,
+        }
+    }
+}
+
 fn main() {
     flow_core::init();
     let app = MainWindow::new().expect("Failed to create main window");
     let selected_queue = Arc::new(Mutex::new(0_i64));
     let selected_download = Arc::new(Mutex::new(None::<String>));
     let sort_state = Arc::new(Mutex::new(SortState::default()));
-    let queue_state = load_queue_ui_state(*selected_queue.lock().expect("selected queue lock"), &sort_state);
+    let category_filter = Arc::new(Mutex::new(CategoryFilter::All));
+    let queue_state = load_queue_ui_state(
+        *selected_queue.lock().expect("selected queue lock"),
+        &sort_state,
+        &category_filter,
+    );
     app.set_queue_groups(ModelRc::new(VecModel::from(queue_state.queue_labels)));
     app.set_download_rows(ModelRc::new(VecModel::from(queue_state.rows)));
     app.set_queue_config_summary(queue_state.queue_summary.into());
@@ -176,6 +198,7 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         app.on_create_queue(move || {
             let db_path = flow_db_path();
@@ -198,7 +221,7 @@ fn main() {
                 if let Ok(mut selected) = selected_download.lock() {
                     *selected = None;
                 }
-                let state = load_queue_ui_state(next_id, &sort_state);
+                let state = load_queue_ui_state(next_id, &sort_state, &category_filter);
                 let weak2 = weak.clone();
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
@@ -241,6 +264,7 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         app.on_delete_queue(move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
@@ -257,7 +281,7 @@ fn main() {
                 if let Ok(mut selected) = selected_download.lock() {
                     *selected = None;
                 }
-                let state = load_queue_ui_state(0, &sort_state);
+                let state = load_queue_ui_state(0, &sort_state, &category_filter);
                 let weak2 = weak.clone();
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_selected_queue_index(0);
@@ -275,10 +299,11 @@ fn main() {
         let selected_queue_for_download = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         app.on_select_download(move |index| {
             let selected_queue_id = selected_queue_for_download.lock().map(|v| *v).unwrap_or(0);
-            let state = load_queue_ui_state(selected_queue_id, &sort_state);
+            let state = load_queue_ui_state(selected_queue_id, &sort_state, &category_filter);
             let chosen = state.row_ids.get(index as usize).cloned();
             if let Ok(mut selected) = selected_download.lock() {
                 *selected = chosen;
@@ -295,6 +320,7 @@ fn main() {
         Arc::clone(&selected_queue),
         Arc::clone(&selected_download),
         Arc::clone(&sort_state),
+        Arc::clone(&category_filter),
     );
     
     // Wire settings display handlers
@@ -310,30 +336,51 @@ fn main() {
     {
         let weak = app.as_weak();
         app.on_proxy_test_connection(move || {
-            set_status(&weak, "Testing proxy connection...");
-            // In real implementation, this would test the proxy
+            let settings = load_settings(&flow_data_dir().join("settings.json"));
+            let message = validate_proxy_settings(&settings);
+            set_status(&weak, &message);
         });
     }
     
     {
         let weak = app.as_weak();
         app.on_queue_create_new(move || {
-            // Trigger create_queue callback
             weak.upgrade_in_event_loop(|app| app.invoke_create_queue()).ok();
         });
     }
     
     {
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         app.on_queue_rename(move || {
-            set_status(&weak, "Rename functionality coming soon");
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            let rename_result = rename_queue_with_desktop_style(queue_id);
+            match rename_result {
+                Ok(message) => {
+                    refresh_queue_ui(
+                        &weak,
+                        queue_id,
+                        selected_download.clone(),
+                        &sort_state,
+                        &category_filter,
+                    );
+                    set_status(&weak, &message);
+                }
+                Err(message) => set_status(&weak, &message),
+            }
         });
     }
     
     {
         let weak = app.as_weak();
         app.on_queue_delete_confirm(move || {
-            set_status(&weak, "Use Delete Queue button from Scheduler tab");
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.set_current_tab(1);
+                app.invoke_delete_queue();
+            });
         });
     }
     
@@ -351,15 +398,16 @@ fn main() {
     {
         let selected_queue = Arc::clone(&selected_queue);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         app.on_select_queue(move |index| {
-            let state = load_queue_ui_state(selected_queue.lock().map(|v| *v).unwrap_or(0), &sort_state);
+            let state = load_queue_ui_state(selected_queue.lock().map(|v| *v).unwrap_or(0), &sort_state, &category_filter);
             if let Some(queue_id) = state.queue_ids.get(index as usize).copied() {
                 if let Ok(mut selected) = selected_queue.lock() {
                     *selected = queue_id;
                 }
                 let selected_now = selected_queue.lock().map(|v| *v).unwrap_or(0);
-                let state = load_queue_ui_state(selected_now, &sort_state);
+                let state = load_queue_ui_state(selected_now, &sort_state, &category_filter);
                 let weak2 = weak.clone();
                 let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_selected_queue_index(index);
@@ -372,10 +420,41 @@ fn main() {
         });
     }
 
+    {
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
+        let weak = app.as_weak();
+        app.on_select_category(move |index| {
+            if let Ok(mut filter) = category_filter.lock() {
+                *filter = CategoryFilter::from_index(index);
+            }
+            if let Ok(mut selected) = selected_download.lock() {
+                *selected = None;
+            }
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            refresh_queue_ui(
+                &weak,
+                queue_id,
+                selected_download.clone(),
+                &sort_state,
+                &category_filter,
+            );
+            let label = match CategoryFilter::from_index(index) {
+                CategoryFilter::All => "All Downloads",
+                CategoryFilter::Unfinished => "Unfinished",
+                CategoryFilter::Finished => "Finished",
+            };
+            set_status(&weak, &format!("Category filter: {label}"));
+        });
+    }
+
     let weak = app.as_weak();
     let selected_queue_for_thread = Arc::clone(&selected_queue);
     let selected_download_for_thread = Arc::clone(&selected_download);
     let sort_state_for_thread = Arc::clone(&sort_state);
+    let category_filter_for_thread = Arc::clone(&category_filter);
     std::thread::spawn(move || {
         let (tx, rx) = channel();
         let mut watcher = RecommendedWatcher::new(tx, notify::Config::default()).expect("Failed to watch queue signal");
@@ -387,7 +466,7 @@ fn main() {
         while rx.recv().is_ok() {
             let selected = selected_queue_for_thread.lock().map(|v| *v).unwrap_or(0);
             let selected_download = selected_download_for_thread.lock().ok().and_then(|v| v.clone());
-            let state = load_queue_ui_state(selected, &sort_state_for_thread);
+            let state = load_queue_ui_state(selected, &sort_state_for_thread, &category_filter_for_thread);
             let selected_index = selected_download
                 .as_ref()
                 .and_then(|id| state.row_ids.iter().position(|row_id| row_id == id))
@@ -548,6 +627,7 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let mut resumed = 0usize;
@@ -562,7 +642,7 @@ fn main() {
                 }
                 let _ = repo.set_queue_group_active(queue_id, true);
             }
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, &format!("Started {resumed} paused task(s)"));
         }
     });
@@ -572,10 +652,11 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             pause_all_jobs(queue_id);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Paused all tasks in current queue");
         }
     });
@@ -585,9 +666,10 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let state = load_queue_ui_state(queue_id, &sort_state);
+            let state = load_queue_ui_state(queue_id, &sort_state, &category_filter);
             let queue_ids = state.queue_ids.clone();
             let selected_queue_index = queue_ids
                 .iter()
@@ -595,7 +677,7 @@ fn main() {
                 .unwrap_or(0) as i32;
 
             if let Ok(dialog) = BatchDownloadDialog::new() {
-                dialog.set_output_dir(default_downloads_folder().into());
+                dialog.set_output_dir(resolve_default_download_folder().into());
                 dialog.set_category("General".into());
                 dialog.set_queue_options(ModelRc::new(VecModel::from(state.queue_labels.clone())));
                 dialog.set_queue_index(selected_queue_index);
@@ -618,47 +700,73 @@ fn main() {
 
                 let weak_queue = weak.clone();
                 let queue_ids_for_queue = queue_ids.clone();
+                let selected_queue_for_queue = Arc::clone(&selected_queue);
                 let selected_download_for_queue = Arc::clone(&selected_download);
                 let sort_state_for_queue = Arc::clone(&sort_state);
+                let category_filter_for_queue = Arc::clone(&category_filter);
                 let dialog_queue = dialog.as_weak();
                 dialog.on_queue_all(move |urls_text, output_dir, queue_index, category| {
                     let target_queue = queue_ids_for_queue.get(queue_index as usize).copied().unwrap_or(queue_id);
+                    let normalized_category = normalize_category_input("", urls_text.as_str(), category.as_str());
                     let (queued, invalid) = enqueue_batch_urls(
                         urls_text.as_str(),
                         output_dir.as_str(),
                         target_queue,
                         false,
-                        category.as_str(),
+                        normalized_category.as_str(),
                     );
-                    refresh_queue_ui(&weak_queue, target_queue, selected_download_for_queue.clone(), &sort_state_for_queue);
-                    set_status(&weak_queue, &format!("Batch queued: {queued}, invalid/skipped: {invalid}"));
-                    if queued > 0 {
-                        if let Some(dlg) = dialog_queue.upgrade() {
-                            let _ = dlg.hide();
-                        }
+                    if queued == 0 {
+                        let message = if invalid > 0 {
+                            format!("No valid URLs were queued. Invalid/skipped: {invalid}")
+                        } else {
+                            "No valid URLs to queue".to_string()
+                        };
+                        set_status(&weak_queue, &message);
+                        return;
+                    }
+                    if let Ok(mut selected) = selected_queue_for_queue.lock() {
+                        *selected = target_queue;
+                    }
+                    refresh_queue_ui(&weak_queue, target_queue, selected_download_for_queue.clone(), &sort_state_for_queue, &category_filter_for_queue);
+                    set_status(&weak_queue, &format!("Batch queued: {queued} item(s) in {normalized_category}; invalid/skipped: {invalid}"));
+                    if let Some(dlg) = dialog_queue.upgrade() {
+                        let _ = dlg.hide();
                     }
                 });
 
                 let weak_start = weak.clone();
                 let queue_ids_for_start = queue_ids.clone();
+                let selected_queue_for_start = Arc::clone(&selected_queue);
                 let selected_download_for_start = Arc::clone(&selected_download);
                 let sort_state_for_start = Arc::clone(&sort_state);
+                let category_filter_for_start = Arc::clone(&category_filter);
                 let dialog_start = dialog.as_weak();
                 dialog.on_start_all(move |urls_text, output_dir, queue_index, category| {
                     let target_queue = queue_ids_for_start.get(queue_index as usize).copied().unwrap_or(queue_id);
+                    let normalized_category = normalize_category_input("", urls_text.as_str(), category.as_str());
                     let (queued, invalid) = enqueue_batch_urls(
                         urls_text.as_str(),
                         output_dir.as_str(),
                         target_queue,
                         true,
-                        category.as_str(),
+                        normalized_category.as_str(),
                     );
-                    refresh_queue_ui(&weak_start, target_queue, selected_download_for_start.clone(), &sort_state_for_start);
-                    set_status(&weak_start, &format!("Batch start queued: {queued}, invalid/skipped: {invalid}"));
-                    if queued > 0 {
-                        if let Some(dlg) = dialog_start.upgrade() {
-                            let _ = dlg.hide();
-                        }
+                    if queued == 0 {
+                        let message = if invalid > 0 {
+                            format!("No valid URLs were started. Invalid/skipped: {invalid}")
+                        } else {
+                            "No valid URLs to start".to_string()
+                        };
+                        set_status(&weak_start, &message);
+                        return;
+                    }
+                    if let Ok(mut selected) = selected_queue_for_start.lock() {
+                        *selected = target_queue;
+                    }
+                    refresh_queue_ui(&weak_start, target_queue, selected_download_for_start.clone(), &sort_state_for_start, &category_filter_for_start);
+                    set_status(&weak_start, &format!("Batch start queued: {queued} item(s) in {normalized_category}; invalid/skipped: {invalid}"));
+                    if let Some(dlg) = dialog_start.upgrade() {
+                        let _ = dlg.hide();
                     }
                 });
 
@@ -682,14 +790,15 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let state = load_queue_ui_state(queue_id, &sort_state);
+            let state = load_queue_ui_state(queue_id, &sort_state, &category_filter);
             let selected_id = state.row_ids.first().cloned();
             if let Ok(mut slot) = selected_download.lock() {
                 *slot = selected_id;
             }
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Selected first item in current list");
         }
     });
@@ -699,12 +808,13 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             if let Ok(mut slot) = selected_download.lock() {
                 *slot = None;
             }
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Selection cleared");
         }
     });
@@ -714,10 +824,11 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::Name);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by name");
         }
     });
@@ -727,10 +838,11 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::Size);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by size");
         }
     });
@@ -740,10 +852,11 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::Status);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by status");
         }
     });
@@ -753,10 +866,11 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             toggle_sort(&sort_state, SortColumn::DateAdded);
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Sorted by date added");
         }
     });
@@ -766,9 +880,10 @@ fn main() {
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Refreshed downloads view");
         }
     });
@@ -798,7 +913,10 @@ fn main() {
     app.on_tools_browser_integration({
         let weak = app.as_weak();
         move || {
-            set_status(&weak, "Open Settings > Browser Integration");
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.set_current_tab(2);
+                app.set_status_message("Opened Settings > Browser Integration".into());
+            });
         }
     });
 
@@ -812,21 +930,25 @@ fn main() {
     app.on_tools_open_settings({
         let weak = app.as_weak();
         move || {
-            set_status(&weak, "Settings tab opened");
+            let _ = weak.upgrade_in_event_loop(|app| {
+                app.set_current_tab(2);
+                app.set_status_message("Settings tab opened".into());
+            });
         }
     });
 
     app.on_help_about({
         let weak = app.as_weak();
         move || {
-            set_status(&weak, "Flow Download Manager - Rust + Slint build");
+            set_status(&weak, &build_about_message());
         }
     });
 
     app.on_help_check_updates({
         let weak = app.as_weak();
         move || {
-            set_status(&weak, "Update check endpoint will be wired in next phase");
+            open_external("https://github.com/luuconghoangnam/flow");
+            set_status(&weak, "Opened Flow project page for updates");
         }
     });
 
@@ -849,7 +971,7 @@ fn main() {
     app.on_help_online_help({
         let weak = app.as_weak();
         move || {
-            open_external("https://github.com");
+            open_external("https://github.com/luuconghoangnam/flow/blob/main/README.md");
             set_status(&weak, "Opened online help");
         }
     });
@@ -922,7 +1044,11 @@ fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
     })
 }
 
-fn load_queue_ui_state(selected_queue_id: i64, sort_state: &Arc<Mutex<SortState>>) -> QueueUiState {
+fn load_queue_ui_state(
+    selected_queue_id: i64,
+    sort_state: &Arc<Mutex<SortState>>,
+    category_filter: &Arc<Mutex<CategoryFilter>>,
+) -> QueueUiState {
     let db_path = flow_db_path();
     let Some(repo) = SqliteDownloadRepository::open(&db_path).ok() else {
         return QueueUiState { queue_labels: vec![], queue_ids: vec![], rows: vec![], row_ids: vec![], queue_summary: "DB Error".to_string() };
@@ -938,9 +1064,17 @@ fn load_queue_ui_state(selected_queue_id: i64, sort_state: &Arc<Mutex<SortState>
     let Ok(jobs) = repo.list_queue_view_rows() else {
         return QueueUiState { queue_labels: groups, queue_ids: group_ids, rows: vec![], row_ids: vec![], queue_summary: summary };
     };
+    let category = category_filter.lock().map(|v| *v).unwrap_or(CategoryFilter::All);
     let mut filtered_jobs = jobs
         .into_iter()
-        .filter(|row| row.queue_id == selected_queue_id)
+        .filter(|row| {
+            row.queue_id == selected_queue_id
+                && match category {
+                    CategoryFilter::All => true,
+                    CategoryFilter::Unfinished => !matches!(row.status.as_str(), "Completed" | "Cancelled"),
+                    CategoryFilter::Finished => matches!(row.status.as_str(), "Completed" | "Cancelled"),
+                }
+        })
         .collect::<Vec<_>>();
 
     let active_sort = sort_state.lock().map(|v| *v).unwrap_or_default();
@@ -1043,8 +1177,9 @@ fn refresh_queue_ui(
     queue_id: i64,
     selected_download: Arc<Mutex<Option<String>>>,
     sort_state: &Arc<Mutex<SortState>>,
+    category_filter: &Arc<Mutex<CategoryFilter>>,
 ) {
-    let state = load_queue_ui_state(queue_id, sort_state);
+    let state = load_queue_ui_state(queue_id, sort_state, category_filter);
     let selected_queue_index = state
         .queue_ids
         .iter()
@@ -1131,14 +1266,17 @@ fn wire_download_toolbar_actions(
     selected_queue: Arc<Mutex<i64>>,
     selected_download: Arc<Mutex<Option<String>>>,
     sort_state: Arc<Mutex<SortState>>,
+    category_filter: Arc<Mutex<CategoryFilter>>,
 ) {
     app.on_add_url({
         let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let queue_state = load_queue_ui_state(queue_id, &sort_state);
+            let queue_state = load_queue_ui_state(queue_id, &sort_state, &category_filter);
             let selected_queue_index = queue_state
                 .queue_ids
                 .iter()
@@ -1147,7 +1285,7 @@ fn wire_download_toolbar_actions(
             if let Ok(dialog) = AddUrlDialog::new() {
                 dialog.set_url("".into());
                 dialog.set_file_name("".into());
-                dialog.set_output_dir(default_downloads_folder().into());
+                dialog.set_output_dir(resolve_default_download_folder().into());
                 dialog.set_category("General".into());
                 dialog.set_queue_options(ModelRc::new(VecModel::from(queue_state.queue_labels.clone())));
                 dialog.set_queue_index(selected_queue_index);
@@ -1166,36 +1304,64 @@ fn wire_download_toolbar_actions(
                 let queue_ids_for_later = queue_state.queue_ids.clone();
                 let dialog_weak = dialog.as_weak();
                 let weak_later = weak.clone();
+                let selected_queue_for_later = Arc::clone(&selected_queue);
+                let selected_download_for_later = Arc::clone(&selected_download);
+                let sort_state_for_later = Arc::clone(&sort_state);
+                let category_filter_for_later = Arc::clone(&category_filter);
                 dialog.on_download_later(move |url, file_name, output_dir, queue_index, category| {
                     let selected_queue_id = queue_ids_for_later
                         .get(queue_index as usize)
                         .copied()
                         .unwrap_or(queue_id);
-                    let category = if category.trim().is_empty() {
-                        infer_category_from_name_or_url(file_name.as_str(), url.as_str())
-                    } else {
-                        category.to_string()
-                    };
-                    enqueue_manual_url(selected_queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), false, category.as_str());
-                    set_status(&weak_later, "Download added to queue as Paused");
-                    if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                    let category = normalize_category_input(file_name.as_str(), url.as_str(), category.as_str());
+                    match enqueue_manual_url(selected_queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), false, category.as_str()) {
+                        Ok(created_name) => {
+                            if let Ok(mut selected) = selected_queue_for_later.lock() {
+                                *selected = selected_queue_id;
+                            }
+                            refresh_queue_ui(
+                                &weak_later,
+                                selected_queue_id,
+                                selected_download_for_later.clone(),
+                                &sort_state_for_later,
+                                &category_filter_for_later,
+                            );
+                            set_status(&weak_later, &format!("Queued {created_name} in {}", category));
+                            if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                        }
+                        Err(message) => set_status(&weak_later, &message),
+                    }
                 });
                 let queue_ids_for_start = queue_state.queue_ids.clone();
                 let dialog_weak = dialog.as_weak();
                 let weak_now = weak.clone();
+                let selected_queue_for_start = Arc::clone(&selected_queue);
+                let selected_download_for_start = Arc::clone(&selected_download);
+                let sort_state_for_start = Arc::clone(&sort_state);
+                let category_filter_for_start = Arc::clone(&category_filter);
                 dialog.on_start_now(move |url, file_name, output_dir, queue_index, category| {
                     let selected_queue_id = queue_ids_for_start
                         .get(queue_index as usize)
                         .copied()
                         .unwrap_or(queue_id);
-                    let category = if category.trim().is_empty() {
-                        infer_category_from_name_or_url(file_name.as_str(), url.as_str())
-                    } else {
-                        category.to_string()
-                    };
-                    enqueue_manual_url(selected_queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), true, category.as_str());
-                    set_status(&weak_now, "Download queued to start");
-                    if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                    let category = normalize_category_input(file_name.as_str(), url.as_str(), category.as_str());
+                    match enqueue_manual_url(selected_queue_id, url.as_str(), file_name.as_str(), output_dir.as_str(), true, category.as_str()) {
+                        Ok(created_name) => {
+                            if let Ok(mut selected) = selected_queue_for_start.lock() {
+                                *selected = selected_queue_id;
+                            }
+                            refresh_queue_ui(
+                                &weak_now,
+                                selected_queue_id,
+                                selected_download_for_start.clone(),
+                                &sort_state_for_start,
+                                &category_filter_for_start,
+                            );
+                            set_status(&weak_now, &format!("Queued {created_name} to start in {}", category));
+                            if let Some(dlg) = dialog_weak.upgrade() { dlg.hide().ok(); }
+                        }
+                        Err(message) => set_status(&weak_now, &message),
+                    }
                 });
                 let _ = dialog.show();
             } else {
@@ -1220,11 +1386,12 @@ fn wire_download_toolbar_actions(
         let selected_queue = Arc::clone(&selected_queue);
         let selected_download = Arc::clone(&selected_download);
         let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             pause_all_jobs(queue_id);
-            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state);
+            refresh_queue_ui(&weak, queue_id, selected_download.clone(), &sort_state, &category_filter);
             set_status(&weak, "Stopped all downloads in selected queue");
         }
     });
@@ -1336,39 +1503,60 @@ fn locate_register_script() -> Option<String> {
     None
 }
 
-fn enqueue_manual_url(queue_id: i64, url: &str, file_name: &str, output_dir: &str, start_now: bool, _category: &str) {
+fn enqueue_manual_url(queue_id: i64, url: &str, file_name: &str, output_dir: &str, start_now: bool, category: &str) -> Result<String, String> {
     let url = url.trim();
-    if url.is_empty() { return; }
-    let output_dir = if output_dir.trim().is_empty() { default_downloads_folder() } else { output_dir.trim().to_string() };
-    let file_name = if file_name.trim().is_empty() { infer_file_name(url) } else { file_name.trim().to_string() };
+    if url.is_empty() {
+        return Err("Download URL cannot be empty".to_string());
+    }
+    if !is_http_url(url) {
+        return Err("Only HTTP and HTTPS URLs are supported in this dialog".to_string());
+    }
+    let output_dir = if output_dir.trim().is_empty() {
+        resolve_default_download_folder()
+    } else {
+        output_dir.trim().to_string()
+    };
+    let file_name = if file_name.trim().is_empty() {
+        infer_file_name(url)
+    } else {
+        file_name.trim().to_string()
+    };
     let millis = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let settings = load_settings(&flow_data_dir().join("settings.json"));
+    let per_host = flow_core::per_host_for_url(&settings, url);
+    let effective_threads = per_host
+        .and_then(|entry| entry.thread_count)
+        .unwrap_or(settings.thread_count)
+        .max(1);
     let job = QueueJobRecord {
         id: format!("manual-{millis}"),
         queue_id,
         url: url.to_string(),
         output_dir,
-        file_name,
-        connections: load_settings(&flow_data_dir().join("settings.json")).thread_count,
+        file_name: file_name.clone(),
+        connections: effective_threads,
         expected_sha256_hex: None,
-        headers_json: None,
+        headers_json: Some(serde_json::json!({ "category": category }).to_string()),
         referrer: None,
         cookies: None,
-        user_agent: None,
-        username: None,
-        password: None,
+        user_agent: per_host.and_then(|entry| entry.user_agent.clone()),
+        username: per_host.and_then(|entry| entry.username.clone()),
+        password: per_host.and_then(|entry| entry.password.clone()),
         proxy_url: None,
         proxy_username: None,
         proxy_password: None,
         status: if start_now { "Queued" } else { "Paused" }.to_string(),
-        priority: 0,
+        priority: if start_now { 1 } else { 0 },
         queue_order: millis as i64,
         attempt_count: 0,
         last_error: None,
     };
-    if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
-        let _ = repo.init_schema();
-        let _ = repo.upsert_queue_job(&job);
-    }
+    let repo = SqliteDownloadRepository::open(&flow_db_path())
+        .map_err(|_| "Queue database is not available".to_string())?;
+    let _ = repo.init_schema();
+    repo.upsert_queue_job(&job)
+        .map_err(|_| "Unable to save the download job".to_string())?;
+    Ok(file_name)
 }
 
 fn infer_file_name(url: &str) -> String {
@@ -1378,6 +1566,15 @@ fn infer_file_name(url: &str) -> String {
         .filter(|name| !name.trim().is_empty())
         .unwrap_or("download.bin")
         .to_string()
+}
+
+fn normalize_category_input(file_name: &str, url: &str, category: &str) -> String {
+    let category = category.trim();
+    if category.is_empty() || category.eq_ignore_ascii_case("general") {
+        infer_category_from_name_or_url(file_name, url)
+    } else {
+        category.to_string()
+    }
 }
 
 fn infer_category_from_name_or_url(file_name: &str, url: &str) -> String {
@@ -1429,11 +1626,15 @@ fn parse_batch_urls(urls_text: &str) -> (Vec<String>, usize) {
 }
 
 fn enqueue_batch_urls(urls_text: &str, output_dir: &str, queue_id: i64, start_now: bool, category: &str) -> (usize, usize) {
-    let (urls, invalid) = parse_batch_urls(urls_text);
+    let (urls, mut invalid) = parse_batch_urls(urls_text);
+    let mut queued = 0usize;
     for url in &urls {
-        enqueue_manual_url(queue_id, url, "", output_dir, start_now, category);
+        match enqueue_manual_url(queue_id, url, "", output_dir, start_now, category) {
+            Ok(_) => queued += 1,
+            Err(_) => invalid += 1,
+        }
     }
-    (urls.len(), invalid)
+    (queued, invalid)
 }
 
 fn show_per_host_settings_dialog(weak: slint::Weak<MainWindow>) {
@@ -1669,7 +1870,58 @@ fn open_external(url: &str) {
     let _ = std::process::Command::new("explorer.exe").arg(url).spawn();
 }
 
+fn build_about_message() -> String {
+    format!(
+        "Flow Download Manager {} | Desktop UI powered by Rust + Slint | Inspired by IDM-style desktop workflows",
+        env!("CARGO_PKG_VERSION")
+    )
+}
 
+fn validate_proxy_settings(settings: &flow_core::FlowSettings) -> String {
+    match settings.proxy_mode {
+        0 => "Proxy mode: Direct connection is active".to_string(),
+        1 => "Proxy mode: System proxy settings will be used".to_string(),
+        2 => {
+            let manual = &settings.proxy.manual;
+            if manual.host.trim().is_empty() {
+                return "Proxy test failed: manual proxy host is empty".to_string();
+            }
+            if manual.port == 0 {
+                return "Proxy test failed: manual proxy port must be greater than 0".to_string();
+            }
+            format!(
+                "Proxy ready: {}://{}:{}",
+                manual.scheme,
+                manual.host.trim(),
+                manual.port
+            )
+        }
+        _ => "Proxy mode is not recognized by the desktop UI yet".to_string(),
+    }
+}
+
+fn rename_queue_with_desktop_style(queue_id: i64) -> Result<String, String> {
+    if queue_id == 0 {
+        return Err("Main queue is locked from quick rename".to_string());
+    }
+    let repo = SqliteDownloadRepository::open(&flow_db_path())
+        .map_err(|_| "Queue database is not available".to_string())?;
+    let _ = repo.init_schema();
+    let mut group = repo
+        .get_queue_group(queue_id)
+        .map_err(|_| "Unable to read selected queue".to_string())?
+        .ok_or_else(|| "Selected queue was not found".to_string())?;
+    let base_name = group.name.trim();
+    let next_name = if base_name.ends_with(" (Renamed)") {
+        format!("{} *", base_name)
+    } else {
+        format!("{} (Renamed)", if base_name.is_empty() { "Queue" } else { base_name })
+    };
+    group.name = next_name.clone();
+    repo.upsert_queue_group(&group)
+        .map_err(|_| "Unable to save renamed queue".to_string())?;
+    Ok(format!("Queue renamed to {next_name}"))
+}
 
 fn mutate_settings<F>(mutator: F)
 where
@@ -1685,6 +1937,13 @@ fn default_downloads_folder() -> String {
     std::env::var("USERPROFILE")
         .map(|home| std::path::PathBuf::from(home).join("Downloads").to_string_lossy().to_string())
         .unwrap_or_else(|_| "downloads".to_string())
+}
+
+fn resolve_default_download_folder() -> String {
+    load_settings(&flow_data_dir().join("settings.json"))
+        .default_download_folder
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(default_downloads_folder)
 }
 
 
