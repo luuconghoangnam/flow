@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use crate::home_action_status::{is_editable_status, is_finished_status, is_pausable_status, is_requeueable_status, is_resumable_status};
+use crate::home_action_status::{
+    is_editable_status, is_finished_status, is_pausable_status, is_requeueable_status,
+    is_resumable_status,
+};
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
@@ -21,6 +24,7 @@ pub(crate) struct HomeActionState {
     pub(crate) can_requeue: bool,
     pub(crate) can_edit: bool,
     pub(crate) can_file_checksum: bool,
+    pub(crate) can_restart: bool,
 }
 
 pub(crate) fn derive_home_action_state(
@@ -54,7 +58,12 @@ pub(crate) fn derive_home_action_state(
         .collect::<Vec<_>>();
 
     let default_item_index = main_selected_id
-        .and_then(|main_id| selected_indexes.iter().copied().find(|index| row_ids.get(*index) == Some(main_id)))
+        .and_then(|main_id| {
+            selected_indexes
+                .iter()
+                .copied()
+                .find(|index| row_ids.get(*index) == Some(main_id))
+        })
         .or_else(|| selected_indexes.first().copied());
 
     let resumable_ids = selected_indexes
@@ -115,6 +124,7 @@ pub(crate) fn derive_home_action_state(
             .map(|row| is_finished_status(row.status.as_str()))
             .unwrap_or(false)
     });
+    let can_restart = !selected_ids.is_empty();
 
     HomeActionState {
         selected_ids,
@@ -133,5 +143,6 @@ pub(crate) fn derive_home_action_state(
         can_requeue,
         can_edit,
         can_file_checksum,
+        can_restart,
     }
 }

@@ -10,6 +10,7 @@ use crate::home_actions::{
 };
 use crate::queue_actions::{delete_jobs, delete_result, selected_pause_result, selected_resume_result, update_jobs_status};
 use crate::{load_queue_ui_state, CategoryFilter, SortState};
+use crate::home_action_status::is_finished_status;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HomeActionRegistry {
@@ -264,6 +265,25 @@ pub(crate) fn execute_open_file_checksum_dialog(
         .collect::<Vec<_>>()
         .join("\n\n");
     Ok(FileChecksumDialogPayload { summary })
+}
+
+pub(crate) fn execute_open_file_or_properties(
+    registry: &HomeActionRegistry,
+    queue_id: i64,
+    sort_state: &Arc<Mutex<SortState>>,
+    category_filter: &Arc<Mutex<CategoryFilter>>,
+) -> Result<PropertiesDialogPayload, &'static str> {
+    let Some(default_index) = registry.action_state.default_item_index else {
+        return Err("No download selected");
+    };
+    let state = load_queue_ui_state(queue_id, sort_state, category_filter);
+    let Some(row) = state.rows.get(default_index) else {
+        return Err("Unable to resolve selected download");
+    };
+    if is_finished_status(row.status.as_str()) {
+        return Err("open-file");
+    }
+    execute_show_selected_properties(registry, queue_id, sort_state, category_filter)
 }
 
 pub(crate) fn execute_move_to_queue(

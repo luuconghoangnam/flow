@@ -19,9 +19,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashSet;
 
 use add_url_actions::{prepare_manual_download_submission, render_add_url_error, render_add_url_preview, resolve_manual_category, resolve_manual_file_name, resolve_manual_output_dir};
-use home_action_descriptors::{derive_downloads_menu_presentation, derive_home_action_descriptors, HomeActionId};
-use home_action_menu_presentation::apply_downloads_menu_presentation;
-use home_action_registry::{derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
+use home_action_descriptors::{derive_downloads_menu_presentation, derive_home_action_descriptors, DownloadsMenuPresentation, HomeActionId};
+use home_action_menu_presentation::{apply_downloads_menu_presentation, map_submenu_rows};
+use home_action_registry::{derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_open_file_or_properties, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
 use home_action_state::{derive_home_action_state, HomeActionState};
 
 
@@ -1747,7 +1747,7 @@ fn refresh_queue_ui(
     checked_downloads: Arc<Mutex<std::collections::HashSet<String>>>,
     sort_state: &Arc<Mutex<SortState>>,
     category_filter: &Arc<Mutex<CategoryFilter>>,
-) {
+) -> DownloadsMenuPresentation {
     let state = load_queue_ui_state(queue_id, sort_state, category_filter);
     let snapshot = sync_selection_to_visible_rows(&state.row_ids, selected_download.clone(), checked_downloads.clone());
     let checked_ids = snapshot.selected_ids.iter().cloned().collect::<std::collections::HashSet<_>>();
@@ -1770,6 +1770,7 @@ fn refresh_queue_ui(
     let descriptors = derive_home_action_descriptors(&registry);
     let downloads_menu = derive_downloads_menu_presentation(&descriptors);
     let scheduler_state = load_queue_scheduler_state(queue_id);
+    let downloads_menu_for_ui = downloads_menu.clone();
     let _ = weak.upgrade_in_event_loop(move |app| {
         app.set_selected_queue_index(selected_queue_index);
         app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
@@ -1785,7 +1786,7 @@ fn refresh_queue_ui(
         app.set_can_move_selected_up(affordance.can_move_up);
         app.set_can_move_selected_down(affordance.can_move_down);
         app.set_can_requeue_selected(descriptors.find(HomeActionId::Requeue).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_requeue));
-        apply_downloads_menu_presentation(&app, &downloads_menu);
+        apply_downloads_menu_presentation(&app, &downloads_menu_for_ui);
         app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
         app.set_queue_schedule_enabled(scheduler_state.enabled);
         app.set_queue_schedule_start(scheduler_state.start_text.into());
@@ -1798,6 +1799,7 @@ fn refresh_queue_ui(
         app.set_queue_day_fri(scheduler_state.days[5]);
         app.set_queue_day_sat(scheduler_state.days[6]);
     });
+    downloads_menu
 }
 
 fn apply_checked_rows(
@@ -1983,6 +1985,21 @@ fn execute_downloads_menu_command(
                     app.set_show_properties_dialog(true);
                 });
                 set_status(weak, "Showing selected download properties");
+            }
+            Err(message) => set_status(weak, message),
+        },
+        "open-or-properties" => match execute_open_file_or_properties(&registry, queue_id, sort_state, category_filter) {
+            Ok(payload) => {
+                let _ = weak.upgrade_in_event_loop(move |app| {
+                    app.set_properties_summary(payload.summary.into());
+                    app.set_show_properties_dialog(true);
+                });
+                set_status(weak, "Showing selected download properties");
+            }
+            Err("open-file") => {
+                let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), sort_state, category_filter);
+                let result = selected_open_result(open_multiple_selected_paths(&ids, false), false);
+                set_status(weak, &result.status_message);
             }
             Err(message) => set_status(weak, message),
         },
@@ -2382,6 +2399,29 @@ fn wire_download_toolbar_actions(
                 changed
             });
             set_status(&weak, &result.status_message);
+        }
+    });
+    app.on_downloads_menu_open_submenu({
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
+        let weak = app.as_weak();
+        move |parent_index| {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            let registry = derive_home_action_registry(
+                queue_id,
+                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                &sort_state,
+                &category_filter,
+            );
+            let descriptors = derive_home_action_descriptors(&registry);
+            let presentation = derive_downloads_menu_presentation(&descriptors);
+            let submenu_rows = map_submenu_rows(&presentation, parent_index);
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                app.set_downloads_submenu_rows(ModelRc::new(VecModel::from(submenu_rows)));
+            });
         }
     });
     app.on_downloads_menu_command({

@@ -39,36 +39,20 @@ pub(crate) struct HomeActionDescriptorState {
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct DownloadsMenuActionItem {
+pub(crate) struct DownloadsMenuItem {
+    pub(crate) kind: String,
     pub(crate) title: String,
     pub(crate) enabled: bool,
+    pub(crate) icon: String,
+    pub(crate) shortcut: String,
     pub(crate) command_id: String,
-}
-
-#[derive(Clone, Debug, Default)]
-pub(crate) struct DownloadsMenuSubItem {
-    pub(crate) title: String,
     pub(crate) target_index: i32,
-    pub(crate) command_id: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum DownloadsMenuGroupKind {
-    Action,
-    Separator,
-    SubMenu,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct DownloadsMenuGroup {
-    pub(crate) kind: DownloadsMenuGroupKind,
-    pub(crate) actions: Vec<DownloadsMenuActionItem>,
-    pub(crate) sub_items: Vec<DownloadsMenuSubItem>,
+    pub(crate) children: Vec<DownloadsMenuItem>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct DownloadsMenuPresentation {
-    pub(crate) groups: Vec<DownloadsMenuGroup>,
+    pub(crate) items: Vec<DownloadsMenuItem>,
 }
 
 impl HomeActionDescriptorState {
@@ -140,7 +124,7 @@ pub(crate) fn derive_home_action_descriptors(
             HomeActionDescriptor {
                 id: HomeActionId::RestartDownload,
                 title: "Restart Download",
-                enabled: action_state.can_requeue,
+                enabled: action_state.can_restart,
                 kind: HomeActionKind::Simple,
                 submenu_labels: Vec::new(),
             },
@@ -200,104 +184,101 @@ pub(crate) fn derive_home_action_descriptors(
 pub(crate) fn derive_downloads_menu_presentation(
     descriptors: &HomeActionDescriptorState,
 ) -> DownloadsMenuPresentation {
-    let primary_ids = [
-        (HomeActionId::Edit, "edit"),
-        (HomeActionId::RestartDownload, "restart-download"),
-        (HomeActionId::Properties, "properties"),
-        (HomeActionId::FileChecksum, "file-checksum"),
-    ];
-    let copy_ids = [
-        (HomeActionId::CopyLinks, "copy-links"),
-        (HomeActionId::CopyAsCurl, "copy-as-curl"),
-    ];
-    let primary_actions = primary_ids
-        .iter()
-        .filter_map(|(id, command_id)| {
-            let descriptor = descriptors.simple(id.clone())?;
-            Some(DownloadsMenuActionItem {
-                title: descriptor.title.to_string(),
-                enabled: descriptor.enabled,
-                command_id: (*command_id).to_string(),
+    let action_item = |id: HomeActionId, command_id: &str, icon: &str, shortcut: &str| {
+        descriptors.simple(id).map(|descriptor| DownloadsMenuItem {
+            kind: "action".to_string(),
+            title: descriptor.title.to_string(),
+            enabled: descriptor.enabled,
+            icon: icon.to_string(),
+            shortcut: shortcut.to_string(),
+            command_id: command_id.to_string(),
+            target_index: -1,
+            children: Vec::new(),
+        })
+    };
+    let submenu_child_items = |id: HomeActionId, command_id: &str| {
+        descriptors
+            .submenu(id)
+            .map(|descriptor| {
+                descriptor
+                    .submenu_labels
+                    .iter()
+                    .enumerate()
+                    .map(|(index, label)| DownloadsMenuItem {
+                        kind: "action".to_string(),
+                        title: label.clone(),
+                        enabled: true,
+                        icon: String::new(),
+                        shortcut: String::new(),
+                        command_id: command_id.to_string(),
+                        target_index: index as i32,
+                        children: Vec::new(),
+                    })
+                    .collect::<Vec<_>>()
             })
-        })
-        .collect::<Vec<_>>();
-    let copy_actions = copy_ids
-        .iter()
-        .filter_map(|(id, command_id)| {
-            let descriptor = descriptors.simple(id.clone())?;
-            Some(DownloadsMenuActionItem {
-                title: descriptor.title.to_string(),
-                enabled: descriptor.enabled,
-                command_id: (*command_id).to_string(),
-            })
-        })
-        .collect::<Vec<_>>();
-    let move_queue_items = descriptors
-        .submenu(HomeActionId::MoveToQueue)
-        .map(|descriptor| {
-            descriptor
-                .submenu_labels
-                .iter()
-                .enumerate()
-                .map(|(index, label)| DownloadsMenuSubItem {
-                    title: format!("{}: {}", descriptor.title, label),
-                    target_index: index as i32,
-                    command_id: "move-to-queue".to_string(),
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    let move_category_items = descriptors
-        .submenu(HomeActionId::MoveToCategory)
-        .map(|descriptor| {
-            descriptor
-                .submenu_labels
-                .iter()
-                .enumerate()
-                .map(|(index, label)| DownloadsMenuSubItem {
-                    title: format!("{}: {}", descriptor.title, label),
-                    target_index: index as i32,
-                    command_id: "move-to-category".to_string(),
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+            .unwrap_or_default()
+    };
 
-    let mut groups = vec![
-        DownloadsMenuGroup {
-            kind: DownloadsMenuGroupKind::Action,
-            actions: primary_actions,
-            sub_items: Vec::new(),
-        },
-        DownloadsMenuGroup {
-            kind: DownloadsMenuGroupKind::Separator,
-            actions: Vec::new(),
-            sub_items: Vec::new(),
-        },
-        DownloadsMenuGroup {
-            kind: DownloadsMenuGroupKind::Action,
-            actions: copy_actions,
-            sub_items: Vec::new(),
-        },
-    ];
+    let mut items = vec![
+        action_item(HomeActionId::Edit, "edit", "edit", ""),
+        action_item(HomeActionId::RestartDownload, "restart-download", "refresh", ""),
+        action_item(HomeActionId::Properties, "properties", "info", ""),
+        action_item(HomeActionId::FileChecksum, "file-checksum", "info", ""),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
 
-    if !move_queue_items.is_empty() || !move_category_items.is_empty() {
-        groups.push(DownloadsMenuGroup {
-            kind: DownloadsMenuGroupKind::Separator,
-            actions: Vec::new(),
-            sub_items: Vec::new(),
-        });
-        groups.push(DownloadsMenuGroup {
-            kind: DownloadsMenuGroupKind::SubMenu,
-            actions: Vec::new(),
-            sub_items: move_queue_items,
-        });
-        groups.push(DownloadsMenuGroup {
-            kind: DownloadsMenuGroupKind::SubMenu,
-            actions: Vec::new(),
-            sub_items: move_category_items,
+    items.push(DownloadsMenuItem {
+        kind: "separator".to_string(),
+        ..DownloadsMenuItem::default()
+    });
+
+    items.extend(
+        [
+            action_item(HomeActionId::CopyLinks, "copy-links", "copy", ""),
+            action_item(HomeActionId::CopyAsCurl, "copy-as-curl", "copy", ""),
+        ]
+        .into_iter()
+        .flatten(),
+    );
+
+    let move_queue_children = submenu_child_items(HomeActionId::MoveToQueue, "move-to-queue");
+    let move_category_children = submenu_child_items(HomeActionId::MoveToCategory, "move-to-category");
+    if !move_queue_children.is_empty() || !move_category_children.is_empty() {
+        items.push(DownloadsMenuItem {
+            kind: "separator".to_string(),
+            ..DownloadsMenuItem::default()
         });
     }
+    if let Some(descriptor) = descriptors.submenu(HomeActionId::MoveToQueue) {
+        if !move_queue_children.is_empty() {
+            items.push(DownloadsMenuItem {
+                kind: "submenu".to_string(),
+                title: descriptor.title.to_string(),
+                enabled: descriptor.enabled,
+                icon: "queue".to_string(),
+                shortcut: String::new(),
+                command_id: String::new(),
+                target_index: -1,
+                children: move_queue_children,
+            });
+        }
+    }
+    if let Some(descriptor) = descriptors.submenu(HomeActionId::MoveToCategory) {
+        if !move_category_children.is_empty() {
+            items.push(DownloadsMenuItem {
+                kind: "submenu".to_string(),
+                title: descriptor.title.to_string(),
+                enabled: descriptor.enabled,
+                icon: "category".to_string(),
+                shortcut: String::new(),
+                command_id: String::new(),
+                target_index: -1,
+                children: move_category_children,
+            });
+        }
+    }
 
-    DownloadsMenuPresentation { groups }
+    DownloadsMenuPresentation { items }
 }

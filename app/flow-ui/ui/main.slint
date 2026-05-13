@@ -21,6 +21,8 @@ export struct DownloadsMenuRow {
     command_id: string,
     target_index: int,
     row_kind: string,
+    icon: string,
+    shortcut: string,
 }
 
 global Palette {
@@ -213,6 +215,7 @@ component MenuItem inherits Rectangle {
     in property <string> text;
     in property <bool> enabled: true;
     callback clicked;
+    callback hover;
     height: 20px;
     background: ta.pressed ? #3B3D40 : (ta.has-hover ? #323437 : transparent);
     
@@ -231,45 +234,172 @@ component MenuItem inherits Rectangle {
     ta := TouchArea {
         width: 100%; height: 100%;
         clicked => { if root.enabled { root.clicked(); } }
+        moved => { root.hover(); }
     }
 }
 
-component DownloadsMenuPopup inherits VerticalLayout {
+component DownloadsMenuEntry inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <string> shortcut;
+    in property <bool> enabled: true;
+    in property <bool> submenu: false;
+    callback clicked;
+    callback hover;
+    height: 20px;
+    background: ta.pressed ? #3B3D40 : (ta.has-hover ? #323437 : transparent);
+
+    function icon-glyph(name: string) -> string {
+        name == "edit" ? "✎" : (name == "refresh" ? "↻" : (name == "info" ? "ⓘ" : (name == "copy" ? "⧉" : (name == "queue" ? "≣" : (name == "category" ? "▣" : "")))))
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 6px;
+        alignment: start;
+
+        Text {
+            width: 14px;
+            text: icon-glyph(root.icon);
+            color: root.enabled ? #D7D4C4 : #77756E;
+            font-size: 10px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.text;
+            color: root.enabled ? #ECE9D8 : #8C8A80;
+            font-size: 10px;
+            font-weight: 400;
+            vertical-alignment: center;
+        }
+        Rectangle { width: 100%; }
+        if root.shortcut != "": Text {
+            text: root.shortcut;
+            color: root.enabled ? #BAB6A6 : #706D66;
+            font-size: 9px;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+        if root.submenu: Text {
+            text: "▶";
+            color: root.enabled ? #CFCBB8 : #706D66;
+            font-size: 9px;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    ta := TouchArea {
+        width: 100%; height: 100%;
+        clicked => { if root.enabled { root.clicked(); } }
+        moved => { root.hover(); }
+    }
+}
+
+component DownloadsMenuPopup inherits Rectangle {
     in property <[DownloadsMenuRow]> rows;
+    in property <[DownloadsMenuRow]> submenu_rows;
+    in-out property <int> submenu_parent_index: -1;
 
     callback select-all();
     callback clear-selection();
     callback invoke(command-id: string, target-index: int);
+    callback open-submenu(parent-index: int);
     callback sort-name();
     callback sort-size();
     callback sort-status();
     callback sort-date-added();
 
-    spacing: 0px;
-    MenuItem { text: "Select All"; clicked => { root.select-all(); } }
-    MenuItem { text: "Clear Selection"; clicked => { root.clear-selection(); } }
-    Rectangle { height: 1px; background: #5A5B5E; }
-    for item in root.rows: Rectangle {
-        height: item.row_kind == "separator" ? 5px : 20px;
-        background: transparent;
-        if item.row_kind == "separator": Rectangle {
-            y: 2px;
-            height: 1px;
-            width: 100%;
-            background: #5A5B5E;
+    background: #232528;
+    border-color: #4A4C4F;
+    border-width: 1px;
+    clip: true;
+
+    HorizontalLayout {
+        spacing: 0px;
+
+        Rectangle {
+            width: 205px;
+            background: transparent;
+            VerticalLayout {
+                spacing: 0px;
+                MenuItem { text: "Select All"; clicked => { root.select-all(); } hover => { root.submenu_parent_index = -1; } }
+                MenuItem { text: "Clear Selection"; clicked => { root.clear-selection(); } hover => { root.submenu_parent_index = -1; } }
+                Rectangle { height: 1px; background: #5A5B5E; }
+                for item[index] in root.rows: Rectangle {
+                    height: item.row_kind == "separator" ? 5px : 20px;
+                    background: transparent;
+                    if item.row_kind == "separator": Rectangle {
+                        y: 2px;
+                        height: 1px;
+                        width: 100%;
+                        background: #5A5B5E;
+                    }
+                    if item.row_kind != "separator": DownloadsMenuEntry {
+                        width: 100%;
+                        text: item.title;
+                        icon: item.icon;
+                        shortcut: item.shortcut;
+                        enabled: item.enabled;
+                        submenu: item.row_kind == "submenu";
+                        hover => {
+                            if item.row_kind == "submenu" {
+                                root.submenu_parent_index = index;
+                                root.open-submenu(index);
+                            } else {
+                                root.submenu_parent_index = -1;
+                            }
+                        }
+                        clicked => {
+                            if item.row_kind == "submenu" {
+                                root.submenu_parent_index = index;
+                                root.open-submenu(index);
+                            } else {
+                                root.invoke(item.command_id, item.target_index);
+                            }
+                        }
+                    }
+                }
+                Rectangle { height: 1px; background: #5A5B5E; }
+                MenuItem { text: "Sort by Name"; clicked => { root.sort-name(); } hover => { root.submenu_parent_index = -1; } }
+                MenuItem { text: "Sort by Size"; clicked => { root.sort-size(); } hover => { root.submenu_parent_index = -1; } }
+                MenuItem { text: "Sort by Status"; clicked => { root.sort-status(); } hover => { root.submenu_parent_index = -1; } }
+                MenuItem { text: "Sort by Date Added"; clicked => { root.sort-date-added(); } hover => { root.submenu_parent_index = -1; } }
+            }
         }
-        if item.row_kind != "separator": MenuItem {
-            width: 100%;
-            text: item.title;
-            enabled: item.enabled;
-            clicked => { root.invoke(item.command_id, item.target_index); }
+
+        if root.submenu_parent_index >= 0 && root.submenu_rows.length > 0: Rectangle {
+            width: 185px;
+            background: #232528;
+            border-color: #4A4C4F;
+            border-width: 1px;
+            VerticalLayout {
+                spacing: 0px;
+                for sub_item in root.submenu_rows: Rectangle {
+                    height: sub_item.row_kind == "separator" ? 5px : 20px;
+                    background: transparent;
+                    if sub_item.row_kind == "separator": Rectangle {
+                        y: 2px;
+                        height: 1px;
+                        width: 100%;
+                        background: #5A5B5E;
+                    }
+                    if sub_item.row_kind != "separator": DownloadsMenuEntry {
+                        width: 100%;
+                        text: sub_item.title;
+                        icon: sub_item.icon;
+                        shortcut: sub_item.shortcut;
+                        enabled: sub_item.enabled;
+                        submenu: false;
+                        hover => { }
+                        clicked => { root.invoke(sub_item.command_id, sub_item.target_index); }
+                    }
+                }
+            }
         }
     }
-    Rectangle { height: 1px; background: #5A5B5E; }
-    MenuItem { text: "Sort by Name"; clicked => { root.sort-name(); } }
-    MenuItem { text: "Sort by Size"; clicked => { root.sort-size(); } }
-    MenuItem { text: "Sort by Status"; clicked => { root.sort-status(); } }
-    MenuItem { text: "Sort by Date Added"; clicked => { root.sort-date-added(); } }
 }
 
 component TreeItem inherits Rectangle {
@@ -360,6 +490,7 @@ export component MainWindow inherits Window {
     in-out property <bool> show-file-checksum-dialog: false;
     in-out property <string> file-checksum-summary: "";
     in-out property <[DownloadsMenuRow]> downloads-menu-rows: [];
+    in-out property <[DownloadsMenuRow]> downloads-submenu-rows: [];
     
     // Settings properties
     in property <int> thread-count: 4;
@@ -398,6 +529,7 @@ export component MainWindow inherits Window {
     callback copy-selected-links(); callback copy-selected-as-curl(); callback show-selected-properties(); callback close-properties-dialog();
     callback restart-selected-downloads(); callback edit-selected-download(); callback show-file-checksum(); callback close-file-checksum-dialog();
     callback downloads-menu-command(command-id: string, target-index: int);
+    callback downloads-menu-open-submenu(parent-index: int);
 
     in-out property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
     in-out property <bool> queue-stop-on-empty: false;
@@ -425,12 +557,12 @@ export component MainWindow inherits Window {
         Rectangle {
             height: 22px; background: Palette.surface;
             HorizontalLayout { padding-left: 0px; padding-right: 0px; spacing: 0px;
-                MenuItem { text: "Tasks"; clicked => { root.menu-tasks(); } }
-                MenuItem { text: "File"; clicked => { root.menu-file(); } }
-                MenuItem { text: "Downloads"; clicked => { root.menu-downloads(); } }
-                MenuItem { text: "View"; clicked => { root.menu-view(); } }
-                MenuItem { text: "Tools"; clicked => { root.menu-tools(); } }
-                MenuItem { text: "Help"; clicked => { root.menu-help(); } }
+                MenuItem { text: "Tasks"; clicked => { root.menu-tasks(); } hover => { if root.active-menu >= 0 { root.active-menu = 0; } } }
+                MenuItem { text: "File"; clicked => { root.menu-file(); } hover => { if root.active-menu >= 0 { root.active-menu = 1; } } }
+                MenuItem { text: "Downloads"; clicked => { root.menu-downloads(); } hover => { if root.active-menu >= 0 { root.active-menu = 2; } } }
+                MenuItem { text: "View"; clicked => { root.menu-view(); } hover => { if root.active-menu >= 0 { root.active-menu = 3; } } }
+                MenuItem { text: "Tools"; clicked => { root.menu-tools(); } hover => { if root.active-menu >= 0 { root.active-menu = 4; } } }
+                MenuItem { text: "Help"; clicked => { root.menu-help(); } hover => { if root.active-menu >= 0 { root.active-menu = 5; } } }
                 Rectangle { width: 100%; }
             }
             Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
@@ -972,9 +1104,11 @@ export component MainWindow inherits Window {
             }
             if active-menu == 2: DownloadsMenuPopup {
                 rows: root.downloads-menu-rows;
+                submenu_rows: root.downloads-submenu-rows;
 
                 select-all => { root.downloads-select-all(); root.active-menu = -1; }
                 clear-selection => { root.downloads-clear-selection(); root.active-menu = -1; }
+                open-submenu(parent-index) => { root.downloads-menu-open-submenu(parent-index); }
                 invoke(command-id, target-index) => { root.downloads-menu-command(command-id, target-index); root.active-menu = -1; }
                 sort-name => { root.downloads-sort-by-name(); root.active-menu = -1; }
                 sort-size => { root.downloads-sort-by-size(); root.active-menu = -1; }
