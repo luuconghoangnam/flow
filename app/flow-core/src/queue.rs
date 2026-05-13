@@ -118,12 +118,12 @@ impl QueueScheduler {
                 };
 
                 if !group.active {
-                    let _ = repo.log_queue_event(job.queue_id, "schedule_blocked_inactive", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                    let _ = repo.log_queue_event(job.queue_id, "queue_schedule_blocked_inactive", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
                     continue;
                 }
 
                 if !is_schedule_allowed(group.schedule_json.as_deref()) {
-                    let _ = repo.log_queue_event(job.queue_id, "schedule_blocked_time", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                    let _ = repo.log_queue_event(job.queue_id, "queue_schedule_blocked_time", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
                     continue;
                 }
 
@@ -193,7 +193,7 @@ async fn run_job_with_retry(
         let persisted = match SqliteDownloadRepository::open(&db_path) {
             Ok(repo) => {
                 let _ = repo.init_schema();
-                let _ = repo.log_queue_event(job.queue_id, "job_starting", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                let _ = repo.log_queue_event(job.queue_id, "job_started", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
                 let _ = repo.update_queue_job_status(&job.id, "Downloading");
                 let _ = repo.update_queue_job_attempt(&job.id, attempt as i64, None);
                 repo.list_chunk_progress(&job.id).unwrap_or_default()
@@ -215,6 +215,8 @@ async fn run_job_with_retry(
                     let _ = repo.update_queue_job_status(&job.id, "Failed");
                     let _ = repo.log_queue_event(job.queue_id, "job_failed", Some(&format!("{{\"id\":\"{}\",\"reason\":\"{}\"}}", job.id, reason.replace('"', "'"))));
                 }
+            } else if let Ok(repo) = SqliteDownloadRepository::open(&db_path) {
+                let _ = repo.log_queue_event(job.queue_id, "job_completed", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
             }
             evaluate_stop_on_empty(&db_path, job.queue_id, Some(&events));
             break;
@@ -224,7 +226,7 @@ async fn run_job_with_retry(
             if reason.starts_with("RESUME_SOURCE_CHANGED") {
                 if let Ok(repo) = SqliteDownloadRepository::open(&db_path) {
                     let _ = repo.delete_chunk_progress(&job.id);
-                    let _ = repo.log_queue_event(job.queue_id, "resume_source_changed_reset", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
+                    let _ = repo.log_queue_event(job.queue_id, "job_resume_reset_source_changed", Some(&format!("{{\"id\":\"{}\"}}", job.id)));
                 }
                 attempt -= 1;
                 continue;
@@ -253,7 +255,7 @@ fn evaluate_stop_on_empty(db_path: &PathBuf, queue_id: i64, events: Option<&mpsc
     });
     if !has_runnable {
         let _ = repo.set_queue_group_active(queue_id, false);
-        let _ = repo.log_queue_event(queue_id, "queue_became_empty", None);
+        let _ = repo.log_queue_event(queue_id, "queue_empty", None);
         if let Some(events) = events {
             let _ = events.try_send(DownloadEvent::QueueEmpty { queue_id });
         }

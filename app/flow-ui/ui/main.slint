@@ -278,8 +278,6 @@ component StandardInput inherits Rectangle {
         placeholder-text: root.placeholder;
         edited(t) => { root.edited(t); } 
     }
-    
-    ta := TouchArea { width: 100%; height: 100%; }
 }
 
 export component MainWindow inherits Window {
@@ -300,6 +298,17 @@ export component MainWindow inherits Window {
     in-out property <int> selected-category-index: 0;
     in property <string> status-message: "Ready";
     in property <bool> show-delete-confirm: false;
+    in property <bool> can-open-selected: false;
+    in property <bool> can-open-selected-folder: false;
+    in property <bool> can-delete-selected: false;
+    in property <bool> can-resume-selected: false;
+    in property <bool> can-stop-selected: false;
+    in property <bool> can-move-selected-up: false;
+    in property <bool> can-move-selected-down: false;
+    in property <bool> can-requeue-selected: false;
+    in property <[string]> move-queue-labels: [];
+    in-out property <bool> show-properties-dialog: false;
+    in-out property <string> properties-summary: "";
     
     // Settings properties
     in property <int> thread-count: 4;
@@ -331,9 +340,10 @@ export component MainWindow inherits Window {
     callback view-refresh(); callback view-toggle-toolbar(); callback view-toggle-status-bar();
     callback tools-browser-integration(); callback tools-per-host-settings(); callback tools-open-settings();
     callback help-about(); callback help-check-updates(); callback help-online-help(); callback help-donate(); callback help-translators();
-    callback menu-tasks(); callback menu-file(); callback menu-downloads(); callback menu-view(); callback menu-tools(); callback menu-help();
     callback tasks-delete-finished(); callback tasks-delete-unfinished(); callback tasks-delete-current-queue();
     callback file-open-add-url(); callback file-open-batch-download(); callback file-open-settings();
+    callback move-selection-to-queue(index: int);
+    callback copy-selected-links(); callback show-selected-properties(); callback close-properties-dialog();
 
     in-out property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
     in-out property <bool> queue-stop-on-empty: false;
@@ -383,17 +393,17 @@ export component MainWindow inherits Window {
                 ToolbarButton { text: "Add URL"; icon-type: "add"; clicked => { root.add-url(); current-tab = 0; } }
                 Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
 
-                ToolbarButton { text: "Resume"; icon-type: "resume"; enabled: root.selected-download-index >= 0; clicked => { root.resume-selected(); current-tab = 0; } }
-                ToolbarButton { text: "Stop"; icon-type: "stop"; enabled: root.selected-download-index >= 0; clicked => { root.stop-selected(); current-tab = 0; } }
+                ToolbarButton { text: "Resume"; icon-type: "resume"; enabled: root.can-resume-selected; clicked => { root.resume-selected(); current-tab = 0; } }
+                ToolbarButton { text: "Stop"; icon-type: "stop"; enabled: root.can-stop-selected; clicked => { root.stop-selected(); current-tab = 0; } }
                 ToolbarButton { text: "Stop All"; icon-type: "stop-all"; clicked => { root.stop-all(); current-tab = 0; } }
                 Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
 
-                ToolbarButton { text: "Delete"; icon-type: "delete"; enabled: root.selected-download-index >= 0; clicked => { root.request-delete-selected(); current-tab = 0; } }
+                ToolbarButton { text: "Delete"; icon-type: "delete"; enabled: root.can-delete-selected; clicked => { root.request-delete-selected(); current-tab = 0; } }
                 ToolbarButton { text: "Cleanup"; icon-type: "cleanup"; clicked => { root.cleanup-finished(); current-tab = 0; } }
                 Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
 
-                ToolbarButton { text: "Open"; icon-type: "open"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected(); } }
-                ToolbarButton { text: "Folder"; icon-type: "folder"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected-folder(); } }
+                ToolbarButton { text: "Open"; icon-type: "open"; enabled: root.can-open-selected; clicked => { root.open-selected(); } }
+                ToolbarButton { text: "Folder"; icon-type: "folder"; enabled: root.can-open-selected-folder; clicked => { root.open-selected-folder(); } }
                 Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
 
                 ToolbarButton { text: "Scheduler"; icon-type: "scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
@@ -603,9 +613,9 @@ export component MainWindow inherits Window {
                                 Text { text: "Selected Item Controls"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 HorizontalLayout {
                                     spacing: 8px;
-                                    ToolbarButton { text: "Move Up"; icon-type: "up"; enabled: root.selected-download-index > 0; height: 34px; clicked => { root.move-download-up(); } }
-                                    ToolbarButton { text: "Move Down"; icon-type: "down"; enabled: root.selected-download-index >= 0; height: 34px; clicked => { root.move-download-down(); } }
-                                    ToolbarButton { text: "Requeue"; icon-type: "retry"; enabled: root.selected-download-index >= 0; height: 34px; clicked => { root.requeue-download(); } }
+                                    ToolbarButton { text: "Move Up"; icon-type: "up"; enabled: root.can-move-selected-up; height: 34px; clicked => { root.move-download-up(); } }
+                                    ToolbarButton { text: "Move Down"; icon-type: "down"; enabled: root.can-move-selected-down; height: 34px; clicked => { root.move-download-down(); } }
+                                    ToolbarButton { text: "Requeue"; icon-type: "retry"; enabled: root.can-requeue-selected; height: 34px; clicked => { root.requeue-download(); } }
                                 }
                             }
 
@@ -911,6 +921,11 @@ export component MainWindow inherits Window {
                 spacing: 2px;
                 MenuItem { text: "Select All"; clicked => { root.downloads-select-all(); root.active-menu = -1; } }
                 MenuItem { text: "Clear Selection"; clicked => { root.downloads-clear-selection(); root.active-menu = -1; } }
+                MenuItem { text: "Copy Links"; clicked => { root.copy-selected-links(); root.active-menu = -1; } }
+                MenuItem { text: "Properties"; clicked => { root.show-selected-properties(); root.active-menu = -1; } }
+                if root.move-queue-labels.length > 0: MenuItem { text: "Move to " + root.move-queue-labels[0]; clicked => { root.move-selection-to-queue(0); root.active-menu = -1; } }
+                if root.move-queue-labels.length > 1: MenuItem { text: "Move to " + root.move-queue-labels[1]; clicked => { root.move-selection-to-queue(1); root.active-menu = -1; } }
+                if root.move-queue-labels.length > 2: MenuItem { text: "Move to " + root.move-queue-labels[2]; clicked => { root.move-selection-to-queue(2); root.active-menu = -1; } }
                 MenuItem { text: "Sort by Name"; clicked => { root.downloads-sort-by-name(); root.active-menu = -1; } }
                 MenuItem { text: "Sort by Size"; clicked => { root.downloads-sort-by-size(); root.active-menu = -1; } }
                 MenuItem { text: "Sort by Status"; clicked => { root.downloads-sort-by-status(); root.active-menu = -1; } }
@@ -980,11 +995,13 @@ export component AddUrlDialog inherits Window {
     in property <[string]> queue-options: ["Main"];
     in-out property <int> queue-index: 0;
     in-out property <string> category: "General";
+    private property <bool> can-submit: root.url != "";
 
     callback download_later(string, string, string, int, string);
     callback start_now(string, string, string, int, string);
     callback choose-folder();
     callback cancel();
+    callback preview_update(string, string, string, string);
 
     VerticalLayout {
         padding: 0; spacing: 0;
@@ -1027,7 +1044,7 @@ export component AddUrlDialog inherits Window {
                     width: 100%; 
                     text: root.url; 
                     placeholder: "https://example.com/file.zip"; 
-                    edited(t) => { root.url = t; } 
+                    edited(t) => { root.url = t; root.preview_update(root.url, root.file-name, root.output-dir, root.category); } 
                 }
             }
 
@@ -1039,7 +1056,7 @@ export component AddUrlDialog inherits Window {
                     width: 100%;
                     text: root.category;
                     placeholder: "General";
-                    edited(t) => { root.category = t; }
+                    edited(t) => { root.category = t; root.preview_update(root.url, root.file-name, root.output-dir, root.category); }
                 }
             }
 
@@ -1091,7 +1108,7 @@ export component AddUrlDialog inherits Window {
                     width: 100%; 
                     text: root.file-name; 
                     placeholder: "Auto-detected"; 
-                    edited(t) => { root.file-name = t; } 
+                    edited(t) => { root.file-name = t; root.preview_update(root.url, root.file-name, root.output-dir, root.category); } 
                 }
             }
             
@@ -1105,7 +1122,7 @@ export component AddUrlDialog inherits Window {
                         width: 100%; 
                         text: root.output-dir; 
                         placeholder: "Default Downloads folder"; 
-                        edited(t) => { root.output-dir = t; } 
+                        edited(t) => { root.output-dir = t; root.preview_update(root.url, root.file-name, root.output-dir, root.category); } 
                     }
                     ToolbarButton { text: "..."; min-width: 38px; height: 32px; icon-type: "open"; clicked => { root.choose-folder(); } }
                 }
@@ -1122,8 +1139,8 @@ export component AddUrlDialog inherits Window {
                 spacing: 8px;
                 alignment: end;
                 Rectangle { width: 100%; }
-                ToolbarButton { text: "Download Now"; height: 36px; clicked => { root.start_now(root.url, root.file-name, root.output-dir, root.queue-index, root.category); } }
-                ToolbarButton { text: "Queue Later"; height: 36px; clicked => { root.download_later(root.url, root.file-name, root.output-dir, root.queue-index, root.category); } }
+                ToolbarButton { text: "Download Now"; height: 36px; enabled: root.can-submit; clicked => { root.start_now(root.url, root.file-name, root.output-dir, root.queue-index, root.category); } }
+                ToolbarButton { text: "Queue Later"; height: 36px; enabled: root.can-submit; clicked => { root.download_later(root.url, root.file-name, root.output-dir, root.queue-index, root.category); } }
                 ToolbarButton { text: "Cancel"; height: 36px; clicked => { root.cancel(); } }
             }
             Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }

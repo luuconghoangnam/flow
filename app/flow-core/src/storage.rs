@@ -328,7 +328,7 @@ impl DownloadRepository for SqliteDownloadRepository {
 
     fn ensure_default_queue_group(&self) -> Result<()> {
         self.connection.execute(
-            "INSERT OR IGNORE INTO queue_groups (id, name, max_concurrent, stop_on_empty, active, schedule_json) VALUES (0, 'Main', 3, 0, 1, NULL)",
+            "INSERT OR IGNORE INTO queue_groups (id, name, max_concurrent, stop_on_empty, active) VALUES (0, 'Main', 3, 0, 1)",
             [],
         )?;
         Ok(())
