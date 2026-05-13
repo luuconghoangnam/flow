@@ -1,4 +1,6 @@
 fn main() {
+    println!("cargo:rerun-if-changed=ui/main.slint");
+    println!("cargo:rerun-if-changed=assets/flow.ico");
     slint_build::compile("ui/main.slint").expect("Failed to compile Slint UI");
 
     #[cfg(target_os = "windows")]
