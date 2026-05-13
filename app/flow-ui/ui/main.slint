@@ -25,6 +25,13 @@ export struct DownloadsMenuRow {
     shortcut: string,
 }
 
+export struct FileChecksumRow {
+    file_name: string,
+    expected: string,
+    actual: string,
+    result: string,
+}
+
 global Palette {
     // Dark WinForm-style palette
     out property <color> bg: #1A1B1C;              // Windows Dark background
@@ -1872,11 +1879,12 @@ export component EditDownloadDialog inherits Window {
 }
 
 export component FileChecksumDialog inherits Window {
-    width: 620px; height: 420px;
+    width: 720px; height: 460px;
     title: "File Checksum";
     background: #ece9d8;
 
-    in property <string> summary: "";
+    in property <[FileChecksumRow]> rows: [];
+    in property <string> status-text: "Preparing checksum verification...";
     callback close-dialog();
 
     VerticalLayout {
@@ -1901,20 +1909,41 @@ export component FileChecksumDialog inherits Window {
                 border-width: 1px;
                 VerticalLayout {
                     padding-left: 10px; padding-right: 10px; padding-top: 6px; padding-bottom: 6px;
-                    Text { text: "Review expected checksums for the selected finished downloads."; font-size: 11px; color: #2b2b2b; }
-                    Text { text: "This mirrors IDM's checksum page entry point using the finished selection set."; font-size: 10px; color: #5a5a5a; }
+                    Text { text: "Verify SHA-256 for selected finished downloads."; font-size: 11px; color: #2b2b2b; }
+                    Text { text: root.status-text; font-size: 10px; color: #5a5a5a; }
                 }
             }
             Rectangle {
                 border-width: 1px;
                 border-color: #7f9db9;
                 background: white;
-                ScrollView {
-                    Text {
-                        text: root.summary;
-                        color: #202020;
-                        font-size: 11px;
-                        wrap: word-wrap;
+                VerticalLayout {
+                    spacing: 0;
+                    Rectangle {
+                        height: 28px;
+                        background: #eef3fb;
+                        HorizontalLayout {
+                            padding-left: 8px; padding-right: 8px;
+                            Text { text: "File"; width: 170px; font-size: 10px; font-weight: 700; color: #1f2d4d; }
+                            Text { text: "Expected"; width: 170px; font-size: 10px; font-weight: 700; color: #1f2d4d; }
+                            Text { text: "Actual"; width: 170px; font-size: 10px; font-weight: 700; color: #1f2d4d; }
+                            Text { text: "Result"; width: 90px; font-size: 10px; font-weight: 700; color: #1f2d4d; }
+                        }
+                    }
+                    ScrollView {
+                        VerticalLayout {
+                            for row[index] in root.rows: Rectangle {
+                                height: 34px;
+                                background: Math.mod(index, 2) == 0 ? #ffffff : #f9fbff;
+                                HorizontalLayout {
+                                    padding-left: 8px; padding-right: 8px;
+                                    Text { text: row.file_name; width: 170px; font-size: 10px; color: #202020; }
+                                    Text { text: row.expected; width: 170px; font-size: 10px; color: #2f2f2f; }
+                                    Text { text: row.actual; width: 170px; font-size: 10px; color: #2f2f2f; }
+                                    Text { text: row.result; width: 90px; font-size: 10px; color: row.result == "Match" ? #1f7a3a : (row.result == "Checking" ? #8a6b16 : #a02727); }
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -28,7 +28,9 @@ use home_action_status::{classify_download_activity, DownloadActivity};
 use queue_actions::{clear_selection_after_delete, effective_checked_ids, mutate_selected_job_with_status, open_multiple_selected_paths, pause_all_jobs, selected_open_result, stop_all_result};
 use selection_model::{clear_selection, select_all_visible, set_main_selection, sync_selection_to_visible_rows, toggle_item_selection};
 use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, PerHostSettings, QueueJobRecord, SqliteDownloadRepository};
+use home_action_registry::FileChecksumDialogPayload;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use sha2::{Digest, Sha256};
 use slint::{CloseRequestResponse, ModelRc, SharedString, VecModel};
 use tray_icon::menu::{Menu, MenuItem};
 use tray_icon::TrayIconBuilder;
@@ -2194,7 +2196,7 @@ fn execute_downloads_menu_command(
             Err(message) => set_status(weak, message),
         },
         "file-checksum" => match execute_open_file_checksum_dialog(&registry) {
-            Ok(payload) => open_file_checksum_dialog(payload.summary, weak.clone()),
+            Ok(payload) => open_file_checksum_dialog(payload, weak.clone()),
             Err(message) => set_status(weak, message),
         },
         "copy-links" => set_status(weak, &execute_copy_selected_links(&registry)),
@@ -2528,7 +2530,7 @@ fn wire_download_toolbar_actions(
                 &category_filter,
             );
             match execute_open_file_checksum_dialog(&registry) {
-                Ok(payload) => open_file_checksum_dialog(payload.summary, weak.clone()),
+                Ok(payload) => open_file_checksum_dialog(payload, weak.clone()),
                 Err(message) => set_status(&weak, message),
             }
         }
@@ -2976,9 +2978,92 @@ fn open_edit_download_dialog(
     }
 }
 
-fn open_file_checksum_dialog(summary: String, weak: slint::Weak<MainWindow>) {
+fn checksum_file(path: &std::path::Path) -> Result<String, String> {
+    let mut file = std::fs::File::open(path).map_err(|_| "File missing".to_string())?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 8192];
+    loop {
+        let read = std::io::Read::read(&mut file, &mut buffer).map_err(|_| "Read error".to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn checksum_status_line(done: usize, total: usize, matched: usize, mismatched: usize, failed: usize) -> String {
+    if done < total {
+        format!("Checking {} / {}...", done, total)
+    } else {
+        format!("Done: {} match, {} mismatch, {} error", matched, mismatched, failed)
+    }
+}
+
+fn open_file_checksum_dialog(payload: FileChecksumDialogPayload, weak: slint::Weak<MainWindow>) {
     if let Ok(dialog) = FileChecksumDialog::new() {
-        dialog.set_summary(summary.into());
+        let mut rows = payload
+            .items
+            .iter()
+            .map(|item| FileChecksumRow {
+                file_name: item.file_name.clone().into(),
+                expected: item.expected_sha256_hex.clone().unwrap_or_else(|| "Not set".to_string()).into(),
+                actual: "--".into(),
+                result: "Pending".into(),
+            })
+            .collect::<Vec<_>>();
+
+        dialog.set_rows(ModelRc::new(VecModel::from(rows.clone())));
+        dialog.set_status_text(format!("Preparing {} item(s)...", rows.len()).into());
+
+        let mut done = 0usize;
+        let mut matched = 0usize;
+        let mut mismatched = 0usize;
+        let mut failed = 0usize;
+
+        for (index, item) in payload.items.iter().enumerate() {
+            rows[index].result = "Checking".into();
+            dialog.set_rows(ModelRc::new(VecModel::from(rows.clone())));
+            dialog.set_status_text(checksum_status_line(done, payload.items.len(), matched, mismatched, failed).into());
+
+            let expected = item.expected_sha256_hex.as_ref().map(|v| v.trim().to_lowercase()).filter(|v| !v.is_empty());
+            let path = std::path::Path::new(&item.output_path);
+            if expected.is_none() {
+                rows[index].actual = "--".into();
+                rows[index].result = "No hash".into();
+                failed += 1;
+            } else {
+                match checksum_file(path) {
+                    Ok(actual) => {
+                        rows[index].actual = actual.clone().into();
+                        if expected.as_deref() == Some(actual.as_str()) {
+                            rows[index].result = "Match".into();
+                            matched += 1;
+                        } else {
+                            rows[index].result = "Mismatch".into();
+                            mismatched += 1;
+                        }
+                    }
+                    Err(reason) => {
+                        rows[index].actual = reason.into();
+                        rows[index].result = "Error".into();
+                        failed += 1;
+                    }
+                }
+            }
+            done += 1;
+            dialog.set_rows(ModelRc::new(VecModel::from(rows.clone())));
+            dialog.set_status_text(checksum_status_line(done, payload.items.len(), matched, mismatched, failed).into());
+        }
+
+        set_status(
+            &weak,
+            &format!(
+                "Checksum complete: {} match, {} mismatch, {} error",
+                matched, mismatched, failed
+            ),
+        );
+
         let dialog_weak = dialog.as_weak();
         dialog.on_close_dialog(move || {
             if let Some(dlg) = dialog_weak.upgrade() {

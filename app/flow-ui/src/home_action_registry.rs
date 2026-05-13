@@ -32,8 +32,16 @@ pub(crate) struct EditDialogPayload {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) struct FileChecksumItemPayload {
+    pub(crate) id: String,
+    pub(crate) file_name: String,
+    pub(crate) output_path: String,
+    pub(crate) expected_sha256_hex: Option<String>,
+}
+
+#[derive(Clone, Debug)]
 pub(crate) struct FileChecksumDialogPayload {
-    pub(crate) summary: String,
+    pub(crate) items: Vec<FileChecksumItemPayload>,
 }
 
 #[derive(Clone, Debug)]
@@ -241,34 +249,26 @@ pub(crate) fn execute_open_file_checksum_dialog(
         return Err("Queue database is not available");
     };
     let _ = repo.init_schema();
-    let selected_jobs = registry
+    let items = registry
         .action_state
         .selected_ids
         .iter()
         .filter_map(|id| repo.get_queue_job(id).ok().flatten())
-        .collect::<Vec<_>>();
-    let jobs = selected_jobs
-        .iter()
         .filter(|job| job.status.eq_ignore_ascii_case("finished"))
-        .cloned()
+        .map(|job| FileChecksumItemPayload {
+            id: job.id,
+            file_name: job.file_name.clone(),
+            output_path: std::path::PathBuf::from(job.output_dir)
+                .join(job.file_name)
+                .to_string_lossy()
+                .into_owned(),
+            expected_sha256_hex: job.expected_sha256_hex,
+        })
         .collect::<Vec<_>>();
-    if jobs.is_empty() {
+    if items.is_empty() {
         return Err("No finished downloads selected for file checksum");
     }
-    let summary = jobs
-        .iter()
-        .map(|job| {
-            format!(
-                "{}\nExpected SHA-256: {}\nSaved to: {}\\{}",
-                job.file_name,
-                job.expected_sha256_hex.clone().unwrap_or_else(|| "Not set".to_string()),
-                job.output_dir,
-                job.file_name,
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n");
-    Ok(FileChecksumDialogPayload { summary })
+    Ok(FileChecksumDialogPayload { items })
 }
 
 pub(crate) fn execute_open_file_or_properties(
