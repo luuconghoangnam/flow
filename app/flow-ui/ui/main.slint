@@ -15,16 +15,12 @@ export struct DownloadRow {
     is-error: bool,
 }
 
-export struct DownloadsMenuActionRow {
+export struct DownloadsMenuRow {
     title: string,
     enabled: bool,
     command_id: string,
-}
-
-export struct DownloadsMenuSubRow {
-    title: string,
     target_index: int,
-    command_id: string,
+    row_kind: string,
 }
 
 global Palette {
@@ -215,17 +211,18 @@ component ToolbarButton inherits Rectangle {
 
 component MenuItem inherits Rectangle {
     in property <string> text;
+    in property <bool> enabled: true;
     callback clicked;
-    height: 22px;
-    background: ta.has-hover ? Palette.accent-hover : (ta.pressed ? Palette.accent-active : transparent);
+    height: 20px;
+    background: ta.pressed ? #3B3D40 : (ta.has-hover ? #323437 : transparent);
     
     HorizontalLayout {
-        padding-left: 10px; padding-right: 10px;
-        alignment: center;
+        padding-left: 9px; padding-right: 8px;
+        alignment: start;
         Text {
             text: root.text;
-            color: Palette.text-primary;
-            font-size: 11px;
+            color: root.enabled ? #ECE9D8 : #8C8A80;
+            font-size: 10px;
             font-weight: 400;
             vertical-alignment: center;
         }
@@ -233,15 +230,12 @@ component MenuItem inherits Rectangle {
     
     ta := TouchArea {
         width: 100%; height: 100%;
-        clicked => { root.clicked(); }
+        clicked => { if root.enabled { root.clicked(); } }
     }
 }
 
 component DownloadsMenuPopup inherits VerticalLayout {
-    in property <[DownloadsMenuActionRow]> primary-actions;
-    in property <[DownloadsMenuActionRow]> copy-actions;
-    in property <[DownloadsMenuSubRow]> move-queue-items;
-    in property <[DownloadsMenuSubRow]> move-category-items;
+    in property <[DownloadsMenuRow]> rows;
 
     callback select-all();
     callback clear-selection();
@@ -251,29 +245,27 @@ component DownloadsMenuPopup inherits VerticalLayout {
     callback sort-status();
     callback sort-date-added();
 
-    spacing: 1px;
+    spacing: 0px;
     MenuItem { text: "Select All"; clicked => { root.select-all(); } }
     MenuItem { text: "Clear Selection"; clicked => { root.clear-selection(); } }
-    Rectangle { height: 1px; background: Palette.border; }
-    for item in root.primary-actions: MenuItem {
-        text: item.title;
-        clicked => { if item.enabled { root.invoke(item.command_id, -1); } }
+    Rectangle { height: 1px; background: #5A5B5E; }
+    for item in root.rows: Rectangle {
+        height: item.row_kind == "separator" ? 5px : 20px;
+        background: transparent;
+        if item.row_kind == "separator": Rectangle {
+            y: 2px;
+            height: 1px;
+            width: 100%;
+            background: #5A5B5E;
+        }
+        if item.row_kind != "separator": MenuItem {
+            width: 100%;
+            text: item.title;
+            enabled: item.enabled;
+            clicked => { root.invoke(item.command_id, item.target_index); }
+        }
     }
-    Rectangle { height: 1px; background: Palette.border; }
-    for item in root.copy-actions: MenuItem {
-        text: item.title;
-        clicked => { if item.enabled { root.invoke(item.command_id, -1); } }
-    }
-    Rectangle { height: 1px; background: Palette.border; }
-    for item in root.move-queue-items: MenuItem {
-        text: item.title;
-        clicked => { root.invoke(item.command_id, item.target_index); }
-    }
-    for item in root.move-category-items: MenuItem {
-        text: item.title;
-        clicked => { root.invoke(item.command_id, item.target_index); }
-    }
-    Rectangle { height: 1px; background: Palette.border; }
+    Rectangle { height: 1px; background: #5A5B5E; }
     MenuItem { text: "Sort by Name"; clicked => { root.sort-name(); } }
     MenuItem { text: "Sort by Size"; clicked => { root.sort-size(); } }
     MenuItem { text: "Sort by Status"; clicked => { root.sort-status(); } }
@@ -367,10 +359,7 @@ export component MainWindow inherits Window {
     in-out property <string> properties-summary: "";
     in-out property <bool> show-file-checksum-dialog: false;
     in-out property <string> file-checksum-summary: "";
-    in-out property <[DownloadsMenuActionRow]> downloads-menu-primary-actions: [];
-    in-out property <[DownloadsMenuActionRow]> downloads-menu-copy-actions: [];
-    in-out property <[DownloadsMenuSubRow]> downloads-menu-move-queue-items: [];
-    in-out property <[DownloadsMenuSubRow]> downloads-menu-move-category-items: [];
+    in-out property <[DownloadsMenuRow]> downloads-menu-rows: [];
     
     // Settings properties
     in property <int> thread-count: 4;
@@ -408,6 +397,7 @@ export component MainWindow inherits Window {
     callback move-selection-to-queue(index: int); callback move-selection-to-category(index: int);
     callback copy-selected-links(); callback copy-selected-as-curl(); callback show-selected-properties(); callback close-properties-dialog();
     callback restart-selected-downloads(); callback edit-selected-download(); callback show-file-checksum(); callback close-file-checksum-dialog();
+    callback downloads-menu-command(command-id: string, target-index: int);
 
     in-out property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
     in-out property <bool> queue-stop-on-empty: false;
@@ -980,26 +970,12 @@ export component MainWindow inherits Window {
                 MenuItem { text: "Settings"; clicked => { root.file-open-settings(); current-tab = 2; root.active-menu = -1; } }
                 MenuItem { text: "Exit"; clicked => { root.app-exit(); root.active-menu = -1; } }
             }
-
             if active-menu == 2: DownloadsMenuPopup {
-                primary-actions: root.downloads-menu-primary-actions;
-                copy-actions: root.downloads-menu-copy-actions;
-                move-queue-items: root.downloads-menu-move-queue-items;
-                move-category-items: root.downloads-menu-move-category-items;
+                rows: root.downloads-menu-rows;
 
                 select-all => { root.downloads-select-all(); root.active-menu = -1; }
                 clear-selection => { root.downloads-clear-selection(); root.active-menu = -1; }
-                invoke(command-id, target-index) => {
-                    if command-id == "edit" { root.edit-selected-download(); }
-                    if command-id == "restart-download" { root.restart-selected-downloads(); }
-                    if command-id == "properties" { root.show-selected-properties(); }
-                    if command-id == "file-checksum" { root.show-file-checksum(); }
-                    if command-id == "copy-links" { root.copy-selected-links(); }
-                    if command-id == "copy-as-curl" { root.copy-selected-as-curl(); }
-                    if command-id == "move-to-queue" { root.move-selection-to-queue(target-index); }
-                    if command-id == "move-to-category" { root.move-selection-to-category(target-index); }
-                    root.active-menu = -1;
-                }
+                invoke(command-id, target-index) => { root.downloads-menu-command(command-id, target-index); root.active-menu = -1; }
                 sort-name => { root.downloads-sort-by-name(); root.active-menu = -1; }
                 sort-size => { root.downloads-sort-by-size(); root.active-menu = -1; }
                 sort-status => { root.downloads-sort-by-status(); root.active-menu = -1; }

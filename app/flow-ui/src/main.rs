@@ -1938,6 +1938,78 @@ fn current_home_action_state(
     derive_home_action_state(&state.row_ids, &state.rows, &checked_ids, snapshot.main_selected_id.as_ref())
 }
 
+fn execute_downloads_menu_command(
+    command_id: &str,
+    target_index: i32,
+    queue_id: i64,
+    selected_download: Arc<Mutex<Option<String>>>,
+    checked_downloads: Arc<Mutex<std::collections::HashSet<String>>>,
+    sort_state: &Arc<Mutex<SortState>>,
+    category_filter: &Arc<Mutex<CategoryFilter>>,
+    weak: &slint::Weak<MainWindow>,
+) {
+    let registry = derive_home_action_registry(
+        queue_id,
+        current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), sort_state, category_filter),
+        sort_state,
+        category_filter,
+    );
+
+    match command_id {
+        "edit" => match execute_open_edit_dialog(&registry, queue_id, sort_state, category_filter) {
+            Ok(payload) => open_edit_download_dialog(
+                payload.id,
+                payload.file_name,
+                payload.output_dir,
+                payload.priority,
+                queue_id,
+                selected_download,
+                checked_downloads,
+                sort_state.clone(),
+                category_filter.clone(),
+                weak.clone(),
+            ),
+            Err(message) => set_status(weak, message),
+        },
+        "restart-download" => {
+            let result = execute_restart_selected(&registry);
+            refresh_queue_ui(weak, queue_id, selected_download, checked_downloads, sort_state, category_filter);
+            set_status(weak, &result.status_message);
+        }
+        "properties" => match execute_show_selected_properties(&registry, queue_id, sort_state, category_filter) {
+            Ok(payload) => {
+                let _ = weak.upgrade_in_event_loop(move |app| {
+                    app.set_properties_summary(payload.summary.into());
+                    app.set_show_properties_dialog(true);
+                });
+                set_status(weak, "Showing selected download properties");
+            }
+            Err(message) => set_status(weak, message),
+        },
+        "file-checksum" => match execute_open_file_checksum_dialog(&registry) {
+            Ok(payload) => open_file_checksum_dialog(payload.summary, weak.clone()),
+            Err(message) => set_status(weak, message),
+        },
+        "copy-links" => set_status(weak, &execute_copy_selected_links(&registry)),
+        "copy-as-curl" => set_status(weak, &execute_copy_as_curl(&registry).status_message),
+        "move-to-queue" => match execute_move_to_queue(&registry, target_index) {
+            Ok(result) => {
+                refresh_queue_ui(weak, queue_id, selected_download, checked_downloads, sort_state, category_filter);
+                set_status(weak, &format!("Moved {} download(s) to queue '{}'", result.moved_count, result.target_queue_name));
+            }
+            Err(message) => set_status(weak, message),
+        },
+        "move-to-category" => match execute_move_to_category(&registry, target_index) {
+            Ok(result) => {
+                refresh_queue_ui(weak, queue_id, selected_download, checked_downloads, sort_state, category_filter);
+                set_status(weak, &format!("Moved {} download(s) to category '{}'", result.moved_count, result.category));
+            }
+            Err(message) => set_status(weak, message),
+        },
+        _ => set_status(weak, "Unsupported downloads menu command"),
+    }
+}
+
 fn wire_download_toolbar_actions(
     app: &MainWindow,
     selected_queue: Arc<Mutex<i64>>,
@@ -2310,6 +2382,27 @@ fn wire_download_toolbar_actions(
                 changed
             });
             set_status(&weak, &result.status_message);
+        }
+    });
+    app.on_downloads_menu_command({
+        let selected_queue = Arc::clone(&selected_queue);
+        let selected_download = Arc::clone(&selected_download);
+        let checked_downloads = Arc::clone(&checked_downloads);
+        let sort_state = Arc::clone(&sort_state);
+        let category_filter = Arc::clone(&category_filter);
+        let weak = app.as_weak();
+        move |command_id, target_index| {
+            let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
+            execute_downloads_menu_command(
+                command_id.as_str(),
+                target_index,
+                queue_id,
+                selected_download.clone(),
+                checked_downloads.clone(),
+                &sort_state,
+                &category_filter,
+                &weak,
+            );
         }
     });
 }

@@ -52,12 +52,23 @@ pub(crate) struct DownloadsMenuSubItem {
     pub(crate) command_id: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum DownloadsMenuGroupKind {
+    Action,
+    Separator,
+    SubMenu,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct DownloadsMenuGroup {
+    pub(crate) kind: DownloadsMenuGroupKind,
+    pub(crate) actions: Vec<DownloadsMenuActionItem>,
+    pub(crate) sub_items: Vec<DownloadsMenuSubItem>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct DownloadsMenuPresentation {
-    pub(crate) primary_actions: Vec<DownloadsMenuActionItem>,
-    pub(crate) copy_actions: Vec<DownloadsMenuActionItem>,
-    pub(crate) move_queue_items: Vec<DownloadsMenuSubItem>,
-    pub(crate) move_category_items: Vec<DownloadsMenuSubItem>,
+    pub(crate) groups: Vec<DownloadsMenuGroup>,
 }
 
 impl HomeActionDescriptorState {
@@ -252,10 +263,41 @@ pub(crate) fn derive_downloads_menu_presentation(
         })
         .unwrap_or_default();
 
-    DownloadsMenuPresentation {
-        primary_actions,
-        copy_actions,
-        move_queue_items,
-        move_category_items,
+    let mut groups = vec![
+        DownloadsMenuGroup {
+            kind: DownloadsMenuGroupKind::Action,
+            actions: primary_actions,
+            sub_items: Vec::new(),
+        },
+        DownloadsMenuGroup {
+            kind: DownloadsMenuGroupKind::Separator,
+            actions: Vec::new(),
+            sub_items: Vec::new(),
+        },
+        DownloadsMenuGroup {
+            kind: DownloadsMenuGroupKind::Action,
+            actions: copy_actions,
+            sub_items: Vec::new(),
+        },
+    ];
+
+    if !move_queue_items.is_empty() || !move_category_items.is_empty() {
+        groups.push(DownloadsMenuGroup {
+            kind: DownloadsMenuGroupKind::Separator,
+            actions: Vec::new(),
+            sub_items: Vec::new(),
+        });
+        groups.push(DownloadsMenuGroup {
+            kind: DownloadsMenuGroupKind::SubMenu,
+            actions: Vec::new(),
+            sub_items: move_queue_items,
+        });
+        groups.push(DownloadsMenuGroup {
+            kind: DownloadsMenuGroupKind::SubMenu,
+            actions: Vec::new(),
+            sub_items: move_category_items,
+        });
     }
+
+    DownloadsMenuPresentation { groups }
 }
