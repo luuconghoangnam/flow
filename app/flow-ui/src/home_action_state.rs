@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use crate::home_action_status::{is_editable_status, is_finished_status, is_pausable_status, is_requeueable_status, is_resumable_status};
+
 #[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HomeActionState {
@@ -59,8 +61,7 @@ pub(crate) fn derive_home_action_state(
         .iter()
         .filter_map(|index| {
             let row = rows.get(*index)?;
-            let status = row.status.to_ascii_lowercase();
-            if status.contains("paused") || status.contains("failed") || status.contains("stopped") {
+            if is_resumable_status(row.status.as_str()) {
                 row_ids.get(*index).cloned()
             } else {
                 None
@@ -72,8 +73,7 @@ pub(crate) fn derive_home_action_state(
         .iter()
         .filter_map(|index| {
             let row = rows.get(*index)?;
-            let status = row.status.to_ascii_lowercase();
-            if status.contains("downloading") || status.contains("queued") {
+            if is_pausable_status(row.status.as_str()) {
                 row_ids.get(*index).cloned()
             } else {
                 None
@@ -85,12 +85,7 @@ pub(crate) fn derive_home_action_state(
         .iter()
         .filter_map(|index| {
             let row = rows.get(*index)?;
-            let status = row.status.to_ascii_lowercase();
-            if status.contains("paused")
-                || status.contains("failed")
-                || status.contains("finished")
-                || status.contains("queued")
-            {
+            if is_requeueable_status(row.status.as_str()) {
                 row_ids.get(*index).cloned()
             } else {
                 None
@@ -100,7 +95,7 @@ pub(crate) fn derive_home_action_state(
 
     let can_open = default_item_index
         .and_then(|index| rows.get(index))
-        .map(|row| row.status.to_ascii_lowercase().contains("finished"))
+        .map(|row| is_finished_status(row.status.as_str()))
         .unwrap_or(false);
     let can_open_folder = !selected_ids.is_empty();
     let can_delete = !selected_ids.is_empty();
@@ -113,14 +108,11 @@ pub(crate) fn derive_home_action_state(
     let can_requeue = !requeueable_ids.is_empty();
     let can_edit = default_item_index
         .and_then(|index| rows.get(index))
-        .map(|row| {
-            let status = row.status.to_ascii_lowercase();
-            !(status.contains("downloading") || status.contains("queued"))
-        })
+        .map(|row| is_editable_status(row.status.as_str()))
         .unwrap_or(false);
     let can_file_checksum = selected_indexes.iter().any(|index| {
         rows.get(*index)
-            .map(|row| row.status.to_ascii_lowercase().contains("finished"))
+            .map(|row| is_finished_status(row.status.as_str()))
             .unwrap_or(false)
     });
 

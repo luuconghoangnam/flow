@@ -3,9 +3,11 @@ slint::include_modules!();
 
 mod add_url_actions;
 mod home_action_descriptors;
+mod home_action_menu_presentation;
 mod home_action_menu_state;
 mod home_action_registry;
 mod home_action_state;
+mod home_action_status;
 mod home_actions;
 mod queue_actions;
 mod selection_affordance;
@@ -18,6 +20,7 @@ use std::collections::HashSet;
 
 use add_url_actions::{prepare_manual_download_submission, render_add_url_error, render_add_url_preview, resolve_manual_category, resolve_manual_file_name, resolve_manual_output_dir};
 use home_action_descriptors::{derive_downloads_menu_presentation, derive_home_action_descriptors, HomeActionId};
+use home_action_menu_presentation::apply_downloads_menu_presentation;
 use home_action_registry::{derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
 use home_action_state::{derive_home_action_state, HomeActionState};
 
@@ -608,18 +611,6 @@ fn main() {
             );
             let descriptors = derive_home_action_descriptors(&registry);
             let downloads_menu = derive_downloads_menu_presentation(&descriptors);
-            let move_queue_labels = downloads_menu
-                .move_queue_labels
-                .iter()
-                .cloned()
-                .map(SharedString::from)
-                .collect::<Vec<_>>();
-            let move_category_labels = downloads_menu
-                .move_category_labels
-                .iter()
-                .cloned()
-                .map(SharedString::from)
-                .collect::<Vec<_>>();
             let weak2 = weak.clone();
             let weak_for_clipboard = weak.clone();
             let _ = weak2.upgrade_in_event_loop(move |app| {
@@ -628,22 +619,7 @@ fn main() {
                     app.set_queue_config_summary(state.queue_summary.clone().into());
                     app.set_queue_name_text(load_selected_queue_name(selected).into());
                     app.set_selected_download_index(selected_index);
-                    app.set_move_queue_labels(ModelRc::new(VecModel::from(move_queue_labels)));
-                    app.set_move_category_labels(ModelRc::new(VecModel::from(move_category_labels)));
-                    app.set_downloads_menu_edit_title(downloads_menu.edit_title.clone().into());
-                    app.set_downloads_menu_edit_enabled(downloads_menu.edit_enabled);
-                    app.set_downloads_menu_restart_title(downloads_menu.restart_title.clone().into());
-                    app.set_downloads_menu_restart_enabled(downloads_menu.restart_enabled);
-                    app.set_downloads_menu_properties_title(downloads_menu.properties_title.clone().into());
-                    app.set_downloads_menu_properties_enabled(downloads_menu.properties_enabled);
-                    app.set_downloads_menu_checksum_title(downloads_menu.checksum_title.clone().into());
-                    app.set_downloads_menu_checksum_enabled(downloads_menu.checksum_enabled);
-                    app.set_downloads_menu_copy_links_title(downloads_menu.copy_links_title.clone().into());
-                    app.set_downloads_menu_copy_links_enabled(downloads_menu.copy_links_enabled);
-                    app.set_downloads_menu_copy_as_curl_title(downloads_menu.copy_as_curl_title.clone().into());
-                    app.set_downloads_menu_copy_as_curl_enabled(downloads_menu.copy_as_curl_enabled);
-                    app.set_downloads_menu_move_queue_title(downloads_menu.move_queue_title.clone().into());
-                    app.set_downloads_menu_move_category_title(downloads_menu.move_category_title.clone().into());
+                    apply_downloads_menu_presentation(&app, &downloads_menu);
                     
                     if let Some(pending) = load_clipboard_pending_json() {
                         let url = pending.get("url").and_then(|v| v.as_str()).unwrap_or_default().to_string();
@@ -1793,8 +1769,6 @@ fn refresh_queue_ui(
     let registry = derive_home_action_registry(queue_id, action_state, sort_state, category_filter);
     let descriptors = derive_home_action_descriptors(&registry);
     let downloads_menu = derive_downloads_menu_presentation(&descriptors);
-    let move_queue_labels = downloads_menu.move_queue_labels.clone();
-    let move_category_labels = downloads_menu.move_category_labels.clone();
     let scheduler_state = load_queue_scheduler_state(queue_id);
     let _ = weak.upgrade_in_event_loop(move |app| {
         app.set_selected_queue_index(selected_queue_index);
@@ -1811,22 +1785,7 @@ fn refresh_queue_ui(
         app.set_can_move_selected_up(affordance.can_move_up);
         app.set_can_move_selected_down(affordance.can_move_down);
         app.set_can_requeue_selected(descriptors.find(HomeActionId::Requeue).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_requeue));
-        app.set_move_queue_labels(ModelRc::new(VecModel::from(move_queue_labels.into_iter().map(SharedString::from).collect::<Vec<_>>())));
-        app.set_move_category_labels(ModelRc::new(VecModel::from(move_category_labels.into_iter().map(SharedString::from).collect::<Vec<_>>())));
-        app.set_downloads_menu_edit_title(downloads_menu.edit_title.clone().into());
-        app.set_downloads_menu_edit_enabled(downloads_menu.edit_enabled);
-        app.set_downloads_menu_restart_title(downloads_menu.restart_title.clone().into());
-        app.set_downloads_menu_restart_enabled(downloads_menu.restart_enabled);
-        app.set_downloads_menu_properties_title(downloads_menu.properties_title.clone().into());
-        app.set_downloads_menu_properties_enabled(downloads_menu.properties_enabled);
-        app.set_downloads_menu_checksum_title(downloads_menu.checksum_title.clone().into());
-        app.set_downloads_menu_checksum_enabled(downloads_menu.checksum_enabled);
-        app.set_downloads_menu_copy_links_title(downloads_menu.copy_links_title.clone().into());
-        app.set_downloads_menu_copy_links_enabled(downloads_menu.copy_links_enabled);
-        app.set_downloads_menu_copy_as_curl_title(downloads_menu.copy_as_curl_title.clone().into());
-        app.set_downloads_menu_copy_as_curl_enabled(downloads_menu.copy_as_curl_enabled);
-        app.set_downloads_menu_move_queue_title(downloads_menu.move_queue_title.clone().into());
-        app.set_downloads_menu_move_category_title(downloads_menu.move_category_title.clone().into());
+        apply_downloads_menu_presentation(&app, &downloads_menu);
         app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
         app.set_queue_schedule_enabled(scheduler_state.enabled);
         app.set_queue_schedule_start(scheduler_state.start_text.into());

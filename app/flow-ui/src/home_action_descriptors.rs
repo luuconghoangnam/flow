@@ -39,28 +39,40 @@ pub(crate) struct HomeActionDescriptorState {
 }
 
 #[derive(Clone, Debug, Default)]
+pub(crate) struct DownloadsMenuActionItem {
+    pub(crate) title: String,
+    pub(crate) enabled: bool,
+    pub(crate) command_id: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct DownloadsMenuSubItem {
+    pub(crate) title: String,
+    pub(crate) target_index: i32,
+    pub(crate) command_id: String,
+}
+
+#[derive(Clone, Debug, Default)]
 pub(crate) struct DownloadsMenuPresentation {
-    pub(crate) edit_title: String,
-    pub(crate) edit_enabled: bool,
-    pub(crate) restart_title: String,
-    pub(crate) restart_enabled: bool,
-    pub(crate) properties_title: String,
-    pub(crate) properties_enabled: bool,
-    pub(crate) checksum_title: String,
-    pub(crate) checksum_enabled: bool,
-    pub(crate) copy_links_title: String,
-    pub(crate) copy_links_enabled: bool,
-    pub(crate) copy_as_curl_title: String,
-    pub(crate) copy_as_curl_enabled: bool,
-    pub(crate) move_queue_title: String,
-    pub(crate) move_category_title: String,
-    pub(crate) move_queue_labels: Vec<String>,
-    pub(crate) move_category_labels: Vec<String>,
+    pub(crate) primary_actions: Vec<DownloadsMenuActionItem>,
+    pub(crate) copy_actions: Vec<DownloadsMenuActionItem>,
+    pub(crate) move_queue_items: Vec<DownloadsMenuSubItem>,
+    pub(crate) move_category_items: Vec<DownloadsMenuSubItem>,
 }
 
 impl HomeActionDescriptorState {
     pub(crate) fn find(&self, id: HomeActionId) -> Option<&HomeActionDescriptor> {
         self.descriptors.iter().find(|descriptor| descriptor.id == id)
+    }
+
+    pub(crate) fn simple(&self, id: HomeActionId) -> Option<&HomeActionDescriptor> {
+        self.find(id)
+            .filter(|descriptor| descriptor.kind == HomeActionKind::Simple)
+    }
+
+    pub(crate) fn submenu(&self, id: HomeActionId) -> Option<&HomeActionDescriptor> {
+        self.find(id)
+            .filter(|descriptor| descriptor.kind == HomeActionKind::SubMenu)
     }
 }
 
@@ -177,31 +189,73 @@ pub(crate) fn derive_home_action_descriptors(
 pub(crate) fn derive_downloads_menu_presentation(
     descriptors: &HomeActionDescriptorState,
 ) -> DownloadsMenuPresentation {
-    let edit = descriptors.find(HomeActionId::Edit);
-    let restart = descriptors.find(HomeActionId::RestartDownload);
-    let properties = descriptors.find(HomeActionId::Properties);
-    let checksum = descriptors.find(HomeActionId::FileChecksum);
-    let copy_links = descriptors.find(HomeActionId::CopyLinks);
-    let copy_as_curl = descriptors.find(HomeActionId::CopyAsCurl);
-    let move_queue = descriptors.find(HomeActionId::MoveToQueue);
-    let move_category = descriptors.find(HomeActionId::MoveToCategory);
+    let primary_ids = [
+        (HomeActionId::Edit, "edit"),
+        (HomeActionId::RestartDownload, "restart-download"),
+        (HomeActionId::Properties, "properties"),
+        (HomeActionId::FileChecksum, "file-checksum"),
+    ];
+    let copy_ids = [
+        (HomeActionId::CopyLinks, "copy-links"),
+        (HomeActionId::CopyAsCurl, "copy-as-curl"),
+    ];
+    let primary_actions = primary_ids
+        .iter()
+        .filter_map(|(id, command_id)| {
+            let descriptor = descriptors.simple(id.clone())?;
+            Some(DownloadsMenuActionItem {
+                title: descriptor.title.to_string(),
+                enabled: descriptor.enabled,
+                command_id: (*command_id).to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let copy_actions = copy_ids
+        .iter()
+        .filter_map(|(id, command_id)| {
+            let descriptor = descriptors.simple(id.clone())?;
+            Some(DownloadsMenuActionItem {
+                title: descriptor.title.to_string(),
+                enabled: descriptor.enabled,
+                command_id: (*command_id).to_string(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let move_queue_items = descriptors
+        .submenu(HomeActionId::MoveToQueue)
+        .map(|descriptor| {
+            descriptor
+                .submenu_labels
+                .iter()
+                .enumerate()
+                .map(|(index, label)| DownloadsMenuSubItem {
+                    title: format!("{}: {}", descriptor.title, label),
+                    target_index: index as i32,
+                    command_id: "move-to-queue".to_string(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let move_category_items = descriptors
+        .submenu(HomeActionId::MoveToCategory)
+        .map(|descriptor| {
+            descriptor
+                .submenu_labels
+                .iter()
+                .enumerate()
+                .map(|(index, label)| DownloadsMenuSubItem {
+                    title: format!("{}: {}", descriptor.title, label),
+                    target_index: index as i32,
+                    command_id: "move-to-category".to_string(),
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
 
     DownloadsMenuPresentation {
-        edit_title: edit.map(|it| it.title.to_string()).unwrap_or_else(|| "Edit".to_string()),
-        edit_enabled: edit.map(|it| it.enabled).unwrap_or(false),
-        restart_title: restart.map(|it| it.title.to_string()).unwrap_or_else(|| "Restart Download".to_string()),
-        restart_enabled: restart.map(|it| it.enabled).unwrap_or(false),
-        properties_title: properties.map(|it| it.title.to_string()).unwrap_or_else(|| "Properties".to_string()),
-        properties_enabled: properties.map(|it| it.enabled).unwrap_or(false),
-        checksum_title: checksum.map(|it| it.title.to_string()).unwrap_or_else(|| "File Checksum".to_string()),
-        checksum_enabled: checksum.map(|it| it.enabled).unwrap_or(false),
-        copy_links_title: copy_links.map(|it| it.title.to_string()).unwrap_or_else(|| "Copy Links".to_string()),
-        copy_links_enabled: copy_links.map(|it| it.enabled).unwrap_or(false),
-        copy_as_curl_title: copy_as_curl.map(|it| it.title.to_string()).unwrap_or_else(|| "Copy as cURL".to_string()),
-        copy_as_curl_enabled: copy_as_curl.map(|it| it.enabled).unwrap_or(false),
-        move_queue_title: move_queue.map(|it| it.title.to_string()).unwrap_or_else(|| "Move to Queue".to_string()),
-        move_category_title: move_category.map(|it| it.title.to_string()).unwrap_or_else(|| "Move to Category".to_string()),
-        move_queue_labels: move_queue.map(|it| it.submenu_labels.clone()).unwrap_or_default(),
-        move_category_labels: move_category.map(|it| it.submenu_labels.clone()).unwrap_or_default(),
+        primary_actions,
+        copy_actions,
+        move_queue_items,
+        move_category_items,
     }
 }
