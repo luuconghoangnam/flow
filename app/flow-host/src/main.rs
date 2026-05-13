@@ -134,7 +134,7 @@ fn main() {
         if resume_active_job(&payload.download_id) {
             let _ = repo.update_queue_job_status(&payload.download_id, "Downloading");
             if let Ok(Some(job)) = repo.get_queue_job(&payload.download_id) {
-                let _ = repo.log_queue_event(job.queue_id, "queue_start", Some(&format!("{{\"id\":\"{}\"}}", payload.download_id)));
+                let _ = repo.log_queue_event(job.queue_id, "queue_started", Some(&format!("{{\"id\":\"{}\"}}", payload.download_id)));
             }
             return Ok(Some(payload.download_id));
         }
@@ -149,7 +149,7 @@ fn main() {
             let _ = repo.upsert_queue_job(&job);
         }
         let _ = repo.set_queue_group_active(job.queue_id, true);
-        let _ = repo.log_queue_event(job.queue_id, "queue_start", Some(&format!("{{\"id\":\"{}\"}}", id)));
+        let _ = repo.log_queue_event(job.queue_id, "queue_started", Some(&format!("{{\"id\":\"{}\"}}", id)));
         let _ = repo.update_queue_job_status(&id, "Queued");
         start_queue.blocking_send(job).map_err(|e| e.to_string())?;
         Ok(Some(id))
@@ -161,7 +161,7 @@ fn main() {
         let _ = pause_active_job(&payload.download_id);
         repo.update_queue_job_status(&payload.download_id, "Paused").map_err(|e| e.to_string())?;
         if let Ok(Some(job)) = repo.get_queue_job(&payload.download_id) {
-            let _ = repo.log_queue_event(job.queue_id, "queue_stop", Some(&format!("{{\"id\":\"{}\"}}", payload.download_id)));
+            let _ = repo.log_queue_event(job.queue_id, "queue_stopped", Some(&format!("{{\"id\":\"{}\"}}", payload.download_id)));
         }
         Ok(Some(payload.download_id))
     };
@@ -234,8 +234,11 @@ fn main() {
     let queue_requeue = move |payload: flow_messaging::QueueJobOrderRequest| {
         let repo = SqliteDownloadRepository::open(&flow_db_path()).map_err(|e| e.to_string())?;
         repo.init_schema().map_err(|e| e.to_string())?;
-        repo.push_queue_job_to_end(&payload.download_id).map_err(|e| e.to_string())?;
-        Ok(serde_json::json!({ "requeued": payload.download_id }))
+        repo.update_queue_job_status(&payload.download_id, "Queued").map_err(|e| e.to_string())?;
+        if let Ok(Some(job)) = repo.get_queue_job(&payload.download_id) {
+            let _ = repo.log_queue_event(job.queue_id, "job_requeued", Some(&format!("{{\"id\":\"{}\"}}", payload.download_id)));
+        }
+        Ok(serde_json::json!({ "requeued": payload.download_id, "queue_order_changed": false }))
     };
 
     let queue_swap = move |payload: flow_messaging::QueueJobOrderRequest| {

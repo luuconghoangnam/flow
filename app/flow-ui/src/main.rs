@@ -485,8 +485,10 @@ fn main() {
         let weak = app.as_weak();
         app.on_retry_selected(move || {
             mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Queued for retry", |repo, id| {
+                let before = repo.get_queue_job(id).ok().flatten();
                 let _ = repo.update_queue_job_status(id, "Queued");
                 let _ = repo.reset_queue_job_for_retry(id);
+                before.map(|job| job.status != "Queued").unwrap_or(true)
             })
         });
     }
@@ -2005,6 +2007,12 @@ fn wire_download_toolbar_actions(
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
             let updated = update_jobs_status(&ids, "Queued", false);
+            if updated > 0 {
+                if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
+                    let _ = repo.init_schema();
+                    let _ = repo.log_queue_event(queue_id, "queue_resumed_selected", Some(&format!("{{\"count\":{updated}}}")));
+                }
+            }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             if updated == 0 {
                 set_status(&weak, "No paused downloads selected to resume");
@@ -2024,6 +2032,12 @@ fn wire_download_toolbar_actions(
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
             let updated = update_jobs_status(&ids, "Paused", true);
+            if updated > 0 {
+                if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
+                    let _ = repo.init_schema();
+                    let _ = repo.log_queue_event(queue_id, "queue_paused_selected", Some(&format!("{{\"count\":{updated}}}")));
+                }
+            }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             if updated == 0 {
                 set_status(&weak, "No active downloads selected to pause");
@@ -2041,9 +2055,19 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            pause_all_jobs(queue_id);
+            let paused = pause_all_jobs(queue_id);
+            if paused > 0 {
+                if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
+                    let _ = repo.init_schema();
+                    let _ = repo.log_queue_event(queue_id, "queue_paused_all", Some(&format!("{{\"count\":{paused}}}")));
+                }
+            }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, "Stopped all downloads in selected queue");
+            if paused == 0 {
+                set_status(&weak, "No active downloads found to stop in selected queue");
+            } else {
+                set_status(&weak, &format!("Stopped {paused} download(s) in selected queue"));
+            }
         }
     });
     app.on_request_delete_selected({
@@ -2161,17 +2185,43 @@ fn wire_download_toolbar_actions(
     app.on_move_download_up({
         let selected_download = Arc::clone(&selected_download);
         let weak = app.as_weak();
-        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Moved up", |repo, id| { let _ = repo.reorder_queue_job(id, -1); })
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Moved up", |repo, id| {
+            let Some(before) = repo.get_queue_job(id).ok().flatten() else { return false; };
+            let _ = repo.reorder_queue_job(id, -1);
+            let Some(after) = repo.get_queue_job(id).ok().flatten() else { return false; };
+            let changed = before.queue_order != after.queue_order;
+            if changed {
+                let _ = repo.log_queue_event(before.queue_id, "job_moved", Some(&format!("{{\"id\":\"{}\",\"direction\":\"up\"}}", id)));
+            }
+            changed
+        })
     });
     app.on_move_download_down({
         let selected_download = Arc::clone(&selected_download);
         let weak = app.as_weak();
-        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Moved down", |repo, id| { let _ = repo.reorder_queue_job(id, 1); })
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Moved down", |repo, id| {
+            let Some(before) = repo.get_queue_job(id).ok().flatten() else { return false; };
+            let _ = repo.reorder_queue_job(id, 1);
+            let Some(after) = repo.get_queue_job(id).ok().flatten() else { return false; };
+            let changed = before.queue_order != after.queue_order;
+            if changed {
+                let _ = repo.log_queue_event(before.queue_id, "job_moved", Some(&format!("{{\"id\":\"{}\",\"direction\":\"down\"}}", id)));
+            }
+            changed
+        })
     });
     app.on_requeue_download({
         let selected_download = Arc::clone(&selected_download);
         let weak = app.as_weak();
-        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Requeued", |repo, id| { let _ = repo.update_queue_job_status(id, "Queued"); })
+        move || mutate_selected_job_with_status(selected_download.clone(), weak.clone(), "Requeued", |repo, id| {
+            let Some(before) = repo.get_queue_job(id).ok().flatten() else { return false; };
+            let changed = before.status != "Queued";
+            let _ = repo.update_queue_job_status(id, "Queued");
+            if changed {
+                let _ = repo.log_queue_event(before.queue_id, "job_requeued", Some(&format!("{{\"id\":\"{}\"}}", id)));
+            }
+            changed
+        })
     });
 }
 
@@ -2635,16 +2685,18 @@ fn none_if_empty(value: &str) -> Option<String> {
     }
 }
 
-fn pause_all_jobs(queue_id: i64) {
-    if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
-        let _ = repo.init_schema();
-        if let Ok(jobs) = repo.list_queue_jobs() {
-            for job in jobs.into_iter().filter(|job| queue_id == 0 || job.queue_id == queue_id) {
-                let _ = pause_active_job(&job.id);
-                let _ = repo.update_queue_job_status(&job.id, "Paused");
-            }
+fn pause_all_jobs(queue_id: i64) -> usize {
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else { return 0; };
+    let _ = repo.init_schema();
+    let Ok(jobs) = repo.list_queue_jobs() else { return 0; };
+    let mut paused = 0usize;
+    for job in jobs.into_iter().filter(|job| (queue_id == 0 || job.queue_id == queue_id) && job.status != "Paused") {
+        let _ = pause_active_job(&job.id);
+        if repo.update_queue_job_status(&job.id, "Paused").is_ok() {
+            paused += 1;
         }
     }
+    paused
 }
 
 fn open_selected_path(selected_download: Arc<Mutex<Option<String>>>, folder: bool) {
@@ -2709,6 +2761,16 @@ fn update_jobs_status(ids: &[String], status: &str, pause_before_update: bool) -
     let _ = repo.init_schema();
     let mut updated = 0usize;
     for id in ids {
+        let current = repo.get_queue_job(id).ok().flatten();
+        let should_update = match (current.as_ref().map(|job| job.status.as_str()), status) {
+            (Some("Paused"), "Paused") => false,
+            (Some("Queued"), "Queued") => false,
+            (Some(_), _) => true,
+            (None, _) => false,
+        };
+        if !should_update {
+            continue;
+        }
         if pause_before_update {
             let _ = pause_active_job(id);
         }
@@ -2834,7 +2896,7 @@ fn set_status(weak: &slint::Weak<MainWindow>, message: &str) {
 
 fn mutate_selected_job_with_status<F>(selected_download: Arc<Mutex<Option<String>>>, weak: slint::Weak<MainWindow>, success: &str, op: F)
 where
-    F: Fn(&SqliteDownloadRepository, &str),
+    F: Fn(&SqliteDownloadRepository, &str) -> bool,
 {
     let id = selected_download.lock().ok().and_then(|v| v.clone());
     let Some(id) = id else {
@@ -2844,8 +2906,12 @@ where
     match SqliteDownloadRepository::open(&flow_db_path()) {
         Ok(repo) => {
             let _ = repo.init_schema();
-            op(&repo, &id);
-            set_status(&weak, success);
+            let changed = op(&repo, &id);
+            if changed {
+                set_status(&weak, success);
+            } else {
+                set_status(&weak, "No change applied to selected download");
+            }
         }
         Err(_) => set_status(&weak, "Queue database is not available"),
     }
