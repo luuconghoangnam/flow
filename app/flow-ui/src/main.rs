@@ -14,7 +14,7 @@ mod selection_model;
 
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::collections::HashSet;
 
 use add_url_actions::{prepare_manual_download_submission, render_add_url_error, render_add_url_preview, resolve_manual_category, resolve_manual_file_name, resolve_manual_output_dir};
@@ -48,7 +48,17 @@ struct QueueUiState {
     total_jobs: i32,
     downloaded_bytes: u64,
     total_bytes: u64,
+    active_speed_bytes_per_sec: u64,
 }
+
+#[derive(Debug, Clone)]
+struct ProgressSample {
+    downloaded_bytes: u64,
+    observed_at: SystemTime,
+}
+
+static DOWNLOAD_PROGRESS_CACHE: std::sync::LazyLock<Mutex<std::collections::HashMap<String, ProgressSample>>> =
+    std::sync::LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SortColumn {
@@ -1632,6 +1642,7 @@ fn load_queue_ui_state(
             total_jobs: 0,
             downloaded_bytes: 0,
             total_bytes: 0,
+            active_speed_bytes_per_sec: 0,
         };
     };
     let _ = repo.init_schema();
@@ -1653,6 +1664,7 @@ fn load_queue_ui_state(
             total_jobs: 0,
             downloaded_bytes: 0,
             total_bytes: 0,
+            active_speed_bytes_per_sec: 0,
         };
     };
     let category = category_filter.lock().map(|v| *v).unwrap_or(CategoryFilter::All);
@@ -1678,6 +1690,11 @@ fn load_queue_ui_state(
         .count() as i32;
     let downloaded_bytes = filtered_jobs.iter().map(|row| row.downloaded_bytes).sum::<u64>();
     let total_bytes = filtered_jobs.iter().filter_map(|row| row.total_bytes).sum::<u64>();
+    let progress_cache = DOWNLOAD_PROGRESS_CACHE.lock().ok();
+    let active_speed_bytes_per_sec = filtered_jobs
+        .iter()
+        .filter_map(|row| estimate_speed_bytes_per_sec(progress_cache.as_deref(), &row.id, row.downloaded_bytes))
+        .sum::<u64>();
 
     if filtered_jobs.is_empty() {
         return QueueUiState {
@@ -1690,6 +1707,7 @@ fn load_queue_ui_state(
             total_jobs,
             downloaded_bytes,
             total_bytes,
+            active_speed_bytes_per_sec,
         };
     }
 
@@ -1705,14 +1723,15 @@ fn load_queue_ui_state(
                 Some(total) if total > 0 => format_bytes(total),
                 _ => "Unknown".to_string(),
             };
+            let estimated_speed = estimate_speed_bytes_per_sec(progress_cache.as_deref(), &row.id, row.downloaded_bytes);
             DownloadRow {
                 checked: false,
                 name: row.file_name.clone().into(),
                 category: row.queue_name.clone().into(),
                 size: size.into(),
                 status: format_status(&row.status, progress_percent).into(),
-                speed: if row.status == "Downloading" { "calculating".into() } else { "--".into() },
-                time_left: "--".into(),
+                speed: format_row_speed(row.status.as_str(), estimated_speed).into(),
+                time_left: format_eta(row.status.as_str(), row.total_bytes, row.downloaded_bytes, estimated_speed).into(),
                 date_added: format_date_added(row.created_at).into(),
                 description: row.last_error.clone().unwrap_or_default().into(),
                 progress: progress_percent,
@@ -1721,6 +1740,7 @@ fn load_queue_ui_state(
             }
         })
         .collect::<Vec<_>>();
+    update_progress_cache(&filtered_jobs);
     QueueUiState {
         queue_labels: groups,
         queue_ids: group_ids,
@@ -1731,6 +1751,7 @@ fn load_queue_ui_state(
         total_jobs,
         downloaded_bytes,
         total_bytes,
+        active_speed_bytes_per_sec,
     }
 }
 
@@ -1842,7 +1863,14 @@ fn refresh_queue_ui(
         app.set_queue_schedule_start(scheduler_state.start_text.into());
         app.set_queue_schedule_stop(scheduler_state.stop_text.into());
         app.set_footer_active_count(state.active_count);
-        app.set_footer_speed_text(format_bytes(state.downloaded_bytes).into());
+        app.set_footer_speed_text(
+            if state.active_speed_bytes_per_sec > 0 {
+                format!("{}/s", format_bytes(state.active_speed_bytes_per_sec))
+            } else {
+                format_bytes(state.downloaded_bytes)
+            }
+            .into(),
+        );
         app.set_footer_total_text(
             if state.total_bytes > 0 {
                 format!("{} / {}", state.total_jobs, format_bytes(state.total_bytes))
@@ -1883,6 +1911,85 @@ fn format_bytes(bytes: u64) -> String {
         unit += 1;
     }
     if unit == 0 { format!("{} {}", bytes, UNITS[unit]) } else { format!("{value:.1} {}", UNITS[unit]) }
+}
+
+fn format_speed(bytes_per_sec: u64) -> String {
+    format!("{}/s", format_bytes(bytes_per_sec))
+}
+
+fn format_duration_compact(seconds: u64) -> String {
+    if seconds < 60 {
+        format!("{}s", seconds)
+    } else if seconds < 3600 {
+        format!("{}m", seconds.div_ceil(60))
+    } else if seconds < 86_400 {
+        format!("{}h {}m", seconds / 3600, (seconds % 3600).div_ceil(60))
+    } else {
+        format!("{}d {}h", seconds / 86_400, (seconds % 86_400) / 3600)
+    }
+}
+
+fn format_row_speed(status: &str, speed_bytes_per_sec: Option<u64>) -> String {
+    if status != "Downloading" {
+        return "--".to_string();
+    }
+    speed_bytes_per_sec
+        .filter(|value| *value > 0)
+        .map(format_speed)
+        .unwrap_or_else(|| "calculating".to_string())
+}
+
+fn format_eta(
+    status: &str,
+    total_bytes: Option<u64>,
+    downloaded_bytes: u64,
+    speed_bytes_per_sec: Option<u64>,
+) -> String {
+    if status != "Downloading" {
+        return "--".to_string();
+    }
+    let Some(total_bytes) = total_bytes.filter(|value| *value > downloaded_bytes) else {
+        return "--".to_string();
+    };
+    let Some(speed_bytes_per_sec) = speed_bytes_per_sec.filter(|value| *value > 0) else {
+        return "estimating".to_string();
+    };
+    format_duration_compact((total_bytes - downloaded_bytes).div_ceil(speed_bytes_per_sec))
+}
+
+fn estimate_speed_bytes_per_sec(
+    cache: Option<&std::collections::HashMap<String, ProgressSample>>,
+    id: &str,
+    downloaded_bytes: u64,
+) -> Option<u64> {
+    let sample = cache?.get(id)?;
+    if downloaded_bytes <= sample.downloaded_bytes {
+        return None;
+    }
+    let elapsed = SystemTime::now().duration_since(sample.observed_at).ok()?;
+    if elapsed < Duration::from_millis(400) || elapsed > Duration::from_secs(20) {
+        return None;
+    }
+    let delta_bytes = downloaded_bytes - sample.downloaded_bytes;
+    let bytes_per_sec = (delta_bytes as f64 / elapsed.as_secs_f64()).round() as u64;
+    (bytes_per_sec > 0).then_some(bytes_per_sec)
+}
+
+fn update_progress_cache(rows: &[flow_core::QueueViewRow]) {
+    let now = SystemTime::now();
+    if let Ok(mut cache) = DOWNLOAD_PROGRESS_CACHE.lock() {
+        let visible_ids = rows.iter().map(|row| row.id.clone()).collect::<std::collections::HashSet<_>>();
+        cache.retain(|id, _| visible_ids.contains(id));
+        for row in rows {
+            cache.insert(
+                row.id.clone(),
+                ProgressSample {
+                    downloaded_bytes: row.downloaded_bytes,
+                    observed_at: now,
+                },
+            );
+        }
+    }
 }
 
 fn format_status(status: &str, progress: i32) -> String {
@@ -2071,7 +2178,17 @@ fn execute_downloads_menu_command(
             }
             Err("open-file") => {
                 let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), sort_state, category_filter);
-                let result = selected_open_result(open_multiple_selected_paths(&ids, false), false);
+                let open_result = open_multiple_selected_paths(&ids, false);
+                let result = selected_open_result(&open_result, false);
+                if result.changed_count == 0 && open_result.missing_count > 0 {
+                    if let Ok(payload) = execute_show_selected_properties(&registry, queue_id, sort_state, category_filter) {
+                        let weak = weak.clone();
+                        let _ = weak.upgrade_in_event_loop(move |app| {
+                            app.set_properties_summary(payload.summary.into());
+                            app.set_show_properties_dialog(true);
+                        });
+                    }
+                }
                 set_status(weak, &result.status_message);
             }
             Err(message) => set_status(weak, message),
@@ -2296,7 +2413,8 @@ fn wire_download_toolbar_actions(
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
-            let result = selected_open_result(open_multiple_selected_paths(&ids, true), true);
+            let open_result = open_multiple_selected_paths(&ids, true);
+            let result = selected_open_result(&open_result, true);
             set_status(&weak, &result.status_message);
         }
     });

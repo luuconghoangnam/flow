@@ -15,6 +15,11 @@ pub(crate) struct QueueActionResult {
     pub(crate) status_message: String,
 }
 
+pub(crate) struct OpenPathsResult {
+    pub(crate) opened_count: usize,
+    pub(crate) missing_count: usize,
+}
+
 pub(crate) fn effective_checked_ids(
     queue_id: i64,
     checked_downloads: Arc<Mutex<HashSet<String>>>,
@@ -161,36 +166,61 @@ pub(crate) fn delete_result(deleted: usize) -> QueueActionResult {
     }
 }
 
-pub(crate) fn open_multiple_selected_paths(ids: &[String], folder: bool) -> usize {
-    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else { return 0; };
+pub(crate) fn open_multiple_selected_paths(ids: &[String], folder: bool) -> OpenPathsResult {
+    let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) else {
+        return OpenPathsResult {
+            opened_count: 0,
+            missing_count: 0,
+        };
+    };
     let _ = repo.init_schema();
-    let mut opened = 0usize;
+    let mut opened_count = 0usize;
+    let mut missing_count = 0usize;
     for id in ids {
         let Ok(Some(job)) = repo.get_queue_job(id) else { continue; };
         let target = if folder {
-            job.output_dir
+            std::path::PathBuf::from(job.output_dir)
         } else {
-            format!("{}\\{}", job.output_dir.trim_end_matches(['\\', '/']), job.file_name)
+            std::path::PathBuf::from(job.output_dir).join(job.file_name)
         };
-        open_external(target.as_str());
-        opened += 1;
+        if target.exists() {
+            open_external(target.to_string_lossy().as_ref());
+            opened_count += 1;
+        } else {
+            missing_count += 1;
+        }
     }
-    opened
+    OpenPathsResult {
+        opened_count,
+        missing_count,
+    }
 }
 
-pub(crate) fn selected_open_result(opened: usize, folder: bool) -> QueueActionResult {
+pub(crate) fn selected_open_result(result: &OpenPathsResult, folder: bool) -> QueueActionResult {
     QueueActionResult {
-        changed_count: opened,
-        status_message: if opened == 0 {
+        changed_count: result.opened_count,
+        status_message: if result.opened_count == 0 && result.missing_count == 0 {
             if folder {
                 "No download selected to open folder".to_string()
             } else {
                 "No download selected to open".to_string()
             }
+        } else if result.opened_count > 0 && result.missing_count == 0 {
+            if folder {
+                format!("Opening folder for {} download(s)", result.opened_count)
+            } else {
+                format!("Opening {} download(s)", result.opened_count)
+            }
+        } else if result.opened_count == 0 {
+            if folder {
+                "Selected download folder was not found".to_string()
+            } else {
+                "Selected download file was not found".to_string()
+            }
         } else if folder {
-            format!("Opening folder for {opened} download(s)")
+            format!("Opening folder for {} download(s) ({} missing)", result.opened_count, result.missing_count)
         } else {
-            format!("Opening {opened} download(s)")
+            format!("Opening {} download(s) ({} missing)", result.opened_count, result.missing_count)
         },
     }
 }
