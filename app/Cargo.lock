@@ -1513,6 +1513,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 
 [[package]]
+name = "flow"
+version = "0.1.0"
+dependencies = [
+ "flow-core",
+ "notify",
+ "serde_json",
+ "sha2",
+ "slint",
+ "slint-build",
+ "tray-icon",
+ "winresource",
+]
+
+[[package]]
 name = "flow-core"
 version = "0.1.0"
 dependencies = [
@@ -1546,19 +1560,6 @@ dependencies = [
  "byteorder",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "flow-ui"
-version = "0.1.0"
-dependencies = [
- "flow-core",
- "notify",
- "serde_json",
- "sha2",
- "slint",
- "slint-build",
- "tray-icon",
 ]
 
 [[package]]
@@ -5972,6 +5973,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81f3d15e84cbcd896376e6730314d59fb5a87f31e4b038454184435cd57defee"
+dependencies = [
+ "indexmap",
+ "serde_core",
+ "serde_spanned 1.1.1",
+ "toml_datetime 1.1.1+spec-1.1.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow 1.0.2",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7263,6 +7279,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee1708bef14716a11bae175f579062d4554d95be2c6829f518df847b7b3fdd0"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winresource"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0986a8b1d586b7d3e4fe3d9ea39fb451ae22869dcea4aa109d287a374d866087"
+dependencies = [
+ "toml 1.1.2+spec-1.1.0",
+ "version_check",
 ]
 
 [[package]]
