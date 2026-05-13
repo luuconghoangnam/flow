@@ -16,27 +16,30 @@ export struct DownloadRow {
 }
 
 global Palette {
-    out property <color> bg: #F5F7FA;
-    out property <color> surface: #FFFFFF;
-    out property <color> panel: #F0F2F5;
-    out property <color> border: #E1E4E8;
-    out property <color> text-primary: #1F2937;
-    out property <color> text-muted: #6B7280;
-    out property <color> text-light: #9CA3AF;
-    out property <color> accent-primary: #3B82F6;
-    out property <color> accent-hover: #2563EB;
-    out property <color> accent-active: #1D4ED8;
-    out property <color> success: #10B981;
-    out property <color> warning: #F59E0B;
-    out property <color> error: #EF4444;
-    out property <color> selection-bg: #DBEAFE;
-    out property <color> selection-border: #93C5FD;
+    // Dark WinForm-style palette
+    out property <color> bg: #1A1B1C;              // Windows Dark background
+    out property <color> surface: #202124;         // Sidebar/Menu background
+    out property <color> panel: #292A2D;           // Toolbar/Header background
+    out property <color> border: #3C4043;          // Standard control border
+    out property <color> text-primary: #E8EAED;    // White text
+    out property <color> text-muted: #9AA0A6;      // Gray text
+    out property <color> text-light: #70757A;      // Muted text
+    out property <color> accent-primary: #8AB4F8;  // Light blue accent
+    out property <color> accent-hover: #3C4043;    // Hover gray
+    out property <color> accent-active: #4F5256;   // Active gray
+    out property <color> success: #81C995;         // Green
+    out property <color> warning: #FDD663;         // Yellow
+    out property <color> error: #F28B82;           // Red
+    out property <color> selection-bg: #323639;    // Selection background
+    out property <color> selection-border: #8AB4F8; // Selection border
+    out property <color> row-odd: #202124;
+    out property <color> row-even: #1A1B1C;
 }
 
 component IconAdd inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 12px; height: 2px; y: 11px; x: 6px; background: #3B82F6; }
-    Rectangle { width: 2px; height: 12px; x: 11px; y: 6px; background: #3B82F6; }
+    Rectangle { width: 12px; height: 2px; y: 11px; x: 6px; background: #4A9EFF; }
+    Rectangle { width: 2px; height: 12px; x: 11px; y: 6px; background: #4A9EFF; }
 }
 
 component IconResume inherits Rectangle {
@@ -44,19 +47,19 @@ component IconResume inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 30,20 L 80,50 L 30,80 Z";
-        fill: #10B981;
+        fill: #48C774;
     }
 }
 
 component IconStop inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 10px; height: 10px; x: 7px; y: 7px; background: #EF4444; border-radius: 2px; }
+    Rectangle { width: 10px; height: 10px; x: 7px; y: 7px; background: #FF5353; }
 }
 
 component IconStopAll inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { x: 3px; width: 8px; height: 10px; background: #EF4444; border-radius: 1px; }
-    Rectangle { x: 13px; width: 8px; height: 10px; background: #EF4444; border-radius: 1px; }
+    Rectangle { x: 3px; width: 8px; height: 10px; background: #FF5353; }
+    Rectangle { x: 13px; width: 8px; height: 10px; background: #FF5353; }
 }
 
 component IconDelete inherits Rectangle {
@@ -64,29 +67,29 @@ component IconDelete inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 20,20 L 80,80 M 80,20 L 20,80";
-        stroke: #EF4444;
+        stroke: #FF5353;
         stroke-width: 6px;
     }
 }
 
 component IconCleanup inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 12px; height: 3px; background: #6B7280; y: 17px; x: 6px; border-radius: 1px; }
-    Rectangle { width: 8px; height: 8px; background: #9CA3AF; y: 8px; x: 8px; border-radius: 1px; }
+    Rectangle { width: 12px; height: 3px; background: #999999; y: 17px; x: 6px; }
+    Rectangle { width: 8px; height: 8px; background: #666666; y: 8px; x: 8px; }
 }
 
 component IconOptions inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 3px; height: 3px; background: #3B82F6; x: 2px; y: 10px; border-radius: 1px; }
-    Rectangle { width: 3px; height: 3px; background: #3B82F6; x: 10px; y: 10px; border-radius: 1px; }
-    Rectangle { width: 3px; height: 3px; background: #3B82F6; x: 18px; y: 10px; border-radius: 1px; }
+    Rectangle { width: 3px; height: 3px; background: #4A9EFF; x: 2px; y: 10px; }
+    Rectangle { width: 3px; height: 3px; background: #4A9EFF; x: 10px; y: 10px; }
+    Rectangle { width: 3px; height: 3px; background: #4A9EFF; x: 18px; y: 10px; }
 }
 
 component IconScheduler inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 14px; height: 14px; border-width: 2px; border-color: #3B82F6; border-radius: 2px; x: 5px; y: 5px; }
-    Rectangle { width: 1px; height: 4px; background: #3B82F6; y: 7px; x: 11px; }
-    Rectangle { width: 3px; height: 1px; background: #3B82F6; x: 13px; y: 12px; }
+    Rectangle { width: 14px; height: 14px; border-width: 2px; border-color: #4A9EFF; x: 5px; y: 5px; }
+    Rectangle { width: 1px; height: 4px; background: #4A9EFF; y: 7px; x: 11px; }
+    Rectangle { width: 3px; height: 1px; background: #4A9EFF; x: 13px; y: 12px; }
 }
 
 component IconOpen inherits Rectangle {
@@ -94,7 +97,7 @@ component IconOpen inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 30,20 L 30,70 L 80,70 L 80,35 L 65,20 Z M 65,20 L 65,35 L 80,35";
-        stroke: #3B82F6;
+        stroke: #4A9EFF;
         stroke-width: 3px;
     }
 }
@@ -104,7 +107,7 @@ component IconFolder inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 10,30 L 10,80 L 90,80 L 90,35 L 40,35 L 30,20 L 10,20 Z";
-        stroke: #3B82F6;
+        stroke: #4A9EFF;
         stroke-width: 3px;
     }
 }
@@ -114,7 +117,7 @@ component IconUp inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 50,20 L 30,50 L 40,50 L 40,80 L 60,80 L 60,50 L 70,50 Z";
-        fill: #6B7280;
+        fill: #999999;
     }
 }
 
@@ -123,7 +126,7 @@ component IconDown inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 50,80 L 30,50 L 40,50 L 40,20 L 60,20 L 60,50 L 70,50 Z";
-        fill: #6B7280;
+        fill: #999999;
     }
 }
 
@@ -132,20 +135,20 @@ component IconRetry inherits Rectangle {
     Path {
         viewbox-width: 100; viewbox-height: 100;
         commands: "M 70,30 L 80,30 L 75,15 L 65,25 L 70,25 A 30,30 0 1 0 30,60";
-        stroke: #10B981;
+        stroke: #48C774;
         stroke-width: 3px;
     }
 }
 
 component IconPlus inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 12px; height: 2px; y: 11px; x: 6px; background: #3B82F6; }
-    Rectangle { width: 2px; height: 12px; x: 11px; y: 6px; background: #3B82F6; }
+    Rectangle { width: 12px; height: 2px; y: 11px; x: 6px; background: #4A9EFF; }
+    Rectangle { width: 2px; height: 12px; x: 11px; y: 6px; background: #4A9EFF; }
 }
 
 component IconMinus inherits Rectangle {
     width: 24px; height: 24px;
-    Rectangle { width: 12px; height: 2px; y: 11px; x: 6px; background: #EF4444; }
+    Rectangle { width: 12px; height: 2px; y: 11px; x: 6px; background: #FF5353; }
 }
 
 component ToolbarButton inherits Rectangle {
@@ -154,20 +157,18 @@ component ToolbarButton inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> icon-type;
     callback clicked;
-    height: 32px;
-    min-width: 36px;
+    height: 52px;
+    min-width: 54px;
     
-    background: !enabled ? transparent : (ta.pressed ? Palette.accent-active : (ta.has-hover ? Palette.accent-hover : (active ? Palette.accent-primary : Palette.panel)));
-    border-color: active ? Palette.accent-primary : transparent;
-    border-width: active ? 1px : 0px;
-    border-radius: 4px;
+    background: !enabled ? transparent : (ta.pressed ? Palette.accent-active : (ta.has-hover ? Palette.accent-hover : transparent));
+    border-radius: 2px;
 
-    HorizontalLayout {
+    VerticalLayout {
         alignment: center;
-        spacing: 1px;
-        padding: 2px;
+        spacing: 2px;
+        padding: 4px;
         Rectangle {
-            height: 20px; width: 20px;
+            height: 24px; width: 24px;
             opacity: root.enabled ? 1.0 : 0.4;
             if icon-type == "add": IconAdd {}
             if icon-type == "resume": IconResume {}
@@ -187,9 +188,9 @@ component ToolbarButton inherits Rectangle {
         }
         if text != "": Text { 
             text: root.text; 
-            color: !enabled ? Palette.text-light : (active || ta.has-hover ? #FFFFFF : Palette.text-primary); 
-            font-size: 10px; 
-            font-weight: 600;
+            color: !enabled ? Palette.text-light : Palette.text-primary; 
+            font-size: 9px; 
+            font-weight: 500;
             horizontal-alignment: center; 
         }
     }
@@ -200,29 +201,55 @@ component ToolbarButton inherits Rectangle {
     }
 }
 
+component MenuItem inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 22px;
+    background: ta.has-hover ? Palette.accent-hover : (ta.pressed ? Palette.accent-active : transparent);
+    
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: Palette.text-primary;
+            font-size: 11px;
+            font-weight: 400;
+            vertical-alignment: center;
+        }
+    }
+    
+    ta := TouchArea {
+        width: 100%; height: 100%;
+        clicked => { root.clicked(); }
+    }
+}
+
 component TreeItem inherits Rectangle {
     in property <string> text;
     in property <bool> active: false;
     in property <string> icon-type;
     callback clicked <=> ta.clicked;
-    height: 28px;
-    background: active ? Palette.selection-bg : (ta.has-hover ? #E8EFFE : transparent);
-    border-color: active ? Palette.accent-primary : transparent;
-    border-width: active ? 1px : 0px;
-    border-radius: 3px;
+    height: 24px;
+    background: active ? Palette.selection-bg : (ta.has-hover ? Palette.accent-hover : transparent);
     
+    Rectangle {
+        x: 0; width: 3px; height: 100%;
+        background: active ? Palette.accent-primary : transparent;
+    }
+
     HorizontalLayout {
-        padding-left: 6px; padding-right: 6px;
-        spacing: 6px;
+        padding-left: 8px; padding-right: 6px;
+        spacing: 8px;
         alignment: start;
         Rectangle { 
-            width: 12px; height: 12px; 
+            width: 14px; height: 14px; 
             VerticalLayout {
                 alignment: center;
-                if icon-type == "all": Rectangle { width: 8px; height: 8px; border-width: 1px; border-color: Palette.accent-primary; border-radius: 1px; }
-                if icon-type == "unfinished": Rectangle { width: 8px; height: 8px; background: Palette.warning; border-radius: 1px; }
-                if icon-type == "finished": Rectangle { width: 8px; height: 8px; background: Palette.success; border-radius: 1px; }
-                if icon-type == "queue": Rectangle { width: 8px; height: 8px; border-width: 1px; border-color: Palette.text-muted; border-radius: 1px; }
+                if icon-type == "all": Rectangle { width: 10px; height: 10px; border-width: 1px; border-color: Palette.accent-primary; }
+                if icon-type == "unfinished": Rectangle { width: 10px; height: 10px; background: Palette.warning; }
+                if icon-type == "finished": Rectangle { width: 10px; height: 10px; background: Palette.success; }
+                if icon-type == "queue": Rectangle { width: 10px; height: 10px; border-width: 1px; border-color: Palette.text-muted; }
             }
         }
         Text { 
@@ -230,7 +257,7 @@ component TreeItem inherits Rectangle {
             color: Palette.text-primary; 
             vertical-alignment: center; 
             font-size: 11px; 
-            font-weight: active ? 700 : 500;
+            font-weight: active ? 600 : 400;
         }
     }
     ta := TouchArea { width: 100%; height: 100%; }
@@ -241,15 +268,14 @@ component StandardInput inherits Rectangle {
     in property <string> placeholder;
     callback edited(string);
     height: 32px;
-    background: Palette.surface;
+    background: Palette.panel;
     border-color: editor.has-focus ? Palette.accent-primary : Palette.border;
     border-width: editor.has-focus ? 2px : 1px;
-    border-radius: 6px;
     
     editor := LineEdit { 
         x: 8px; y: 0; width: parent.width - 16px; height: parent.height;
         text: root.text; 
-        placeholder-text: root.placeholder; 
+        placeholder-text: root.placeholder;
         edited(t) => { root.edited(t); } 
     }
     
@@ -257,8 +283,8 @@ component StandardInput inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
-    width: 1200px;
-    height: 680px;
+    width: 950px;
+    height: 550px;
     title: "Flow Download Manager";
     background: Palette.bg;
     default-font-family: "Segoe UI";
@@ -295,53 +321,72 @@ export component MainWindow inherits Window {
     callback settings-use-downloads-folder(); callback register-browser-host();
     callback queue-create-new(); callback queue-rename(); callback queue-delete-confirm();
     callback proxy-mode-changed(mode: int); callback proxy-test-connection();
+    callback tasks-start-all(); callback tasks-pause-all();
+    callback file-batch-download(); callback app-exit();
+    callback downloads-select-all(); callback downloads-clear-selection(); callback downloads-sort-by-name();
+    callback downloads-sort-by-size(); callback downloads-sort-by-status(); callback downloads-sort-by-date-added();
+    callback view-refresh(); callback view-toggle-toolbar(); callback view-toggle-status-bar();
+    callback tools-browser-integration(); callback tools-per-host-settings(); callback tools-open-settings();
+    callback help-about(); callback help-check-updates(); callback help-online-help(); callback help-donate(); callback help-translators();
+    callback menu-tasks(); callback menu-file(); callback menu-downloads(); callback menu-view(); callback menu-tools(); callback menu-help();
 
     property <int> current-tab: 0; // 0 downloads, 1 scheduler, 2 settings
+    in-out property <bool> queue-stop-on-empty: false;
+    in-out property <int> active-menu: -1;
+    property <length> menu-popup-width: 180px;
+    property <length> menu-popup-x: 6px + (active-menu * 72px);
+    property <length> menu-popup-height: active-menu == 0 ? 150px : (active-menu == 2 ? 176px : (active-menu == 5 ? 152px : 94px));
+    in-out property <bool> toolbar-visible: true;
+    in-out property <bool> status-bar-visible: true;
 
     VerticalLayout {
         spacing: 0;
 
         // Menu Bar
         Rectangle {
-            height: 32px; background: Palette.surface;
-            HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 20px;
-                Text { text: "Tasks"; color: Palette.text-primary; font-size: 12px; font-weight: 600; vertical-alignment: center; }
-                Text { text: "File"; color: Palette.text-primary; font-size: 12px; font-weight: 600; vertical-alignment: center; }
-                Text { text: "Downloads"; color: Palette.text-primary; font-size: 12px; font-weight: 600; vertical-alignment: center; }
-                Text { text: "View"; color: Palette.text-primary; font-size: 12px; font-weight: 600; vertical-alignment: center; }
-                Text { text: "Help"; color: Palette.text-primary; font-size: 12px; font-weight: 600; vertical-alignment: center; }
+            height: 22px; background: Palette.surface;
+            HorizontalLayout { padding-left: 0px; padding-right: 0px; spacing: 0px;
+                MenuItem { text: "Tasks"; clicked => { root.menu-tasks(); } }
+                MenuItem { text: "File"; clicked => { root.menu-file(); } }
+                MenuItem { text: "Downloads"; clicked => { root.menu-downloads(); } }
+                MenuItem { text: "View"; clicked => { root.menu-view(); } }
+                MenuItem { text: "Tools"; clicked => { root.menu-tools(); } }
+                MenuItem { text: "Help"; clicked => { root.menu-help(); } }
+                Rectangle { width: 100%; }
             }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
         }
 
-        // Toolbar
-        Rectangle {
-            height: 72px; background: Palette.panel;
-            HorizontalLayout { 
-                padding: 8px; spacing: 4px;
+        // Toolbar - grouped actions and visible page switches
+        if root.toolbar-visible: Rectangle {
+            height: 52px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 4px; padding-right: 4px;
+                spacing: 2px;
+                alignment: start;
+
                 ToolbarButton { text: "Add URL"; icon-type: "add"; clicked => { root.add-url(); current-tab = 0; } }
-                Rectangle { width: 8px; }
-                Rectangle { width: 1px; height: 48px; background: Palette.border; }
-                Rectangle { width: 8px; }
+                Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
+
                 ToolbarButton { text: "Resume"; icon-type: "resume"; enabled: root.selected-download-index >= 0; clicked => { root.resume-selected(); current-tab = 0; } }
                 ToolbarButton { text: "Stop"; icon-type: "stop"; enabled: root.selected-download-index >= 0; clicked => { root.stop-selected(); current-tab = 0; } }
                 ToolbarButton { text: "Stop All"; icon-type: "stop-all"; clicked => { root.stop-all(); current-tab = 0; } }
-                Rectangle { width: 8px; }
-                Rectangle { width: 1px; height: 48px; background: Palette.border; }
-                Rectangle { width: 8px; }
+                Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
+
                 ToolbarButton { text: "Delete"; icon-type: "delete"; enabled: root.selected-download-index >= 0; clicked => { root.request-delete-selected(); current-tab = 0; } }
                 ToolbarButton { text: "Cleanup"; icon-type: "cleanup"; clicked => { root.cleanup-finished(); current-tab = 0; } }
-                Rectangle { width: 8px; }
-                Rectangle { width: 1px; height: 48px; background: Palette.border; }
-                Rectangle { width: 8px; }
+                Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
+
                 ToolbarButton { text: "Open"; icon-type: "open"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected(); } }
-                ToolbarButton { text: "Open Folder"; icon-type: "folder"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected-folder(); } }
-                Rectangle { width: 8px; }
-                Rectangle { width: 1px; height: 48px; background: Palette.border; }
-                Rectangle { width: 8px; }
-                ToolbarButton { text: "Options"; icon-type: "options"; active: current-tab == 2; clicked => { current-tab = 2; } }
+                ToolbarButton { text: "Folder"; icon-type: "folder"; enabled: root.selected-download-index >= 0; clicked => { root.open-selected-folder(); } }
+                Rectangle { width: 1px; height: 32px; background: Palette.border; y: 10px; }
+
                 ToolbarButton { text: "Scheduler"; icon-type: "scheduler"; active: current-tab == 1; clicked => { current-tab = 1; } }
+                ToolbarButton { text: "Settings"; icon-type: "options"; active: current-tab == 2; clicked => { current-tab = 2; } }
+
                 Rectangle { width: 100%; }
             }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
         }
 
         HorizontalLayout {
@@ -373,14 +418,13 @@ export component MainWindow inherits Window {
                                 background: i == root.selected-queue-index ? Palette.selection-bg : transparent;
                                 border-color: i == root.selected-queue-index ? Palette.accent-primary : transparent;
                                 border-width: i == root.selected-queue-index ? 1px : 0px;
-                                border-radius: 3px;
                                 
                                 HorizontalLayout {
                                     padding-left: 6px; padding-right: 6px; spacing: 6px;
                                     Rectangle { 
                                         width: 12px; height: 12px; 
                                         VerticalLayout { alignment: center;
-                                            Rectangle { width: 8px; height: 8px; border-width: 1px; border-color: Palette.text-muted; border-radius: 1px; }
+                                            Rectangle { width: 8px; height: 8px; border-width: 1px; border-color: Palette.text-muted; }
                                         }
                                     }
                                     Text { 
@@ -402,27 +446,45 @@ export component MainWindow inherits Window {
 
             // Main Content Area
             Rectangle {
-                background: #FFFFFF;
+                background: Palette.bg;
+                VerticalLayout {
+                    padding-left: 8px; padding-right: 8px; padding-top: 8px; padding-bottom: 8px;
+                    spacing: 8px;
                 if current-tab == 0: VerticalLayout {
                     // Header for Table
                     Rectangle {
-                        height: 36px; background: Palette.panel;
+                        height: 22px; background: Palette.panel;
                         HorizontalLayout {
-                            padding-left: 12px; spacing: 0;
-                            Text { text: "File Name"; width: 320px; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; }
+                            padding-left: 8px; padding-right: 8px; spacing: 0;
+                            Rectangle {
+                                width: 300px;
+                                Text { text: "File Name"; width: 100%; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; }
+                                TouchArea { clicked => { root.downloads-sort-by-name(); } }
+                            }
                             Rectangle { width: 1px; background: Palette.border; }
-                            Text { text: "Size"; width: 80px; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                            Rectangle {
+                                width: 80px;
+                                Text { text: "Size"; width: 100%; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                                TouchArea { clicked => { root.downloads-sort-by-size(); } }
+                            }
                             Rectangle { width: 1px; background: Palette.border; }
-                            Text { text: "Status"; width: 120px; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                            Rectangle {
+                                width: 100px;
+                                Text { text: "Status"; width: 100%; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                                TouchArea { clicked => { root.downloads-sort-by-status(); } }
+                            }
                             Rectangle { width: 1px; background: Palette.border; }
-                            Text { text: "Time Left"; width: 90px; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                            Text { text: "Speed"; width: 80px; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
                             Rectangle { width: 1px; background: Palette.border; }
-                            Text { text: "Speed"; width: 100px; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                            Text { text: "Time Left"; width: 80px; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
                             Rectangle { width: 1px; background: Palette.border; }
-                            Text { text: "Date Added"; width: 140px; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
-                            Rectangle { width: 1px; background: Palette.border; }
-                            Text { text: "Description"; font-size: 11px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; }
+                            Rectangle {
+                                width: 130px;
+                                Text { text: "Date Added"; width: 100%; font-size: 10px; font-weight: 600; color: Palette.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                                TouchArea { clicked => { root.downloads-sort-by-date-added(); } }
+                            }
                         }
+                        Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
                     }
 
                     // Table Body
@@ -430,25 +492,24 @@ export component MainWindow inherits Window {
                         VerticalLayout {
                             padding: 0; spacing: 0;
                             for row[i] in root.download-rows: Rectangle {
-                                height: 40px;
-                                background: i == root.selected-download-index ? Palette.selection-bg : (Math.mod(i, 2) == 1 ? Palette.panel : Palette.surface);
+                                height: 22px;
+                                background: i == root.selected-download-index ? Palette.selection-bg : (Math.mod(i, 2) == 1 ? Palette.row-even : Palette.row-odd);
                                 
                                 HorizontalLayout {
-                                    padding-left: 12px; spacing: 0;
-                                    Text { text: row.name; width: 320px; font-size: 11px; vertical-alignment: center; color: Palette.text-primary; overflow: elide; font-weight: 500; }
-                                    Text { text: row.size; width: 80px; font-size: 11px; vertical-alignment: center; horizontal-alignment: right; color: Palette.text-muted; }
+                                    padding-left: 8px; padding-right: 8px; spacing: 0;
+                                    Text { text: row.name; width: 300px; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; overflow: elide; }
+                                    Text { text: row.size; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: right; color: Palette.text-muted; }
                                     VerticalLayout {
-                                        width: 120px; alignment: center; padding-left: 6px; padding-right: 6px;
-                                        Text { text: row.status; font-size: 10px; font-weight: 600; color: (row.is-error ? Palette.error : Palette.success); horizontal-alignment: center; }
+                                        width: 100px; alignment: center; padding-left: 8px; padding-right: 8px;
+                                        Text { text: row.status; font-size: 9px; font-weight: 600; color: (row.is-error ? Palette.error : Palette.success); horizontal-alignment: center; }
                                         if row.has-progress: Rectangle {
-                                            height: 4px; background: Palette.panel; border-radius: 2px;
-                                            Rectangle { x: 0; width: parent.width * row.progress / 100; background: Palette.accent-primary; border-radius: 2px; height: 100%; }
+                                            height: 2px; background: Palette.border;
+                                            Rectangle { x: 0; width: parent.width * row.progress / 100; background: Palette.accent-primary; height: 100%; }
                                         }
                                     }
-                                    Text { text: row.time-left; width: 90px; font-size: 11px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                                    Text { text: row.speed; width: 100px; font-size: 11px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                                    Text { text: row.date-added; width: 140px; font-size: 11px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                                    Text { text: row.description; font-size: 10px; vertical-alignment: center; color: Palette.text-light; overflow: elide; }
+                                    Text { text: row.speed; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                                    Text { text: row.time-left; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                                    Text { text: row.date-added; width: 130px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
                                 }
                                 TouchArea { clicked => { root.select-download(i); } }
                             }
@@ -457,165 +518,174 @@ export component MainWindow inherits Window {
                 }
                 
                 if current-tab == 1: VerticalLayout {
-                    padding: 20px; spacing: 18px;
+                    padding: 0px; spacing: 8px;
                     ScrollView {
                         VerticalLayout {
-                            padding: 0; spacing: 16px;
-                            Text { text: "Queue Scheduler"; font-size: 20px; font-weight: 700; color: #004080; }
-                            Rectangle { height: 1px; background: #D0D0D0; }
-                            
-                            Text { text: "Queue Name: " + root.queue-name-text; font-size: 13px; font-weight: 600; }
-                            Text { text: root.queue-config-summary; font-size: 12px; color: #555; }
-                            
+                            padding: 0; spacing: 10px;
                             Rectangle {
-                                height: 1px; background: #D0D0D0;
-                            }
-                            
-                            VerticalLayout {
-                                spacing: 10px;
-                                Text { text: "Queue Controls"; font-size: 12px; font-weight: 600; color: #333; }
+                                height: 64px; background: Palette.panel;
+                                border-color: Palette.border;
+                                border-width: 1px;
                                 HorizontalLayout {
-                                    spacing: 8px;
-                                    ToolbarButton { text: "Start Queue"; icon-type: "resume"; height: 40px; clicked => { root.toggle-queue(); } }
-                                    ToolbarButton { text: "Delete Queue"; icon-type: "delete"; height: 40px; clicked => { root.queue-delete-confirm(); } }
-                                    ToolbarButton { text: "Rename"; height: 40px; clicked => { root.queue-rename(); } }
+                                    padding-left: 14px; padding-right: 14px;
+                                    alignment: center;
+                                    VerticalLayout {
+                                        spacing: 2px;
+                                        Text { text: "Queue Scheduler"; font-size: 16px; font-weight: 700; color: Palette.text-primary; }
+                                        Text { text: root.queue-name-text; font-size: 11px; color: Palette.text-muted; }
+                                    }
+                                    Rectangle { width: 100%; }
+                                    Text { text: root.queue-config-summary; font-size: 10px; color: Palette.text-muted; horizontal-alignment: right; }
                                 }
                             }
-                            
-                            Rectangle {
-                                height: 1px; background: #D0D0D0;
-                            }
-                            
+
                             VerticalLayout {
-                                spacing: 10px;
-                                Text { text: "Selected Item Controls"; font-size: 12px; font-weight: 600; color: #333; }
+                                spacing: 8px;
+                                Text { text: "Queue Controls"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 HorizontalLayout {
                                     spacing: 8px;
-                                    ToolbarButton { text: "Move Up"; icon-type: "up"; enabled: root.selected-download-index > 0; height: 40px; clicked => { root.move-download-up(); } }
-                                    ToolbarButton { text: "Move Down"; icon-type: "down"; enabled: root.selected-download-index >= 0; height: 40px; clicked => { root.move-download-down(); } }
-                                    ToolbarButton { text: "Requeue"; icon-type: "retry"; enabled: root.selected-download-index >= 0; height: 40px; clicked => { root.requeue-download(); } }
+                                    ToolbarButton { text: "Start Queue"; icon-type: "resume"; height: 34px; clicked => { root.toggle-queue(); } }
+                                    ToolbarButton { text: "Delete Queue"; icon-type: "delete"; height: 34px; clicked => { root.queue-delete-confirm(); } }
+                                    ToolbarButton { text: "Rename"; height: 34px; clicked => { root.queue-rename(); } }
                                 }
                             }
-                            
-                            Rectangle {
-                                height: 1px; background: #D0D0D0;
-                            }
-                            
+
                             VerticalLayout {
-                                spacing: 10px;
-                                Text { text: "Queue Configuration"; font-size: 12px; font-weight: 600; color: #333; }
+                                spacing: 8px;
+                                Text { text: "Selected Item Controls"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    ToolbarButton { text: "Move Up"; icon-type: "up"; enabled: root.selected-download-index > 0; height: 34px; clicked => { root.move-download-up(); } }
+                                    ToolbarButton { text: "Move Down"; icon-type: "down"; enabled: root.selected-download-index >= 0; height: 34px; clicked => { root.move-download-down(); } }
+                                    ToolbarButton { text: "Requeue"; icon-type: "retry"; enabled: root.selected-download-index >= 0; height: 34px; clicked => { root.requeue-download(); } }
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 8px;
+                                Text { text: "Queue Configuration"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 HorizontalLayout {
                                     spacing: 12px; alignment: start;
-                                    Text { text: "Max Concurrent:"; width: 120px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Max Concurrent:"; width: 120px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     ToolbarButton { text: "-"; min-width: 32px; icon-type: "minus"; height: 26px; clicked => { root.queue-max-minus(); } }
-                                    Text { text: root.max-concurrent; width: 40px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; }
+                                    Text { text: root.max-concurrent; width: 40px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; color: Palette.text-primary; }
                                     ToolbarButton { text: "+"; min-width: 32px; icon-type: "plus"; height: 26px; clicked => { root.queue-max-plus(); } }
                                 }
                                 HorizontalLayout {
                                     spacing: 12px; alignment: start;
-                                    Text { text: "Stop on Empty:"; width: 120px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Stop on Empty:"; width: 120px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     Rectangle {
-                                        width: 40px; height: 20px; border-width: 1px; border-color: #999;
-                                        background: #EEE; border-radius: 3px;
-                                        TouchArea { clicked => { root.queue-toggle-stop-on-empty(); } }
+                                        width: 40px; height: 20px; border-width: 1px; border-color: Palette.border;
+                                        background: root.queue-stop-on-empty ? Palette.accent-primary : Palette.panel;
+                                        TouchArea { clicked => { root.queue-stop-on-empty = !root.queue-stop-on-empty; root.queue-toggle-stop-on-empty(); } }
                                     }
                                 }
                             }
-                            
-                            Rectangle { height: 100%; }
+
+                            Rectangle { height: 100%; background: transparent; }
                         }
                     }
                 }
 
                 if current-tab == 2: VerticalLayout {
-                    padding: 20px; spacing: 0;
+                    padding: 0px; spacing: 8px;
                     ScrollView {
                         VerticalLayout {
-                            padding: 0; spacing: 24px;
-                            Text { text: "Options / Settings"; font-size: 20px; font-weight: 700; color: #004080; }
-                            Rectangle { height: 1px; background: #D0D0D0; }
+                            padding: 0; spacing: 14px;
+                            Rectangle {
+                                height: 64px; background: Palette.panel;
+                                border-color: Palette.border;
+                                border-width: 1px;
+                                HorizontalLayout {
+                                    padding-left: 14px; padding-right: 14px;
+                                    alignment: center;
+                                    VerticalLayout {
+                                        spacing: 2px;
+                                        Text { text: "Options / Settings"; font-size: 16px; font-weight: 700; color: Palette.text-primary; }
+                                        Text { text: "Application, browser, clipboard, and proxy controls"; font-size: 10px; color: Palette.text-muted; }
+                                    }
+                                    Rectangle { width: 100%; }
+                                }
+                            }
                             
                             // Application Settings Section
                             VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "Application Settings"; font-size: 14px; font-weight: 600; color: #333; }
-                                Rectangle { height: 1px; background: #E0E0E0; }
+                                spacing: 10px;
+                                Text { text: "Application Settings"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Auto-Start:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Auto-Start:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     Rectangle {
-                                        width: 50px; height: 20px; border-width: 1px; border-color: #999;
-                                        background: root.auto-start-enabled ? #00AA00 : #EEE; border-radius: 3px;
+                                        width: 50px; height: 20px; border-width: 1px; border-color: Palette.border;
+                                        background: root.auto-start-enabled ? Palette.success : Palette.panel;
                                         TouchArea { clicked => { root.toggle-auto-start(); } }
-                                        Text { text: root.auto-start-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: white; }
+                                        Text { text: root.auto-start-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; }
                                     }
                                 }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "System Tray:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "System Tray:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     Rectangle {
-                                        width: 50px; height: 20px; border-width: 1px; border-color: #999;
-                                        background: root.system-tray-enabled ? #00AA00 : #EEE; border-radius: 3px;
+                                        width: 50px; height: 20px; border-width: 1px; border-color: Palette.border;
+                                        background: root.system-tray-enabled ? Palette.success : Palette.panel;
                                         TouchArea { clicked => { root.toggle-system-tray(); } }
-                                        Text { text: root.system-tray-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: white; }
+                                        Text { text: root.system-tray-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; }
                                     }
                                 }
                             }
                             
                             // Download Settings Section
                             VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "Download Settings"; font-size: 14px; font-weight: 600; color: #333; }
-                                Rectangle { height: 1px; background: #E0E0E0; }
+                                spacing: 10px;
+                                Text { text: "Download Settings"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Default Folder:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Default Folder:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     StandardInput { width: 350px; text: root.default-folder-text; placeholder: "Select download folder..."; }
                                     ToolbarButton { text: "..."; min-width: 40px; height: 26px; clicked => { root.settings-use-downloads-folder(); } }
                                 }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Thread Count:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Thread Count:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     ToolbarButton { text: "-"; min-width: 32px; icon-type: "minus"; height: 26px; clicked => { root.settings-thread-minus(); } }
-                                    Text { text: root.thread-count; width: 40px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; }
+                                    Text { text: root.thread-count; width: 40px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; color: Palette.text-primary; }
                                     ToolbarButton { text: "+"; min-width: 32px; icon-type: "plus"; height: 26px; clicked => { root.settings-thread-plus(); } }
-                                    Text { text: "(1-32)"; width: 80px; vertical-alignment: center; font-size: 10px; color: #666; }
+                                    Text { text: "(1-32)"; width: 80px; vertical-alignment: center; font-size: 10px; color: Palette.text-muted; }
                                 }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Max Concurrent:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Max Concurrent:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     ToolbarButton { text: "-"; min-width: 32px; icon-type: "minus"; height: 26px; clicked => { root.settings-max-minus(); } }
-                                    Text { text: root.max-concurrent; width: 40px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; }
+                                    Text { text: root.max-concurrent; width: 40px; vertical-alignment: center; horizontal-alignment: center; font-size: 11px; font-weight: 600; color: Palette.text-primary; }
                                     ToolbarButton { text: "+"; min-width: 32px; icon-type: "plus"; height: 26px; clicked => { root.settings-max-plus(); } }
-                                    Text { text: "(1-10)"; width: 80px; vertical-alignment: center; font-size: 10px; color: #666; }
+                                    Text { text: "(1-10)"; width: 80px; vertical-alignment: center; font-size: 10px; color: Palette.text-muted; }
                                 }
                             }
                             
                             // Browser Integration Section
                             VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "Browser Integration"; font-size: 14px; font-weight: 600; color: #333; }
-                                Rectangle { height: 1px; background: #E0E0E0; }
+                                spacing: 10px;
+                                Text { text: "Browser Integration"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Enable Integration:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Enable Integration:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     Rectangle {
-                                        width: 50px; height: 20px; border-width: 1px; border-color: #999;
-                                        background: root.browser-integration-enabled ? #00AA00 : #EEE; border-radius: 3px;
+                                        width: 50px; height: 20px; border-width: 1px; border-color: Palette.border;
+                                        background: root.browser-integration-enabled ? Palette.success : Palette.panel;
                                         TouchArea { clicked => { root.toggle-browser-integration(); } }
-                                        Text { text: root.browser-integration-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: white; }
+                                        Text { text: root.browser-integration-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; }
                                     }
                                 }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Extension ID:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Extension ID:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     StandardInput { width: 350px; text: root.browser-extension-id-text; placeholder: "Enter extension ID..."; }
                                 }
                                 
@@ -627,52 +697,50 @@ export component MainWindow inherits Window {
                             
                             // Clipboard Monitoring Section
                             VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "Clipboard Monitoring"; font-size: 14px; font-weight: 600; color: #333; }
-                                Rectangle { height: 1px; background: #E0E0E0; }
+                                spacing: 10px;
+                                Text { text: "Clipboard Monitoring"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Enable Monitoring:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Enable Monitoring:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     Rectangle {
-                                        width: 50px; height: 20px; border-width: 1px; border-color: #999;
-                                        background: root.clipboard-monitoring-enabled ? #00AA00 : #EEE; border-radius: 3px;
+                                        width: 50px; height: 20px; border-width: 1px; border-color: Palette.border;
+                                        background: root.clipboard-monitoring-enabled ? Palette.success : Palette.panel;
                                         TouchArea { clicked => { root.toggle-clipboard-monitoring(); } }
-                                        Text { text: root.clipboard-monitoring-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: white; }
+                                        Text { text: root.clipboard-monitoring-enabled ? "ON" : "OFF"; horizontal-alignment: center; vertical-alignment: center; font-size: 10px; color: Palette.text-primary; }
                                     }
                                 }
                                 
-                                Text { text: "Automatically detect URLs in clipboard and show a download confirmation dialog."; font-size: 10px; color: #777; }
+                                Text { text: "Automatically detect URLs in clipboard and show a download confirmation dialog."; font-size: 10px; color: Palette.text-muted; }
                             }
                             
                             // Proxy Settings Section
                             VerticalLayout {
-                                spacing: 12px;
-                                Text { text: "Proxy Settings"; font-size: 14px; font-weight: 600; color: #333; }
-                                Rectangle { height: 1px; background: #E0E0E0; }
+                                spacing: 10px;
+                                Text { text: "Proxy Settings"; font-size: 11px; font-weight: 700; color: Palette.text-light; letter-spacing: 0.3px; }
                                 
                                 HorizontalLayout {
                                     alignment: start; spacing: 12px;
-                                    Text { text: "Proxy Mode:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                    Text { text: "Proxy Mode:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                     HorizontalLayout {
                                         spacing: 8px;
                                         Rectangle {
-                                            width: 80px; height: 26px; border-width: 1px; border-color: root.proxy-mode == 0 ? #0066CC : #999;
-                                            background: root.proxy-mode == 0 ? #E5F1FB : transparent; border-radius: 3px;
+                                            width: 80px; height: 26px; border-width: 1px; border-color: root.proxy-mode == 0 ? Palette.accent-primary : Palette.border;
+                                            background: root.proxy-mode == 0 ? Palette.selection-bg : Palette.panel;
                                             TouchArea { clicked => { root.proxy-mode-changed(0); } }
-                                            Text { text: "Direct"; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; }
+                                            Text { text: "Direct"; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; color: Palette.text-primary; }
                                         }
                                         Rectangle {
-                                            width: 80px; height: 26px; border-width: 1px; border-color: root.proxy-mode == 1 ? #0066CC : #999;
-                                            background: root.proxy-mode == 1 ? #E5F1FB : transparent; border-radius: 3px;
+                                            width: 80px; height: 26px; border-width: 1px; border-color: root.proxy-mode == 1 ? Palette.accent-primary : Palette.border;
+                                            background: root.proxy-mode == 1 ? Palette.selection-bg : Palette.panel;
                                             TouchArea { clicked => { root.proxy-mode-changed(1); } }
-                                            Text { text: "System"; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; }
+                                            Text { text: "System"; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; color: Palette.text-primary; }
                                         }
                                         Rectangle {
-                                            width: 80px; height: 26px; border-width: 1px; border-color: root.proxy-mode == 2 ? #0066CC : #999;
-                                            background: root.proxy-mode == 2 ? #E5F1FB : transparent; border-radius: 3px;
+                                            width: 80px; height: 26px; border-width: 1px; border-color: root.proxy-mode == 2 ? Palette.accent-primary : Palette.border;
+                                            background: root.proxy-mode == 2 ? Palette.selection-bg : Palette.panel;
                                             TouchArea { clicked => { root.proxy-mode-changed(2); } }
-                                            Text { text: "Manual"; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; }
+                                            Text { text: "Manual"; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; color: Palette.text-primary; }
                                         }
                                     }
                                 }
@@ -681,36 +749,107 @@ export component MainWindow inherits Window {
                                     spacing: 8px;
                                     HorizontalLayout {
                                         alignment: start; spacing: 12px;
-                                        Text { text: "Proxy Host:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                        Text { text: "Proxy Host:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                         StandardInput { width: 200px; placeholder: "Enter proxy host..."; }
                                     }
                                     HorizontalLayout {
                                         alignment: start; spacing: 12px;
-                                        Text { text: "Proxy Port:"; width: 140px; vertical-alignment: center; font-size: 11px; }
+                                        Text { text: "Proxy Port:"; width: 140px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
                                         StandardInput { width: 100px; placeholder: "8080"; }
                                         ToolbarButton { text: "Test Connection"; height: 26px; clicked => { root.proxy-test-connection(); } }
                                     }
                                 }
                             }
                             
-                            Rectangle { height: 50px; }
+                            Rectangle { height: 32px; background: transparent; }
                         }
                     }
+                }
                 }
             }
         }
 
         // Status Bar
-        Rectangle {
-            height: 32px; background: Palette.panel;
+        if root.status-bar-visible: Rectangle {
+            height: 22px; background: Palette.panel;
             HorizontalLayout {
-                padding-left: 12px; padding-right: 12px; spacing: 16px;
-                Text { text: root.status-message; font-size: 11px; vertical-alignment: center; color: Palette.text-primary; font-weight: 500; }
-                Rectangle { width: 1px; background: Palette.border; }
+                padding-left: 10px; padding-right: 10px; spacing: 12px;
+                Text { text: root.status-message; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; font-weight: 400; }
+                Rectangle { width: 1px; background: Palette.border; height: 12px; y: 5px; }
                 Rectangle { width: 100%; }
-                Text { text: "Total Jobs: " + download-rows.length; font-size: 11px; vertical-alignment: center; color: Palette.text-muted; }
+                Text { text: "Active: 0"; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
+                Text { text: "Speed: 0 KB/s"; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
+                Text { text: "Total Jobs: " + download-rows.length; font-size: 10px; vertical-alignment: center; color: Palette.text-muted; }
             }
             Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
+        }
+    }
+
+    if active-menu >= 0: Rectangle {
+        x: 0; y: 0; width: root.width; height: root.height;
+        background: #00000000;
+        TouchArea { clicked => { root.active-menu = -1; } }
+    }
+
+    if active-menu >= 0: Rectangle {
+        x: root.menu-popup-x; y: 28px;
+        width: root.menu-popup-width; height: root.menu-popup-height;
+        background: Palette.surface;
+        border-color: Palette.border;
+        border-width: 1px;
+
+        VerticalLayout {
+            padding-left: 4px; padding-right: 4px; padding-top: 4px; padding-bottom: 4px;
+            spacing: 2px;
+
+            if active-menu == 0: VerticalLayout {
+                spacing: 2px;
+                MenuItem { text: "Start All"; clicked => { root.tasks-start-all(); root.active-menu = -1; } }
+                MenuItem { text: "Pause All"; clicked => { root.tasks-pause-all(); root.active-menu = -1; } }
+                MenuItem { text: "Stop All"; clicked => { root.stop-all(); root.active-menu = -1; } }
+                MenuItem { text: "Retry Failed"; clicked => { root.retry-failed(); root.active-menu = -1; } }
+                MenuItem { text: "Cleanup"; clicked => { root.cleanup-finished(); root.active-menu = -1; } }
+            }
+
+            if active-menu == 1: VerticalLayout {
+                spacing: 2px;
+                MenuItem { text: "Add URL"; clicked => { root.add-url(); current-tab = 0; root.active-menu = -1; } }
+                MenuItem { text: "Batch Download"; clicked => { root.file-batch-download(); root.active-menu = -1; } }
+                MenuItem { text: "Exit"; clicked => { root.app-exit(); root.active-menu = -1; } }
+            }
+
+            if active-menu == 2: VerticalLayout {
+                spacing: 2px;
+                MenuItem { text: "Select All"; clicked => { root.downloads-select-all(); root.active-menu = -1; } }
+                MenuItem { text: "Clear Selection"; clicked => { root.downloads-clear-selection(); root.active-menu = -1; } }
+                MenuItem { text: "Sort by Name"; clicked => { root.downloads-sort-by-name(); root.active-menu = -1; } }
+                MenuItem { text: "Sort by Size"; clicked => { root.downloads-sort-by-size(); root.active-menu = -1; } }
+                MenuItem { text: "Sort by Status"; clicked => { root.downloads-sort-by-status(); root.active-menu = -1; } }
+                MenuItem { text: "Sort by Date Added"; clicked => { root.downloads-sort-by-date-added(); root.active-menu = -1; } }
+            }
+
+            if active-menu == 3: VerticalLayout {
+                spacing: 2px;
+                MenuItem { text: "Refresh"; clicked => { root.view-refresh(); root.active-menu = -1; } }
+                MenuItem { text: "Show Toolbar"; clicked => { root.view-toggle-toolbar(); root.active-menu = -1; } }
+                MenuItem { text: "Show Status Bar"; clicked => { root.view-toggle-status-bar(); root.active-menu = -1; } }
+            }
+
+            if active-menu == 4: VerticalLayout {
+                spacing: 2px;
+                MenuItem { text: "Browser Integration"; clicked => { current-tab = 2; root.tools-browser-integration(); root.active-menu = -1; } }
+                MenuItem { text: "Per-host Settings"; clicked => { current-tab = 2; root.tools-per-host-settings(); root.active-menu = -1; } }
+                MenuItem { text: "Settings"; clicked => { current-tab = 2; root.tools-open-settings(); root.active-menu = -1; } }
+            }
+
+            if active-menu == 5: VerticalLayout {
+                spacing: 2px;
+                MenuItem { text: "About"; clicked => { root.help-about(); root.active-menu = -1; } }
+                MenuItem { text: "Check Updates"; clicked => { root.help-check-updates(); root.active-menu = -1; } }
+                MenuItem { text: "Donate"; clicked => { root.help-donate(); root.active-menu = -1; } }
+                MenuItem { text: "Translators"; clicked => { root.help-translators(); root.active-menu = -1; } }
+                MenuItem { text: "Online Help"; clicked => { root.help-online-help(); root.active-menu = -1; } }
+            }
         }
     }
 
@@ -720,7 +859,6 @@ export component MainWindow inherits Window {
         Rectangle {
             width: 420px; height: 180px;
             background: Palette.surface; border-color: Palette.border; border-width: 1px;
-            border-radius: 8px;
             VerticalLayout {
                 padding: 24px; spacing: 18px;
                 Text { text: "Confirm Delete"; font-size: 16px; font-weight: 700; color: Palette.text-primary; }
@@ -736,53 +874,156 @@ export component MainWindow inherits Window {
 }
 
 export component AddUrlDialog inherits Window {
-    width: 540px; height: 240px;
-    title: "Add Download";
+    width: 560px; height: 380px;
+    title: "Confirm Download";
     background: Palette.bg;
     
     in-out property <string> url: "";
     in-out property <string> file-name: "";
     in-out property <string> output-dir: "";
+    in property <[string]> queue-options: ["Main"];
+    in-out property <int> queue-index: 0;
+    in-out property <string> category: "General";
 
-    callback download_later(string, string, string);
-    callback start_now(string, string, string);
+    callback download_later(string, string, string, int, string);
+    callback start_now(string, string, string, int, string);
+    callback choose-folder();
     callback cancel();
 
     VerticalLayout {
-        padding: 24px; spacing: 16px;
+        padding: 0; spacing: 0;
         
-        Text { text: "Add New Download"; font-size: 16px; font-weight: 700; color: Palette.text-primary; }
-        Rectangle { height: 1px; background: Palette.border; }
-        
-        VerticalLayout {
-            spacing: 6px;
-            Text { text: "Address (URL):"; font-size: 12px; font-weight: 600; color: Palette.text-primary; }
-            StandardInput { text: root.url; placeholder: "https://..."; edited(t) => { root.url = t; } }
-        }
-        
-        VerticalLayout {
-            spacing: 6px;
-            Text { text: "Save To Folder:"; font-size: 12px; font-weight: 600; color: Palette.text-primary; }
+        // Header
+        Rectangle {
+            height: 48px; background: Palette.panel;
             HorizontalLayout {
-                spacing: 8px;
-                StandardInput { text: root.output-dir; placeholder: "Select folder..."; edited(t) => { root.output-dir = t; } }
-                ToolbarButton { text: "..."; min-width: 44px; height: 32px; }
+                padding-left: 20px; padding-right: 20px;
+                alignment: center;
+                Text { text: "Confirm Download"; font-size: 14px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle { width: 100%; }
             }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
         }
 
-        Rectangle { height: 1px; background: Palette.border; }
-        
-        HorizontalLayout {
-            spacing: 12px; alignment: end;
-            ToolbarButton { text: "Start Now"; height: 36px; clicked => { root.start_now(root.url, root.file-name, root.output-dir); } }
-            ToolbarButton { text: "Queue Later"; height: 36px; clicked => { root.download_later(root.url, root.file-name, root.output-dir); } }
-            ToolbarButton { text: "Cancel"; height: 36px; clicked => { root.cancel(); } }
+        // Content
+        VerticalLayout {
+            padding: 20px; spacing: 14px;
+            
+            // URL Input
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Download URL"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                StandardInput { 
+                    width: 100%; 
+                    text: root.url; 
+                    placeholder: "https://example.com/file.zip"; 
+                    edited(t) => { root.url = t; } 
+                }
+
+                // Category
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Category"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    StandardInput {
+                        width: 100%;
+                        text: root.category;
+                        placeholder: "General";
+                        edited(t) => { root.category = t; }
+                    }
+                }
+
+                // Queue Selection
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Queue"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ToolbarButton {
+                            text: "-";
+                            min-width: 38px;
+                            height: 32px;
+                            icon-type: "minus";
+                            enabled: root.queue-index > 0;
+                            clicked => { root.queue-index -= 1; }
+                        }
+                        Rectangle {
+                            height: 32px;
+                            width: 100%;
+                            background: Palette.panel;
+                            border-color: Palette.border;
+                            border-width: 1px;
+                            Text {
+                                text: root.queue-index >= 0 && root.queue-index < root.queue-options.length ? root.queue-options[root.queue-index] : "Main";
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: Palette.text-primary;
+                            }
+                        }
+                        ToolbarButton {
+                            text: "+";
+                            min-width: 38px;
+                            height: 32px;
+                            icon-type: "plus";
+                            enabled: root.queue-index + 1 < root.queue-options.length;
+                            clicked => { root.queue-index += 1; }
+                        }
+                    }
+                }
+            }
+            
+            // File Name
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "File Name"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                StandardInput { 
+                    width: 100%; 
+                    text: root.file-name; 
+                    placeholder: "Auto-detected"; 
+                    edited(t) => { root.file-name = t; } 
+                }
+            }
+            
+            // Save Location
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Save To"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    StandardInput { 
+                        width: 100%; 
+                        text: root.output-dir; 
+                        placeholder: "Default Downloads folder"; 
+                        edited(t) => { root.output-dir = t; } 
+                    }
+                    ToolbarButton { text: "..."; min-width: 38px; height: 32px; icon-type: "open"; clicked => { root.choose-folder(); } }
+                }
+            }
+            
+            Rectangle { height: 100%; }
+        }
+
+        // Footer with Buttons
+        Rectangle {
+            height: 52px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px; padding-top: 12px; padding-bottom: 12px;
+                spacing: 8px;
+                alignment: end;
+                Rectangle { width: 100%; }
+                ToolbarButton { text: "Download Now"; height: 36px; clicked => { root.start_now(root.url, root.file-name, root.output-dir, root.queue-index, root.category); } }
+                ToolbarButton { text: "Queue Later"; height: 36px; clicked => { root.download_later(root.url, root.file-name, root.output-dir, root.queue-index, root.category); } }
+                ToolbarButton { text: "Cancel"; height: 36px; clicked => { root.cancel(); } }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
         }
     }
+
 }
 
 export component ClipboardDialog inherits Window {
-    width: 640px; height: 320px;
+    width: 560px; height: 340px;
     title: "Download Detected";
     background: Palette.bg;
 
@@ -795,32 +1036,484 @@ export component ClipboardDialog inherits Window {
     callback dismiss();
 
     VerticalLayout {
-        padding: 24px; spacing: 18px;
+        padding: 0; spacing: 0;
         
-        Text { text: "New Download Detected"; font-size: 18px; font-weight: 700; color: Palette.accent-primary; }
-        Rectangle { height: 1px; background: Palette.border; }
+        // Header
+        Rectangle {
+            height: 56px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px;
+                alignment: center;
+                VerticalLayout {
+                    alignment: center;
+                    Text { text: "📋 Clipboard URL Detected"; font-size: 14px; font-weight: 700; color: Palette.accent-primary; }
+                    Text { text: "A download link was found in your clipboard"; font-size: 10px; color: Palette.text-muted; }
+                }
+                Rectangle { width: 100%; }
+            }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
+        }
+
+        // Content
+        ScrollView {
+            VerticalLayout {
+                padding: 20px; spacing: 14px;
+                
+                // URL Display
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "URL"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    Rectangle {
+                        height: 32px; background: Palette.panel;
+                        border-color: Palette.border;
+                        border-width: 1px;
+                        HorizontalLayout {
+                            padding: 8px;
+                            Text { 
+                                text: root.url; 
+                                font-size: 10px; 
+                                color: Palette.accent-primary; 
+                                overflow: elide; 
+                                font-family: "Consolas";
+                            }
+                        }
+                    }
+                }
+                
+                // File Name
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "File Name"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    StandardInput { 
+                        width: 100%; 
+                        text: root.file-name; 
+                        placeholder: "Auto-detected from URL"; 
+                    }
+                }
+                
+                // Save Location
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Save To"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        StandardInput { 
+                            width: 100%; 
+                            text: root.output-dir; 
+                            placeholder: "Default Downloads folder"; 
+                        }
+                        ToolbarButton { text: "..."; min-width: 38px; height: 32px; icon-type: "open"; }
+                    }
+                }
+                
+                Rectangle { height: 100%; }
+            }
+        }
+
+        // Footer with Buttons
+        Rectangle {
+            height: 60px; background: Palette.panel;
+            VerticalLayout {
+                padding-left: 20px; padding-right: 20px; padding-top: 12px; padding-bottom: 12px;
+                spacing: 8px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    ToolbarButton { text: "Download Now"; height: 36px; clicked => { root.start_now(); } }
+                    ToolbarButton { text: "Queue Later"; height: 36px; clicked => { root.queue_later(); } }
+                    ToolbarButton { text: "Dismiss"; height: 36px; clicked => { root.dismiss(); } }
+                }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
+        }
+    }
+}
+
+export component EditDownloadDialog inherits Window {
+    width: 520px; height: 380px;
+    title: "Edit Download";
+    background: Palette.bg;
+
+    in property <string> file-name: "";
+    in property <string> output-dir: "";
+    in property <int> priority: 0; // 0: Normal, 1: High, -1: Low
+
+    callback save(string, string, int);
+    callback cancel();
+
+    VerticalLayout {
+        padding: 0; spacing: 0;
         
-        Text { text: "URL: " + root.url; font-size: 12px; color: Palette.text-muted; overflow: elide; font-family: "Consolas"; }
+        // Header
+        Rectangle {
+            height: 48px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px;
+                alignment: center;
+                Text { text: "Edit Download Properties"; font-size: 14px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle { width: 100%; }
+            }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
+        }
+
+        // Content
+        ScrollView {
+            VerticalLayout {
+                padding: 20px; spacing: 14px;
+                
+                // File Name
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "File Name"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    StandardInput { 
+                        width: 100%; 
+                        text: root.file-name; 
+                        placeholder: "Enter file name..."; 
+                    }
+                }
+                
+                // Save Location
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Save To"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        StandardInput { 
+                            width: 100%; 
+                            text: root.output-dir; 
+                            placeholder: "Select folder..."; 
+                        }
+                        ToolbarButton { text: "..."; min-width: 38px; height: 32px; icon-type: "open"; }
+                    }
+                }
+                
+                // Priority
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Priority"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ToolbarButton { text: "Low"; min-width: 60px; height: 32px; active: root.priority == -1; }
+                        ToolbarButton { text: "Normal"; min-width: 60px; height: 32px; active: root.priority == 0; }
+                        ToolbarButton { text: "High"; min-width: 60px; height: 32px; active: root.priority == 1; }
+                        Rectangle { width: 100%; }
+                    }
+                }
+                
+                Rectangle { height: 100%; }
+            }
+        }
+
+        // Footer with Buttons
+        Rectangle {
+            height: 52px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px; padding-top: 12px; padding-bottom: 12px;
+                spacing: 8px;
+                alignment: end;
+                Rectangle { width: 100%; }
+                ToolbarButton { text: "Save"; height: 36px; clicked => { root.save(root.file-name, root.output-dir, root.priority); } }
+                ToolbarButton { text: "Cancel"; height: 36px; clicked => { root.cancel(); } }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
+        }
+    }
+}
+
+export component QueueSettingsDialog inherits Window {
+    width: 480px; height: 360px;
+    title: "Queue Settings";
+    background: Palette.bg;
+
+    in property <string> queue-name: "Main";
+    in property <int> max-concurrent: 3;
+    in property <bool> stop-on-empty: false;
+
+    callback save(string, int, bool);
+    callback cancel();
+
+    VerticalLayout {
+        padding: 0; spacing: 0;
         
-        VerticalLayout {
-            spacing: 6px;
-            Text { text: "File Name:"; font-size: 12px; font-weight: 600; color: Palette.text-primary; }
-            StandardInput { text: root.file-name; }
+        // Header
+        Rectangle {
+            height: 48px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px;
+                alignment: center;
+                Text { text: "Queue Settings"; font-size: 14px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle { width: 100%; }
+            }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
+        }
+
+        // Content
+        ScrollView {
+            VerticalLayout {
+                padding: 20px; spacing: 16px;
+                
+                // Queue Name
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Queue Name"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    StandardInput { 
+                        width: 100%; 
+                        text: root.queue-name; 
+                        placeholder: "Enter queue name..."; 
+                    }
+                }
+                
+                // Max Concurrent
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Max Concurrent Downloads"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: start;
+                        ToolbarButton { text: "-"; min-width: 36px; height: 32px; icon-type: "minus"; }
+                        Text { 
+                            text: root.max-concurrent; 
+                            width: 50px; 
+                            vertical-alignment: center; 
+                            horizontal-alignment: center; 
+                            font-size: 12px; 
+                            font-weight: 600;
+                            color: Palette.accent-primary;
+                        }
+                        ToolbarButton { text: "+"; min-width: 36px; height: 32px; icon-type: "plus"; }
+                        Text { text: "(1-10)"; vertical-alignment: center; font-size: 10px; color: Palette.text-muted; }
+                    }
+                }
+                
+                // Stop on Empty
+                VerticalLayout {
+                    spacing: 10px;
+                    Text { text: "Options"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Rectangle {
+                            width: 20px; height: 20px;
+                            background: root.stop-on-empty ? Palette.accent-primary : Palette.panel;
+                            border-color: Palette.border;
+                            border-width: 1px;
+                        }
+                        Text { 
+                            text: "Stop queue when empty"; 
+                            vertical-alignment: center; 
+                            font-size: 11px; 
+                            color: Palette.text-primary;
+                        }
+                    }
+                }
+                
+                Rectangle { height: 100%; }
+            }
+        }
+
+        // Footer with Buttons
+        Rectangle {
+            height: 52px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px; padding-top: 12px; padding-bottom: 12px;
+                spacing: 8px;
+                alignment: end;
+                Rectangle { width: 100%; }
+                ToolbarButton { text: "Save"; height: 36px; clicked => { root.save(root.queue-name, root.max-concurrent, root.stop-on-empty); } }
+                ToolbarButton { text: "Cancel"; height: 36px; clicked => { root.cancel(); } }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
+        }
+    }
+}
+
+export component PerHostSettingsDialog inherits Window {
+    width: 620px; height: 420px;
+    title: "Per-host Settings";
+    background: Palette.bg;
+
+    in property <string> entry-position: "0/0";
+    in-out property <string> host-pattern: "";
+    in-out property <string> username: "";
+    in-out property <string> password: "";
+    in-out property <string> user-agent: "";
+    in-out property <string> thread-count-text: "";
+
+    callback prev-entry();
+    callback next-entry();
+    callback add-entry();
+    callback save-entry(string, string, string, string, string);
+    callback delete-entry();
+    callback close-dialog();
+
+    VerticalLayout {
+        padding: 0; spacing: 0;
+
+        Rectangle {
+            height: 52px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 16px; padding-right: 16px;
+                Text { text: "Per-host Settings"; font-size: 14px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle { width: 100%; }
+                Text { text: "Entry " + root.entry-position; font-size: 11px; color: Palette.text-muted; }
+            }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
         }
 
         VerticalLayout {
-            spacing: 6px;
-            Text { text: "Save To Folder:"; font-size: 12px; font-weight: 600; color: Palette.text-primary; }
-            StandardInput { text: root.output-dir; }
+            padding: 16px; spacing: 10px;
+
+            HorizontalLayout {
+                spacing: 8px;
+                ToolbarButton { text: "Prev"; height: 30px; clicked => { root.prev-entry(); } }
+                ToolbarButton { text: "Next"; height: 30px; clicked => { root.next-entry(); } }
+                ToolbarButton { text: "Add New"; height: 30px; clicked => { root.add-entry(); } }
+                Rectangle { width: 100%; }
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Host Pattern"; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 100%; text: root.host-pattern; placeholder: "*.example.com"; edited(t) => { root.host-pattern = t; } }
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Username"; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 100%; text: root.username; placeholder: "optional"; edited(t) => { root.username = t; } }
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Password"; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 100%; text: root.password; placeholder: "optional"; edited(t) => { root.password = t; } }
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "User Agent"; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 100%; text: root.user-agent; placeholder: "optional"; edited(t) => { root.user-agent = t; } }
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Thread Count"; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 120px; text: root.thread-count-text; placeholder: "optional"; edited(t) => { root.thread-count-text = t; } }
+            }
+
+            Rectangle { height: 100%; }
         }
 
-        Rectangle { height: 100%; }
+        Rectangle {
+            height: 56px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 16px; padding-right: 16px; spacing: 8px;
+                ToolbarButton { text: "Delete"; height: 34px; clicked => { root.delete-entry(); } }
+                Rectangle { width: 100%; }
+                ToolbarButton { text: "Save"; height: 34px; clicked => { root.save-entry(root.host-pattern, root.username, root.password, root.user-agent, root.thread-count-text); } }
+                ToolbarButton { text: "Close"; height: 34px; clicked => { root.close-dialog(); } }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
+        }
+    }
+}
 
-        HorizontalLayout {
-            spacing: 12px; alignment: center;
-            ToolbarButton { text: "Download Now"; height: 40px; clicked => { root.start_now(); } }
-            ToolbarButton { text: "Queue Later"; height: 40px; clicked => { root.queue_later(); } }
-            ToolbarButton { text: "Cancel"; height: 40px; clicked => { root.dismiss(); } }
+export component BatchDownloadDialog inherits Window {
+    width: 700px; height: 520px;
+    title: "Batch Download";
+    background: Palette.bg;
+
+    in-out property <string> urls-text: "";
+    in-out property <string> output-dir: "";
+    in property <[string]> queue-options: ["Main"];
+    in-out property <int> queue-index: 0;
+    in-out property <string> category: "General";
+
+    callback choose-folder();
+    callback queue-all(string, string, int, string);
+    callback start-all(string, string, int, string);
+    callback close-dialog();
+
+    VerticalLayout {
+        padding: 0; spacing: 0;
+
+        Rectangle {
+            height: 50px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 16px; padding-right: 16px;
+                Text { text: "Batch Download"; font-size: 14px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle { width: 100%; }
+            }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
+        }
+
+        VerticalLayout {
+            padding: 16px; spacing: 10px;
+
+            Text { text: "Paste URLs (one per line, comma, or space separated)"; font-size: 11px; color: Palette.text-muted; }
+            Rectangle {
+                height: 220px;
+                border-width: 1px;
+                border-color: Palette.border;
+                background: Palette.panel;
+                ScrollView {
+                    TextInput {
+                        width: parent.width - 12px;
+                        text <=> root.urls-text;
+                        color: Palette.text-primary;
+                        selection-foreground-color: Palette.text-primary;
+                        selection-background-color: Palette.selection-bg;
+                        single-line: false;
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Category"; width: 80px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 180px; text: root.category; placeholder: "General"; edited(t) => { root.category = t; } }
+                Rectangle { width: 100%; }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Queue"; width: 80px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                ToolbarButton { text: "-"; min-width: 36px; height: 30px; icon-type: "minus"; enabled: root.queue-index > 0; clicked => { root.queue-index -= 1; } }
+                Rectangle {
+                    width: 220px; height: 30px;
+                    background: Palette.panel;
+                    border-color: Palette.border;
+                    border-width: 1px;
+                    Text {
+                        text: root.queue-index >= 0 && root.queue-index < root.queue-options.length ? root.queue-options[root.queue-index] : "Main";
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        font-size: 11px;
+                        color: Palette.text-primary;
+                    }
+                }
+                ToolbarButton { text: "+"; min-width: 36px; height: 30px; icon-type: "plus"; enabled: root.queue-index + 1 < root.queue-options.length; clicked => { root.queue-index += 1; } }
+                Rectangle { width: 100%; }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: "Save To"; width: 80px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
+                StandardInput { width: 100%; text: root.output-dir; placeholder: "Downloads folder"; edited(t) => { root.output-dir = t; } }
+                ToolbarButton { text: "..."; min-width: 36px; height: 30px; icon-type: "open"; clicked => { root.choose-folder(); } }
+            }
+        }
+
+        Rectangle {
+            height: 56px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 16px; padding-right: 16px; spacing: 8px;
+                ToolbarButton { text: "Queue All"; height: 34px; clicked => { root.queue-all(root.urls-text, root.output-dir, root.queue-index, root.category); } }
+                ToolbarButton { text: "Start All"; height: 34px; clicked => { root.start-all(root.urls-text, root.output-dir, root.queue-index, root.category); } }
+                Rectangle { width: 100%; }
+                ToolbarButton { text: "Close"; height: 34px; clicked => { root.close-dialog(); } }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
         }
     }
 }

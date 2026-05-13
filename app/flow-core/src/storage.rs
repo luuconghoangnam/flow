@@ -50,6 +50,7 @@ pub struct QueueViewRow {
     pub downloaded_bytes: u64,
     pub total_bytes: Option<u64>,
     pub last_error: Option<String>,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -484,7 +485,8 @@ impl DownloadRepository for SqliteDownloadRepository {
                 q.attempt_count,
                 COALESCE(d.downloaded_bytes, 0) AS downloaded_bytes,
                 d.total_bytes,
-                q.last_error
+                q.last_error,
+                q.created_at
             FROM queue_jobs q
             LEFT JOIN queue_groups g ON g.id = q.queue_id
             LEFT JOIN downloads d ON d.id = q.id
@@ -502,6 +504,7 @@ impl DownloadRepository for SqliteDownloadRepository {
                 downloaded_bytes: row.get::<_, i64>(6)?.max(0) as u64,
                 total_bytes: row.get::<_, Option<i64>>(7)?.map(|v| v.max(0) as u64),
                 last_error: row.get(8)?,
+                created_at: row.get::<_, Option<i64>>(9)?.unwrap_or_default(),
             })
         })?;
 
