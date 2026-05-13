@@ -196,7 +196,7 @@ pub(crate) fn derive_downloads_menu_presentation(
             children: Vec::new(),
         })
     };
-    let submenu_child_items = |id: HomeActionId, command_id: &str| {
+    let submenu_child_items = |id: HomeActionId, command_id: &str, icon: &str| {
         descriptors
             .submenu(id)
             .map(|descriptor| {
@@ -208,7 +208,7 @@ pub(crate) fn derive_downloads_menu_presentation(
                         kind: "action".to_string(),
                         title: label.clone(),
                         enabled: true,
-                        icon: String::new(),
+                        icon: icon.to_string(),
                         shortcut: String::new(),
                         command_id: command_id.to_string(),
                         target_index: index as i32,
@@ -243,8 +243,8 @@ pub(crate) fn derive_downloads_menu_presentation(
         .flatten(),
     );
 
-    let move_queue_children = submenu_child_items(HomeActionId::MoveToQueue, "move-to-queue");
-    let move_category_children = submenu_child_items(HomeActionId::MoveToCategory, "move-to-category");
+    let move_queue_children = submenu_child_items(HomeActionId::MoveToQueue, "move-to-queue", "queue");
+    let move_category_children = submenu_child_items(HomeActionId::MoveToCategory, "move-to-category", "category");
     if !move_queue_children.is_empty() || !move_category_children.is_empty() {
         items.push(DownloadsMenuItem {
             kind: "separator".to_string(),

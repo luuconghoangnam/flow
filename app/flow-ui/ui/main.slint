@@ -247,25 +247,34 @@ component DownloadsMenuEntry inherits Rectangle {
     callback clicked;
     callback hover;
     height: 20px;
-    background: ta.pressed ? #3B3D40 : (ta.has-hover ? #323437 : transparent);
+    background: ta.pressed ? #3A3C3F : (ta.has-hover ? #2F3134 : transparent);
 
-    function icon-glyph(name: string) -> string {
-        name == "edit" ? "✎" : (name == "refresh" ? "↻" : (name == "info" ? "ⓘ" : (name == "copy" ? "⧉" : (name == "queue" ? "≣" : (name == "category" ? "▣" : "")))))
+    function icon-source(name: string) -> image {
+        name == "edit" ? @image-url("assets/menu_edit.svg") :
+        (name == "refresh" ? @image-url("assets/menu_refresh.svg") :
+        (name == "info" ? @image-url("assets/menu_info.svg") :
+        (name == "copy" ? @image-url("assets/menu_copy.svg") :
+        (name == "queue" ? @image-url("assets/menu_queue.svg") :
+        (name == "category" ? @image-url("assets/menu_category.svg") :
+        (name == "next" ? @image-url("assets/menu_next.svg") : @image-url("assets/menu_info.svg")))))))
     }
 
     HorizontalLayout {
         padding-left: 8px;
-        padding-right: 8px;
+        padding-right: 7px;
         spacing: 6px;
         alignment: start;
 
-        Text {
+        Rectangle {
             width: 14px;
-            text: icon-glyph(root.icon);
-            color: root.enabled ? #D7D4C4 : #77756E;
-            font-size: 10px;
-            horizontal-alignment: center;
-            vertical-alignment: center;
+            height: 14px;
+            background: transparent;
+            Image {
+                width: 14px;
+                height: 14px;
+                source: icon-source(root.icon);
+                image-fit: contain;
+            }
         }
         Text {
             text: root.text;
@@ -275,19 +284,33 @@ component DownloadsMenuEntry inherits Rectangle {
             vertical-alignment: center;
         }
         Rectangle { width: 100%; }
-        if root.shortcut != "": Text {
-            text: root.shortcut;
-            color: root.enabled ? #BAB6A6 : #706D66;
-            font-size: 9px;
-            vertical-alignment: center;
-            horizontal-alignment: right;
+        if root.shortcut != "": Rectangle {
+            background: #3A3B3E;
+            border-color: #55575A;
+            border-width: 1px;
+            border-radius: 8px;
+            HorizontalLayout {
+                padding-left: 4px;
+                padding-right: 4px;
+                Text {
+                    text: root.shortcut;
+                    color: root.enabled ? #C4BFAD : #706D66;
+                    font-size: 8px;
+                    vertical-alignment: center;
+                    horizontal-alignment: right;
+                }
+            }
         }
-        if root.submenu: Text {
-            text: "▶";
-            color: root.enabled ? #CFCBB8 : #706D66;
-            font-size: 9px;
-            vertical-alignment: center;
-            horizontal-alignment: center;
+        if root.submenu: Rectangle {
+            width: 12px;
+            height: 12px;
+            background: transparent;
+            Image {
+                width: 12px;
+                height: 12px;
+                source: icon-source("next");
+                image-fit: contain;
+            }
         }
     }
 
@@ -312,89 +335,115 @@ component DownloadsMenuPopup inherits Rectangle {
     callback sort-status();
     callback sort-date-added();
 
-    background: #232528;
-    border-color: #4A4C4F;
+    background: #1F2123;
+    border-color: #686A6D;
     border-width: 1px;
+    border-radius: 6px;
     clip: true;
 
-    HorizontalLayout {
-        spacing: 0px;
+    Rectangle {
+        x: 3px;
+        y: 3px;
+        width: parent.width;
+        height: parent.height;
+        background: #00000028;
+        border-radius: 6px;
+    }
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: #242628;
+        border-color: #56585B;
+        border-width: 1px;
+        border-radius: 6px;
 
         Rectangle {
-            width: 205px;
-            background: transparent;
-            VerticalLayout {
-                spacing: 0px;
-                MenuItem { text: "Select All"; clicked => { root.select-all(); } hover => { root.submenu_parent_index = -1; } }
-                MenuItem { text: "Clear Selection"; clicked => { root.clear-selection(); } hover => { root.submenu_parent_index = -1; } }
-                Rectangle { height: 1px; background: #5A5B5E; }
-                for item[index] in root.rows: Rectangle {
-                    height: item.row_kind == "separator" ? 5px : 20px;
-                    background: transparent;
-                    if item.row_kind == "separator": Rectangle {
-                        y: 2px;
-                        height: 1px;
-                        width: 100%;
-                        background: #5A5B5E;
-                    }
-                    if item.row_kind != "separator": DownloadsMenuEntry {
-                        width: 100%;
-                        text: item.title;
-                        icon: item.icon;
-                        shortcut: item.shortcut;
-                        enabled: item.enabled;
-                        submenu: item.row_kind == "submenu";
-                        hover => {
-                            if item.row_kind == "submenu" {
-                                root.submenu_parent_index = index;
-                                root.open-submenu(index);
-                            } else {
-                                root.submenu_parent_index = -1;
-                            }
-                        }
-                        clicked => {
-                            if item.row_kind == "submenu" {
-                                root.submenu_parent_index = index;
-                                root.open-submenu(index);
-                            } else {
-                                root.invoke(item.command_id, item.target_index);
-                            }
-                        }
-                    }
-                }
-                Rectangle { height: 1px; background: #5A5B5E; }
-                MenuItem { text: "Sort by Name"; clicked => { root.sort-name(); } hover => { root.submenu_parent_index = -1; } }
-                MenuItem { text: "Sort by Size"; clicked => { root.sort-size(); } hover => { root.submenu_parent_index = -1; } }
-                MenuItem { text: "Sort by Status"; clicked => { root.sort-status(); } hover => { root.submenu_parent_index = -1; } }
-                MenuItem { text: "Sort by Date Added"; clicked => { root.sort-date-added(); } hover => { root.submenu_parent_index = -1; } }
-            }
+            width: parent.width;
+            height: 1px;
+            background: #3B3D40;
         }
 
-        if root.submenu_parent_index >= 0 && root.submenu_rows.length > 0: Rectangle {
-            width: 185px;
-            background: #232528;
-            border-color: #4A4C4F;
-            border-width: 1px;
-            VerticalLayout {
-                spacing: 0px;
-                for sub_item in root.submenu_rows: Rectangle {
-                    height: sub_item.row_kind == "separator" ? 5px : 20px;
-                    background: transparent;
-                    if sub_item.row_kind == "separator": Rectangle {
-                        y: 2px;
-                        height: 1px;
-                        width: 100%;
-                        background: #5A5B5E;
+        HorizontalLayout {
+            spacing: 0px;
+
+            Rectangle {
+                width: 205px;
+                background: transparent;
+                VerticalLayout {
+                    spacing: 0px;
+                    MenuItem { text: "Select All"; clicked => { root.select-all(); } hover => { root.submenu_parent_index = -1; } }
+                    MenuItem { text: "Clear Selection"; clicked => { root.clear-selection(); } hover => { root.submenu_parent_index = -1; } }
+                    Rectangle { height: 1px; background: #5A5B5E; }
+                    for item[index] in root.rows: Rectangle {
+                        height: item.row_kind == "separator" ? 5px : 20px;
+                        background: transparent;
+                        if item.row_kind == "separator": Rectangle {
+                            y: 2px;
+                            height: 1px;
+                            width: 100%;
+                            background: #5A5B5E;
+                        }
+                        if item.row_kind != "separator": DownloadsMenuEntry {
+                            width: 100%;
+                            text: item.title;
+                            icon: item.icon == "" ? "info" : item.icon;
+                            shortcut: item.shortcut;
+                            enabled: item.enabled;
+                            submenu: item.row_kind == "submenu";
+                            hover => {
+                                if item.row_kind == "submenu" {
+                                    root.submenu_parent_index = index;
+                                    root.open-submenu(index);
+                                } else {
+                                    root.submenu_parent_index = -1;
+                                }
+                            }
+                            clicked => {
+                                if item.row_kind == "submenu" {
+                                    root.submenu_parent_index = index;
+                                    root.open-submenu(index);
+                                } else {
+                                    root.invoke(item.command_id, item.target_index);
+                                }
+                            }
+                        }
                     }
-                    if sub_item.row_kind != "separator": DownloadsMenuEntry {
-                        width: 100%;
-                        text: sub_item.title;
-                        icon: sub_item.icon;
-                        shortcut: sub_item.shortcut;
-                        enabled: sub_item.enabled;
-                        submenu: false;
-                        hover => { }
-                        clicked => { root.invoke(sub_item.command_id, sub_item.target_index); }
+                    Rectangle { height: 1px; background: #5A5B5E; }
+                    MenuItem { text: "Sort by Name"; clicked => { root.sort-name(); } hover => { root.submenu_parent_index = -1; } }
+                    MenuItem { text: "Sort by Size"; clicked => { root.sort-size(); } hover => { root.submenu_parent_index = -1; } }
+                    MenuItem { text: "Sort by Status"; clicked => { root.sort-status(); } hover => { root.submenu_parent_index = -1; } }
+                    MenuItem { text: "Sort by Date Added"; clicked => { root.sort-date-added(); } hover => { root.submenu_parent_index = -1; } }
+                }
+            }
+
+            if root.submenu_parent_index >= 0 && root.submenu_rows.length > 0: Rectangle {
+                width: 185px;
+                background: #242628;
+                border-color: #56585B;
+                border-width: 1px;
+                border-radius: 6px;
+                VerticalLayout {
+                    spacing: 0px;
+                    for sub_item in root.submenu_rows: Rectangle {
+                        height: sub_item.row_kind == "separator" ? 5px : 20px;
+                        background: transparent;
+                        if sub_item.row_kind == "separator": Rectangle {
+                            y: 2px;
+                            height: 1px;
+                            width: 100%;
+                            background: #5A5B5E;
+                        }
+                        if sub_item.row_kind != "separator": DownloadsMenuEntry {
+                            width: 100%;
+                            text: sub_item.title;
+                            icon: sub_item.icon == "" ? "info" : sub_item.icon;
+                            shortcut: sub_item.shortcut;
+                            enabled: sub_item.enabled;
+                            submenu: false;
+                            hover => { }
+                            clicked => { root.invoke(sub_item.command_id, sub_item.target_index); }
+                        }
                     }
                 }
             }
