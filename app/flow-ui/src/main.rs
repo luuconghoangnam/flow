@@ -21,12 +21,11 @@ use std::collections::HashSet;
 use add_url_actions::{prepare_manual_download_submission, render_add_url_error, render_add_url_preview, resolve_manual_category, resolve_manual_file_name, resolve_manual_output_dir};
 use home_action_descriptors::{derive_downloads_menu_presentation, derive_home_action_descriptors, DownloadsMenuPresentation, HomeActionId};
 use home_action_menu_presentation::{apply_downloads_menu_presentation, map_submenu_rows};
-use home_action_registry::{derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_open_file_or_properties, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
+use home_action_registry::{HomeActionRegistry, derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_open_file_or_properties, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
 use home_action_state::{derive_home_action_state, HomeActionState};
 
 
 use queue_actions::{clear_selection_after_delete, effective_checked_ids, mutate_selected_job_with_status, open_multiple_selected_paths, pause_all_jobs, selected_open_result, stop_all_result};
-use selection_affordance::derive_selection_affordance;
 use selection_model::{clear_selection, select_all_visible, set_main_selection, sync_selection_to_visible_rows, toggle_item_selection};
 use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, PerHostSettings, QueueJobRecord, SqliteDownloadRepository};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -1765,7 +1764,6 @@ fn refresh_queue_ui(
         .map(|idx| idx as i32)
         .unwrap_or(-1);
     let action_state = derive_home_action_state(&state.row_ids, &state.rows, &checked_ids, snapshot.main_selected_id.as_ref());
-    let affordance = derive_selection_affordance(&action_state);
     let registry = derive_home_action_registry(queue_id, action_state, sort_state, category_filter);
     let descriptors = derive_home_action_descriptors(&registry);
     let downloads_menu = derive_downloads_menu_presentation(&descriptors);
@@ -1778,14 +1776,14 @@ fn refresh_queue_ui(
         app.set_queue_config_summary(state.queue_summary.into());
         app.set_queue_name_text(load_selected_queue_name(queue_id).into());
         app.set_selected_download_index(selected_index);
-        app.set_can_open_selected(descriptors.find(HomeActionId::Open).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_open));
-        app.set_can_open_selected_folder(descriptors.find(HomeActionId::OpenFolder).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_open_folder));
-        app.set_can_delete_selected(descriptors.find(HomeActionId::Delete).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_delete));
-        app.set_can_resume_selected(descriptors.find(HomeActionId::Resume).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_resume));
-        app.set_can_stop_selected(descriptors.find(HomeActionId::Pause).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_pause));
-        app.set_can_move_selected_up(affordance.can_move_up);
-        app.set_can_move_selected_down(affordance.can_move_down);
-        app.set_can_requeue_selected(descriptors.find(HomeActionId::Requeue).map(|descriptor| descriptor.enabled).unwrap_or(affordance.can_requeue));
+        app.set_can_open_selected(descriptors.find(HomeActionId::Open).map(|descriptor| descriptor.enabled).unwrap_or(false));
+        app.set_can_open_selected_folder(descriptors.find(HomeActionId::OpenFolder).map(|descriptor| descriptor.enabled).unwrap_or(false));
+        app.set_can_delete_selected(descriptors.find(HomeActionId::Delete).map(|descriptor| descriptor.enabled).unwrap_or(false));
+        app.set_can_resume_selected(descriptors.find(HomeActionId::Resume).map(|descriptor| descriptor.enabled).unwrap_or(false));
+        app.set_can_stop_selected(descriptors.find(HomeActionId::Pause).map(|descriptor| descriptor.enabled).unwrap_or(false));
+        app.set_can_move_selected_up(registry.action_state.can_move_up);
+        app.set_can_move_selected_down(registry.action_state.can_move_down);
+        app.set_can_requeue_selected(descriptors.find(HomeActionId::Requeue).map(|descriptor| descriptor.enabled).unwrap_or(false));
         apply_downloads_menu_presentation(&app, &downloads_menu_for_ui);
         app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
         app.set_queue_schedule_enabled(scheduler_state.enabled);
@@ -1940,6 +1938,17 @@ fn current_home_action_state(
     derive_home_action_state(&state.row_ids, &state.rows, &checked_ids, snapshot.main_selected_id.as_ref())
 }
 
+fn current_home_action_registry(
+    queue_id: i64,
+    selected_download: Arc<Mutex<Option<String>>>,
+    checked_downloads: Arc<Mutex<std::collections::HashSet<String>>>,
+    sort_state: &Arc<Mutex<SortState>>,
+    category_filter: &Arc<Mutex<CategoryFilter>>,
+) -> HomeActionRegistry {
+    let action_state = current_home_action_state(queue_id, selected_download, checked_downloads, sort_state, category_filter);
+    derive_home_action_registry(queue_id, action_state, sort_state, category_filter)
+}
+
 fn execute_downloads_menu_command(
     command_id: &str,
     target_index: i32,
@@ -1950,12 +1959,14 @@ fn execute_downloads_menu_command(
     category_filter: &Arc<Mutex<CategoryFilter>>,
     weak: &slint::Weak<MainWindow>,
 ) {
-    let registry = derive_home_action_registry(
+    let registry = current_home_action_registry(
         queue_id,
-        current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), sort_state, category_filter),
+        selected_download.clone(),
+        checked_downloads.clone(),
         sort_state,
         category_filter,
     );
+
 
     match command_id {
         "edit" => match execute_open_edit_dialog(&registry, queue_id, sort_state, category_filter) {
@@ -2062,9 +2073,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2082,9 +2094,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2122,9 +2135,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2153,9 +2167,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2175,9 +2190,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2224,9 +2240,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2242,9 +2259,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2260,9 +2278,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2292,9 +2311,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
@@ -2313,9 +2333,10 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let registry = current_home_action_registry(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
