@@ -350,13 +350,14 @@ fn main() {
                 set_status(&weak, "Unable to toggle selection for this row");
                 return;
             };
-            let checked_count = if let Ok(mut checked) = checked_downloads.lock() {
-                if !checked.insert(row_id.clone()) {
+            let (checked_count, became_checked) = if let Ok(mut checked) = checked_downloads.lock() {
+                let became_checked = checked.insert(row_id.clone());
+                if !became_checked {
                     checked.remove(&row_id);
                 }
-                checked.len()
+                (checked.len(), became_checked)
             } else {
-                0
+                (0, false)
             };
             if let Ok(mut selected) = selected_download.lock() {
                 *selected = Some(row_id);
@@ -369,7 +370,12 @@ fn main() {
                 &sort_state,
                 &category_filter,
             );
-            set_status(&weak, &format!("Checked items: {checked_count}"));
+            let action = if became_checked { "Selected" } else { "Unselected" };
+            if checked_count == 0 {
+                set_status(&weak, "No downloads selected");
+            } else {
+                set_status(&weak, &format!("{action} item • {checked_count} selected"));
+            }
         });
     }
 
@@ -583,6 +589,7 @@ fn main() {
                 .map(|idx| idx as i32)
                 .unwrap_or(-1);
             let weak2 = weak.clone();
+            let weak_for_clipboard = weak.clone();
             let _ = weak2.upgrade_in_event_loop(move |app| {
                     app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels.clone())));
                     app.set_download_rows(ModelRc::new(VecModel::from(state.rows.clone())));
@@ -596,10 +603,18 @@ fn main() {
                         let output_dir = pending.get("output_dir").and_then(|v| v.as_str()).unwrap_or_default().to_string();
 
                         if let Ok(dialog) = ClipboardDialog::new() {
+                            let resolved_output_dir = if output_dir.trim().is_empty() { resolve_default_download_folder() } else { output_dir.clone() };
+                            let resolved_file_name = resolve_manual_file_name(url.as_str(), file_name.as_str());
+                            let resolved_category = resolve_manual_category(resolved_file_name.as_str(), url.as_str(), "General");
                             dialog.set_url(url.clone().into());
                             dialog.set_file_name(file_name.into());
-                            dialog.set_output_dir(if output_dir.trim().is_empty() { resolve_default_download_folder() } else { output_dir.clone() }.into());
-                            dialog.set_category(infer_category_from_name_or_url("", &url).into());
+                            dialog.set_output_dir(resolved_output_dir.clone().into());
+                            dialog.set_resolved_file_name(resolved_file_name.into());
+                            dialog.set_resolved_output_dir(resolved_output_dir.clone().into());
+                            dialog.set_category_hint(resolved_category.clone().into());
+                            dialog.set_dialog_hint("Review and confirm this clipboard download request.".into());
+                            dialog.set_url_valid(is_http_url(url.as_str()));
+                            dialog.set_category(resolved_category.into());
                             dialog.set_queue_options(ModelRc::new(VecModel::from(state.queue_labels.clone())));
                             let selected_queue_index = state
                                 .queue_ids
@@ -612,24 +627,42 @@ fn main() {
                             dialog.on_choose_folder(move || {
                                 if let Some(folder) = open_folder_picker() {
                                     if let Some(dlg) = dialog_choose.upgrade() {
-                                        dlg.set_output_dir(folder.into());
+                                        dlg.set_output_dir(folder.clone().into());
+                                        dlg.set_resolved_output_dir(folder.into());
                                     }
                                 }
                             });
 
                             let dialog_weak1 = dialog.as_weak();
+                            let weak_dismiss = weak_for_clipboard.clone();
                             dialog.on_dismiss(move || {
                                 let mut decision = serde_json::Map::new();
                                 decision.insert("action".to_string(), serde_json::Value::String("dismiss".to_string()));
                                 let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
                                 let _ = std::fs::remove_file(flow_clipboard_pending_path());
+                                set_status(&weak_dismiss, "Clipboard download dismissed");
                                 if let Some(dlg) = dialog_weak1.upgrade() { dlg.hide().ok(); }
                             });
 
                             let queue_ids_for_later = state.queue_ids.clone();
                             let clipboard_url_for_later = url.clone();
                             let dialog_weak2 = dialog.as_weak();
+                            let weak_queue = weak_for_clipboard.clone();
                             dialog.on_queue_later(move |file_name, output_dir, queue_index, category| {
+                                let submit = match prepare_manual_download_submission(clipboard_url_for_later.as_str(), file_name.as_str(), output_dir.as_str(), category.as_str()) {
+                                    Ok(submit) => submit,
+                                    Err(message) => {
+                                        set_status(&weak_queue, &message);
+                                        if let Some(dlg) = dialog_weak2.upgrade() {
+                                            dlg.set_url_valid(false);
+                                            dlg.set_dialog_hint(message.clone().into());
+                                            dlg.set_resolved_file_name(resolve_manual_file_name(clipboard_url_for_later.as_str(), file_name.as_str()).into());
+                                            dlg.set_resolved_output_dir(resolve_manual_output_dir(output_dir.as_str()).into());
+                                            dlg.set_category_hint(resolve_manual_category(file_name.as_str(), clipboard_url_for_later.as_str(), category.as_str()).into());
+                                        }
+                                        return;
+                                    }
+                                };
                                 let pending_data = load_clipboard_pending_json().unwrap_or_default();
                                 let mut decision = pending_data.as_object().cloned().unwrap_or_default();
                                 let queue_id = queue_ids_for_later
@@ -637,19 +670,35 @@ fn main() {
                                     .copied()
                                     .unwrap_or(selected);
                                 decision.insert("action".to_string(), serde_json::Value::String("queue".to_string()));
-                                decision.insert("file_name".to_string(), serde_json::Value::String(file_name.to_string()));
-                                decision.insert("output_dir".to_string(), serde_json::Value::String(output_dir.to_string()));
+                                decision.insert("file_name".to_string(), serde_json::Value::String(submit.file_name));
+                                decision.insert("output_dir".to_string(), serde_json::Value::String(submit.output_dir));
                                 decision.insert("queue_id".to_string(), serde_json::Value::Number(queue_id.into()));
-                                decision.insert("category".to_string(), serde_json::Value::String(normalize_category_input(file_name.as_str(), clipboard_url_for_later.as_str(), category.as_str())));
+                                decision.insert("category".to_string(), serde_json::Value::String(submit.category.clone()));
                                 let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
                                 let _ = std::fs::remove_file(flow_clipboard_pending_path());
+                                set_status(&weak_queue, &format!("Clipboard download queued in {}", submit.category));
                                 if let Some(dlg) = dialog_weak2.upgrade() { dlg.hide().ok(); }
                             });
 
                             let queue_ids_for_start = state.queue_ids.clone();
                             let clipboard_url_for_start = url.clone();
                             let dialog_weak3 = dialog.as_weak();
+                            let weak_start = weak_for_clipboard.clone();
                             dialog.on_start_now(move |file_name, output_dir, queue_index, category| {
+                                let submit = match prepare_manual_download_submission(clipboard_url_for_start.as_str(), file_name.as_str(), output_dir.as_str(), category.as_str()) {
+                                    Ok(submit) => submit,
+                                    Err(message) => {
+                                        set_status(&weak_start, &message);
+                                        if let Some(dlg) = dialog_weak3.upgrade() {
+                                            dlg.set_url_valid(false);
+                                            dlg.set_dialog_hint(message.clone().into());
+                                            dlg.set_resolved_file_name(resolve_manual_file_name(clipboard_url_for_start.as_str(), file_name.as_str()).into());
+                                            dlg.set_resolved_output_dir(resolve_manual_output_dir(output_dir.as_str()).into());
+                                            dlg.set_category_hint(resolve_manual_category(file_name.as_str(), clipboard_url_for_start.as_str(), category.as_str()).into());
+                                        }
+                                        return;
+                                    }
+                                };
                                 let pending_data = load_clipboard_pending_json().unwrap_or_default();
                                 let mut decision = pending_data.as_object().cloned().unwrap_or_default();
                                 let queue_id = queue_ids_for_start
@@ -657,12 +706,13 @@ fn main() {
                                     .copied()
                                     .unwrap_or(selected);
                                 decision.insert("action".to_string(), serde_json::Value::String("queue_start".to_string()));
-                                decision.insert("file_name".to_string(), serde_json::Value::String(file_name.to_string()));
-                                decision.insert("output_dir".to_string(), serde_json::Value::String(output_dir.to_string()));
+                                decision.insert("file_name".to_string(), serde_json::Value::String(submit.file_name));
+                                decision.insert("output_dir".to_string(), serde_json::Value::String(submit.output_dir));
                                 decision.insert("queue_id".to_string(), serde_json::Value::Number(queue_id.into()));
-                                decision.insert("category".to_string(), serde_json::Value::String(normalize_category_input(file_name.as_str(), clipboard_url_for_start.as_str(), category.as_str())));
+                                decision.insert("category".to_string(), serde_json::Value::String(submit.category.clone()));
                                 let _ = std::fs::write(flow_clipboard_decision_path(), serde_json::Value::Object(decision).to_string());
                                 let _ = std::fs::remove_file(flow_clipboard_pending_path());
+                                set_status(&weak_start, &format!("Clipboard download queued to start in {}", submit.category));
                                 if let Some(dlg) = dialog_weak3.upgrade() { dlg.hide().ok(); }
                             });
 
@@ -756,7 +806,11 @@ fn main() {
                 let _ = repo.set_queue_group_active(queue_id, true);
             }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Started {resumed} paused task(s)"));
+            if resumed == 0 {
+                set_status(&weak, "No paused tasks found in current queue");
+            } else {
+                set_status(&weak, &format!("Started {resumed} paused task(s)"));
+            }
         }
     });
 
@@ -769,9 +823,25 @@ fn main() {
         let category_filter = Arc::clone(&category_filter);
         move || {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            pause_all_jobs(queue_id);
+            let mut paused = 0usize;
+            if let Ok(repo) = SqliteDownloadRepository::open(&flow_db_path()) {
+                let _ = repo.init_schema();
+                if let Ok(jobs) = repo.list_queue_jobs() {
+                    for job in jobs.into_iter().filter(|job| job.queue_id == queue_id && job.status != "Paused") {
+                        let _ = pause_active_job(&job.id);
+                        if repo.update_queue_job_status(&job.id, "Paused").is_ok() {
+                            paused += 1;
+                        }
+                    }
+                }
+                let _ = repo.set_queue_group_active(queue_id, false);
+            }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, "Paused all tasks in current queue");
+            if paused == 0 {
+                set_status(&weak, "No active tasks found in current queue");
+            } else {
+                set_status(&weak, &format!("Paused {paused} task(s) in current queue"));
+            }
         }
     });
 
@@ -931,7 +1001,11 @@ fn main() {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let removed = delete_jobs_for_current_queue(queue_id, &["Completed"], false);
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Deleted {removed} finished item(s) from current queue"));
+            if removed == 0 {
+                set_status(&weak, "No finished items found in current queue");
+            } else {
+                set_status(&weak, &format!("Deleted {removed} finished item(s) from current queue"));
+            }
         }
     });
 
@@ -946,7 +1020,11 @@ fn main() {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let removed = delete_jobs_for_current_queue(queue_id, &["Queued", "Downloading", "Paused", "Failed", "Cancelled"], false);
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Deleted {removed} unfinished item(s) from current queue"));
+            if removed == 0 {
+                set_status(&weak, "No unfinished items found in current queue");
+            } else {
+                set_status(&weak, &format!("Deleted {removed} unfinished item(s) from current queue"));
+            }
         }
     });
 
@@ -961,7 +1039,11 @@ fn main() {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let removed = delete_jobs_for_current_queue(queue_id, &[], true);
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Deleted {removed} item(s) from current queue"));
+            if removed == 0 {
+                set_status(&weak, "Current queue is already empty");
+            } else {
+                set_status(&weak, &format!("Deleted {removed} item(s) from current queue"));
+            }
         }
     });
 
@@ -1871,7 +1953,11 @@ fn wire_download_toolbar_actions(
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
             let updated = update_jobs_status(&ids, "Queued", false);
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Resumed {updated} download(s)"));
+            if updated == 0 {
+                set_status(&weak, "No paused downloads selected to resume");
+            } else {
+                set_status(&weak, &format!("Resumed {updated} download(s)"));
+            }
         }
     });
     app.on_stop_selected({
@@ -1886,7 +1972,11 @@ fn wire_download_toolbar_actions(
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
             let updated = update_jobs_status(&ids, "Paused", true);
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Paused {updated} download(s)"));
+            if updated == 0 {
+                set_status(&weak, "No active downloads selected to pause");
+            } else {
+                set_status(&weak, &format!("Paused {updated} download(s)"));
+            }
         }
     });
     app.on_stop_all({
@@ -1914,7 +2004,7 @@ fn wire_download_toolbar_actions(
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
             if ids.is_empty() {
-                set_status(&weak, "No download selected");
+                set_status(&weak, "No downloads selected. Check one or more rows first.");
                 return;
             }
             let _ = weak.upgrade_in_event_loop(|app| app.set_show_delete_confirm(true));
@@ -1950,7 +2040,11 @@ fn wire_download_toolbar_actions(
             }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
             let _ = weak.upgrade_in_event_loop(|app| app.set_show_delete_confirm(false));
-            set_status(&weak, &format!("Deleted {deleted} download(s)"));
+            if deleted == 0 {
+                set_status(&weak, "No downloads were deleted");
+            } else {
+                set_status(&weak, &format!("Deleted {deleted} download(s)"));
+            }
         }
     });
     app.on_delete_selected({
@@ -1973,15 +2067,24 @@ fn wire_download_toolbar_actions(
                 *selected = None;
             }
             refresh_queue_ui(&weak, queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter);
-            set_status(&weak, &format!("Deleted {deleted} download(s)"));
+            if deleted == 0 {
+                set_status(&weak, "No downloads were deleted");
+            } else {
+                set_status(&weak, &format!("Deleted {deleted} download(s)"));
+            }
         }
     });
     app.on_open_selected({
         let selected_download = Arc::clone(&selected_download);
         let weak = app.as_weak();
         move || {
-            open_selected_path(selected_download.clone(), false);
-            set_status(&weak, "Opening selected file");
+            let has_selected = selected_download.lock().ok().and_then(|v| v.clone()).is_some();
+            if has_selected {
+                open_selected_path(selected_download.clone(), false);
+                set_status(&weak, "Opening selected file");
+            } else {
+                set_status(&weak, "No download selected to open");
+            }
         }
     });
     app.on_open_selected_folder({
@@ -1995,7 +2098,11 @@ fn wire_download_toolbar_actions(
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
             let ids = effective_checked_ids(queue_id, checked_downloads.clone(), selected_download.clone(), &sort_state, &category_filter);
             let opened = open_multiple_selected_paths(&ids, true);
-            set_status(&weak, &format!("Opening folder for {opened} download(s)"));
+            if opened == 0 {
+                set_status(&weak, "No download selected to open folder");
+            } else {
+                set_status(&weak, &format!("Opening folder for {opened} download(s)"));
+            }
         }
     });
     app.on_move_download_up({

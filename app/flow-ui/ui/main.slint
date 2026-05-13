@@ -1140,6 +1140,11 @@ export component ClipboardDialog inherits Window {
     in-out property <string> url: "";
     in-out property <string> file-name: "";
     in-out property <string> output-dir: "";
+    in property <string> resolved-file-name: "download.bin";
+    in property <string> resolved-output-dir: "";
+    in property <string> category-hint: "General";
+    in property <string> dialog-hint: "Review detected download details before continuing.";
+    in property <bool> url-valid: true;
     in property <[string]> queue-options: ["Main"];
     in-out property <int> queue-index: 0;
     in-out property <string> category: "General";
@@ -1172,6 +1177,20 @@ export component ClipboardDialog inherits Window {
         ScrollView {
             VerticalLayout {
                 padding: 20px; spacing: 14px;
+
+                Rectangle {
+                    height: 64px;
+                    background: Palette.panel;
+                    border-color: root.url-valid ? Palette.border : Palette.error;
+                    border-width: 1px;
+                    VerticalLayout {
+                        padding-left: 12px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px;
+                        spacing: 4px;
+                        Text { text: root.dialog-hint; font-size: 11px; font-weight: 600; color: root.url-valid ? Palette.text-primary : Palette.error; overflow: elide; }
+                        Text { text: "Resolved file: " + root.resolved-file-name; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                        Text { text: "Save to: " + root.resolved-output-dir + "  •  Category: " + root.category-hint; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                    }
+                }
                 
                 // URL Display
                 VerticalLayout {
