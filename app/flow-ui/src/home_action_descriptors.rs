@@ -30,6 +30,8 @@ pub(crate) struct HomeActionDescriptor {
     pub(crate) title: &'static str,
     pub(crate) enabled: bool,
     pub(crate) kind: HomeActionKind,
+    pub(crate) icon: &'static str,
+    pub(crate) shortcut: &'static str,
     pub(crate) submenu_labels: Vec<String>,
 }
 
@@ -84,6 +86,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Open",
                 enabled: action_state.can_open,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -91,6 +95,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Open Folder",
                 enabled: action_state.can_open_folder,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -98,6 +104,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Delete",
                 enabled: action_state.can_delete,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -105,6 +113,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Resume",
                 enabled: action_state.can_resume,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -112,6 +122,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Pause",
                 enabled: action_state.can_pause,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -119,6 +131,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Requeue",
                 enabled: action_state.can_requeue,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -126,6 +140,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Restart Download",
                 enabled: action_state.can_restart,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -133,6 +149,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Edit",
                 enabled: action_state.can_edit,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -140,6 +158,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Copy Links",
                 enabled: !action_state.selected_ids.is_empty(),
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -147,6 +167,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Copy as cURL",
                 enabled: !action_state.selected_ids.is_empty(),
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -154,6 +176,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Properties",
                 enabled: action_state.default_item_index.is_some(),
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -161,6 +185,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "File Checksum",
                 enabled: action_state.can_file_checksum,
                 kind: HomeActionKind::Simple,
+                icon: "open",
+                shortcut: "",
                 submenu_labels: Vec::new(),
             },
             HomeActionDescriptor {
@@ -168,6 +194,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Move to Queue",
                 enabled: !menu_state.move_to_queue.labels.is_empty(),
                 kind: HomeActionKind::SubMenu,
+                icon: "queue",
+                shortcut: "",
                 submenu_labels: menu_state.move_to_queue.labels.clone(),
             },
             HomeActionDescriptor {
@@ -175,6 +203,8 @@ pub(crate) fn derive_home_action_descriptors(
                 title: "Move to Category",
                 enabled: !menu_state.move_to_category.labels.is_empty(),
                 kind: HomeActionKind::SubMenu,
+                icon: "category",
+                shortcut: "",
                 submenu_labels: menu_state.move_to_category.labels.clone(),
             },
         ],
@@ -184,13 +214,13 @@ pub(crate) fn derive_home_action_descriptors(
 pub(crate) fn derive_downloads_menu_presentation(
     descriptors: &HomeActionDescriptorState,
 ) -> DownloadsMenuPresentation {
-    let action_item = |id: HomeActionId, command_id: &str, icon: &str, shortcut: &str| {
+    let action_item = |id: HomeActionId, command_id: &str| {
         descriptors.simple(id).map(|descriptor| DownloadsMenuItem {
             kind: "action".to_string(),
             title: descriptor.title.to_string(),
             enabled: descriptor.enabled,
-            icon: icon.to_string(),
-            shortcut: shortcut.to_string(),
+            icon: descriptor.icon.to_string(),
+            shortcut: descriptor.shortcut.to_string(),
             command_id: command_id.to_string(),
             target_index: -1,
             children: Vec::new(),
@@ -220,10 +250,10 @@ pub(crate) fn derive_downloads_menu_presentation(
     };
 
     let mut items = vec![
-        action_item(HomeActionId::Edit, "edit", "edit", ""),
-        action_item(HomeActionId::RestartDownload, "restart-download", "refresh", ""),
-        action_item(HomeActionId::Properties, "properties", "info", ""),
-        action_item(HomeActionId::FileChecksum, "file-checksum", "info", ""),
+        action_item(HomeActionId::Edit, "edit"),
+        action_item(HomeActionId::RestartDownload, "restart-download"),
+        action_item(HomeActionId::Properties, "properties"),
+        action_item(HomeActionId::FileChecksum, "file-checksum"),
     ]
     .into_iter()
     .flatten()
@@ -236,8 +266,8 @@ pub(crate) fn derive_downloads_menu_presentation(
 
     items.extend(
         [
-            action_item(HomeActionId::CopyLinks, "copy-links", "copy", ""),
-            action_item(HomeActionId::CopyAsCurl, "copy-as-curl", "copy", ""),
+            action_item(HomeActionId::CopyLinks, "copy-links"),
+            action_item(HomeActionId::CopyAsCurl, "copy-as-curl"),
         ]
         .into_iter()
         .flatten(),
