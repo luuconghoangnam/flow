@@ -16,7 +16,6 @@ pub(crate) struct HomeActionState {
     pub(crate) resumable_ids: Vec<String>,
     pub(crate) pausable_ids: Vec<String>,
     pub(crate) requeueable_ids: Vec<String>,
-    pub(crate) restartable_ids: Vec<String>,
     pub(crate) can_open: bool,
     pub(crate) can_open_folder: bool,
     pub(crate) can_delete: bool,
@@ -107,25 +106,10 @@ pub(crate) fn derive_home_action_state(
         })
         .collect::<Vec<_>>();
 
-    let restartable_ids = selected_indexes
-        .iter()
-        .filter_map(|index| {
-            let row = rows.get(*index)?;
-            if !is_pausable_status(row.status.as_str()) {
-                row_ids.get(*index).cloned()
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
     let default_row = default_item_index.and_then(|index| rows.get(index));
-    let can_open = selection_count > 0
-        && selected_indexes.iter().all(|index| {
-            rows.get(*index)
-                .map(|row| is_finished_status(row.status.as_str()))
-                .unwrap_or(false)
-        });
+    let can_open = default_row
+        .map(|row| is_finished_status(row.status.as_str()))
+        .unwrap_or(false);
     let can_open_folder = selection_count > 0;
     let can_delete = selection_count > 0;
     let can_resume = !resumable_ids.is_empty();
@@ -140,13 +124,12 @@ pub(crate) fn derive_home_action_state(
         && default_row
             .map(|row| is_editable_status(row.status.as_str()))
             .unwrap_or(false);
-    let can_file_checksum = selection_count > 0
-        && selected_indexes.iter().all(|index| {
-            rows.get(*index)
-                .map(|row| is_finished_status(row.status.as_str()))
-                .unwrap_or(false)
-        });
-    let can_restart = !restartable_ids.is_empty();
+    let can_file_checksum = selected_indexes.iter().any(|index| {
+        rows.get(*index)
+            .map(|row| is_finished_status(row.status.as_str()))
+            .unwrap_or(false)
+    });
+    let can_restart = selection_count > 0;
 
     HomeActionState {
         selected_ids,
@@ -156,7 +139,6 @@ pub(crate) fn derive_home_action_state(
         resumable_ids,
         pausable_ids,
         requeueable_ids,
-        restartable_ids,
         can_open,
         can_open_folder,
         can_delete,

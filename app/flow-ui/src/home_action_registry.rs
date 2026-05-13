@@ -102,7 +102,7 @@ pub(crate) fn execute_restart_selected(registry: &HomeActionRegistry) -> BatchAc
     };
     let _ = repo.init_schema();
     let mut changed_count = 0usize;
-    for id in &registry.action_state.restartable_ids {
+    for id in &registry.action_state.selected_ids {
         if repo.reset_queue_job_for_retry(id).is_ok() {
             let _ = repo.update_queue_job_status(id, "Queued");
             changed_count += 1;
@@ -241,12 +241,16 @@ pub(crate) fn execute_open_file_checksum_dialog(
         return Err("Queue database is not available");
     };
     let _ = repo.init_schema();
-    let jobs = registry
+    let selected_jobs = registry
         .action_state
         .selected_ids
         .iter()
         .filter_map(|id| repo.get_queue_job(id).ok().flatten())
+        .collect::<Vec<_>>();
+    let jobs = selected_jobs
+        .iter()
         .filter(|job| job.status.eq_ignore_ascii_case("finished"))
+        .cloned()
         .collect::<Vec<_>>();
     if jobs.is_empty() {
         return Err("No finished downloads selected for file checksum");
@@ -280,7 +284,7 @@ pub(crate) fn execute_open_file_or_properties(
     let Some(row) = state.rows.get(default_index) else {
         return Err("Unable to resolve selected download");
     };
-    if is_finished_status(row.status.as_str()) && registry.action_state.selection_count == 1 {
+    if is_finished_status(row.status.as_str()) {
         return Err("open-file");
     }
     execute_show_selected_properties(registry, queue_id, sort_state, category_filter)
