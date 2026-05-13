@@ -1689,6 +1689,11 @@ export component BatchDownloadDialog inherits Window {
 
     in-out property <string> urls-text: "";
     in-out property <string> output-dir: "";
+    in property <int> parsed-url-count: 0;
+    in property <string> resolved-output-dir: "";
+    in property <string> category-hint: "General";
+    in property <string> dialog-hint: "Paste one or more HTTP/HTTPS links.";
+    in property <bool> urls-valid: true;
     in property <[string]> queue-options: ["Main"];
     in-out property <int> queue-index: 0;
     in-out property <string> category: "General";
@@ -1696,6 +1701,7 @@ export component BatchDownloadDialog inherits Window {
     callback choose-folder();
     callback queue-all(string, string, int, string);
     callback start-all(string, string, int, string);
+    callback preview-update(string, string, string);
     callback close-dialog();
 
     VerticalLayout {
@@ -1714,6 +1720,20 @@ export component BatchDownloadDialog inherits Window {
         VerticalLayout {
             padding: 16px; spacing: 10px;
 
+            Rectangle {
+                height: 64px;
+                background: Palette.panel;
+                border-color: root.urls-valid ? Palette.border : Palette.error;
+                border-width: 1px;
+                VerticalLayout {
+                    padding-left: 12px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px;
+                    spacing: 4px;
+                    Text { text: root.dialog-hint; font-size: 11px; font-weight: 600; color: root.urls-valid ? Palette.text-primary : Palette.error; overflow: elide; }
+                    Text { text: "Detected links: " + root.parsed-url-count; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                    Text { text: "Save to: " + root.resolved-output-dir + "  •  Category: " + root.category-hint; font-size: 10px; color: Palette.text-muted; overflow: elide; }
+                }
+            }
+
             Text { text: "Paste URLs (one per line, comma, or space separated)"; font-size: 11px; color: Palette.text-muted; }
             Rectangle {
                 height: 220px;
@@ -1724,6 +1744,9 @@ export component BatchDownloadDialog inherits Window {
                     TextInput {
                         width: parent.width - 12px;
                         text <=> root.urls-text;
+                        edited => {
+                            root.preview-update(root.urls-text, root.output-dir, root.category);
+                        }
                         color: Palette.text-primary;
                         selection-foreground-color: Palette.text-primary;
                         selection-background-color: Palette.selection-bg;
@@ -1735,7 +1758,7 @@ export component BatchDownloadDialog inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 Text { text: "Category"; width: 80px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
-                StandardInput { width: 180px; text: root.category; placeholder: "General"; edited(t) => { root.category = t; } }
+                StandardInput { width: 180px; text: root.category; placeholder: "General"; edited(t) => { root.category = t; root.preview-update(root.urls-text, root.output-dir, root.category); } }
                 Rectangle { width: 100%; }
             }
 
@@ -1763,7 +1786,7 @@ export component BatchDownloadDialog inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 Text { text: "Save To"; width: 80px; vertical-alignment: center; font-size: 11px; color: Palette.text-muted; }
-                StandardInput { width: 100%; text: root.output-dir; placeholder: "Downloads folder"; edited(t) => { root.output-dir = t; } }
+                StandardInput { width: 100%; text: root.output-dir; placeholder: "Downloads folder"; edited(t) => { root.output-dir = t; root.preview-update(root.urls-text, root.output-dir, root.category); } }
                 ToolbarButton { text: "..."; min-width: 36px; height: 30px; icon-type: "open"; clicked => { root.choose-folder(); } }
             }
         }

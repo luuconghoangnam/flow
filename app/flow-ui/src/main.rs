@@ -862,16 +862,53 @@ fn main() {
                 .unwrap_or(0) as i32;
 
             if let Ok(dialog) = BatchDownloadDialog::new() {
-                dialog.set_output_dir(resolve_default_download_folder().into());
+                let default_output_dir = resolve_default_download_folder();
+                dialog.set_output_dir(default_output_dir.clone().into());
+                dialog.set_resolved_output_dir(default_output_dir.clone().into());
+                dialog.set_parsed_url_count(0);
                 dialog.set_category("General".into());
+                dialog.set_category_hint("General".into());
+                dialog.set_dialog_hint("Paste one or more HTTP/HTTPS links to queue or start.".into());
+                dialog.set_urls_valid(true);
                 dialog.set_queue_options(ModelRc::new(VecModel::from(state.queue_labels.clone())));
                 dialog.set_queue_index(selected_queue_index);
+
+                let refresh_batch_preview = |dlg: &BatchDownloadDialog, urls_text: &str, output_dir: &str, category: &str| {
+                    let parsed_links = urls_text
+                        .split(|c: char| c.is_whitespace() || c == ',')
+                        .filter(|token| is_http_url(token.trim()))
+                        .count();
+                    let resolved_output_dir = resolve_manual_output_dir(output_dir);
+                    let normalized_category = normalize_category_input("", urls_text, category);
+                    dlg.set_parsed_url_count(parsed_links as i32);
+                    dlg.set_resolved_output_dir(resolved_output_dir.into());
+                    dlg.set_category_hint(normalized_category.clone().into());
+                    let has_non_empty_input = !urls_text.trim().is_empty();
+                    if !has_non_empty_input {
+                        dlg.set_urls_valid(true);
+                        dlg.set_dialog_hint("Paste one or more HTTP/HTTPS links to queue or start.".into());
+                    } else if parsed_links == 0 {
+                        dlg.set_urls_valid(false);
+                        dlg.set_dialog_hint("No valid HTTP/HTTPS links detected yet.".into());
+                    } else {
+                        dlg.set_urls_valid(true);
+                        dlg.set_dialog_hint(format!("Ready to process {parsed_links} detected link(s)." ).into());
+                    }
+                };
+
+                let dialog_preview = dialog.as_weak();
+                dialog.on_preview_update(move |urls_text, output_dir, category| {
+                    if let Some(dlg) = dialog_preview.upgrade() {
+                        refresh_batch_preview(&dlg, urls_text.as_str(), output_dir.as_str(), category.as_str());
+                    }
+                });
 
                 let dialog_choose = dialog.as_weak();
                 dialog.on_choose_folder(move || {
                     if let Some(folder) = open_folder_picker() {
                         if let Some(dlg) = dialog_choose.upgrade() {
-                            dlg.set_output_dir(folder.into());
+                            dlg.set_output_dir(folder.clone().into());
+                            refresh_batch_preview(&dlg, dlg.get_urls_text().as_str(), folder.as_str(), dlg.get_category().as_str());
                         }
                     }
                 });
@@ -892,8 +929,11 @@ fn main() {
                 let category_filter_for_queue = Arc::clone(&category_filter);
                 let dialog_queue = dialog.as_weak();
                 dialog.on_queue_all(move |urls_text, output_dir, queue_index, category| {
-                    let target_queue = queue_ids_for_queue.get(queue_index as usize).copied().unwrap_or(queue_id);
                     let normalized_category = normalize_category_input("", urls_text.as_str(), category.as_str());
+                    if let Some(dlg) = dialog_queue.upgrade() {
+                        refresh_batch_preview(&dlg, urls_text.as_str(), output_dir.as_str(), category.as_str());
+                    }
+                    let target_queue = queue_ids_for_queue.get(queue_index as usize).copied().unwrap_or(queue_id);
                     let (queued, invalid) = enqueue_batch_urls(
                         urls_text.as_str(),
                         output_dir.as_str(),
@@ -908,6 +948,10 @@ fn main() {
                             "No valid URLs to queue".to_string()
                         };
                         set_status(&weak_queue, &message);
+                        if let Some(dlg) = dialog_queue.upgrade() {
+                            dlg.set_urls_valid(false);
+                            dlg.set_dialog_hint(message.into());
+                        }
                         return;
                     }
                     if let Ok(mut selected) = selected_queue_for_queue.lock() {
@@ -916,6 +960,7 @@ fn main() {
                     refresh_queue_ui(&weak_queue, target_queue, selected_download_for_queue.clone(), checked_downloads_for_queue.clone(), &sort_state_for_queue, &category_filter_for_queue);
                     set_status(&weak_queue, &format!("Batch queued: {queued} item(s) in {normalized_category}; invalid/skipped: {invalid}"));
                     if let Some(dlg) = dialog_queue.upgrade() {
+                        dlg.set_urls_valid(true);
                         let _ = dlg.hide();
                     }
                 });
@@ -929,8 +974,11 @@ fn main() {
                 let category_filter_for_start = Arc::clone(&category_filter);
                 let dialog_start = dialog.as_weak();
                 dialog.on_start_all(move |urls_text, output_dir, queue_index, category| {
-                    let target_queue = queue_ids_for_start.get(queue_index as usize).copied().unwrap_or(queue_id);
                     let normalized_category = normalize_category_input("", urls_text.as_str(), category.as_str());
+                    if let Some(dlg) = dialog_start.upgrade() {
+                        refresh_batch_preview(&dlg, urls_text.as_str(), output_dir.as_str(), category.as_str());
+                    }
+                    let target_queue = queue_ids_for_start.get(queue_index as usize).copied().unwrap_or(queue_id);
                     let (queued, invalid) = enqueue_batch_urls(
                         urls_text.as_str(),
                         output_dir.as_str(),
@@ -945,6 +993,10 @@ fn main() {
                             "No valid URLs to start".to_string()
                         };
                         set_status(&weak_start, &message);
+                        if let Some(dlg) = dialog_start.upgrade() {
+                            dlg.set_urls_valid(false);
+                            dlg.set_dialog_hint(message.into());
+                        }
                         return;
                     }
                     if let Ok(mut selected) = selected_queue_for_start.lock() {
@@ -953,6 +1005,7 @@ fn main() {
                     refresh_queue_ui(&weak_start, target_queue, selected_download_for_start.clone(), checked_downloads_for_start.clone(), &sort_state_for_start, &category_filter_for_start);
                     set_status(&weak_start, &format!("Batch start queued: {queued} item(s) in {normalized_category}; invalid/skipped: {invalid}"));
                     if let Some(dlg) = dialog_start.upgrade() {
+                        dlg.set_urls_valid(true);
                         let _ = dlg.hide();
                     }
                 });
