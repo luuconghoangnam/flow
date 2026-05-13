@@ -324,7 +324,7 @@ export component MainWindow inherits Window {
     callback proxy-mode-changed(mode: int); callback proxy-test-connection();
     callback tasks-start-all(); callback tasks-pause-all();
     callback file-batch-download(); callback app-exit();
-    callback downloads-select-all(); callback downloads-clear-selection(); callback downloads-sort-by-name();
+    callback downloads-select-all(); callback downloads-clear-selection(); callback toggle-download-checked(index: int); callback downloads-sort-by-name();
     callback downloads-sort-by-size(); callback downloads-sort-by-status(); callback downloads-sort-by-date-added();
     callback view-refresh(); callback view-toggle-toolbar(); callback view-toggle-status-bar();
     callback tools-browser-integration(); callback tools-per-host-settings(); callback tools-open-settings();
@@ -508,23 +508,42 @@ export component MainWindow inherits Window {
                                 height: 22px;
                                 background: i == root.selected-download-index ? Palette.selection-bg : (Math.mod(i, 2) == 1 ? Palette.row-even : Palette.row-odd);
                                 
-                                HorizontalLayout {
-                                    padding-left: 8px; padding-right: 8px; spacing: 0;
-                                    Text { text: row.name; width: 300px; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; overflow: elide; }
-                                    Text { text: row.size; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: right; color: Palette.text-muted; }
-                                    VerticalLayout {
-                                        width: 100px; alignment: center; padding-left: 8px; padding-right: 8px;
-                                        Text { text: row.status; font-size: 9px; font-weight: 600; color: (row.is-error ? Palette.error : Palette.success); horizontal-alignment: center; }
-                                        if row.has-progress: Rectangle {
-                                            height: 2px; background: Palette.border;
-                                            Rectangle { x: 0; width: parent.width * row.progress / 100; background: Palette.accent-primary; height: 100%; }
-                                        }
+                            Rectangle {
+                                width: 28px;
+                                Rectangle {
+                                    x: 8px;
+                                    y: 5px;
+                                    width: 12px;
+                                    height: 12px;
+                                    border-width: 1px;
+                                    border-color: row.checked ? Palette.accent-primary : Palette.border;
+                                    background: row.checked ? Palette.accent-primary : Palette.panel;
+                                    if row.checked: Text {
+                                        text: "✓";
+                                        color: Palette.bg;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
                                     }
-                                    Text { text: row.speed; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                                    Text { text: row.time-left; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
-                                    Text { text: row.date-added; width: 130px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
                                 }
-                                TouchArea { clicked => { root.select-download(i); } }
+                                TouchArea { clicked => { root.toggle-download-checked(i); } }
+                            }
+                            Text { text: row.name; width: 272px; font-size: 10px; vertical-alignment: center; color: Palette.text-primary; overflow: elide; }
+                            Text { text: row.size; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: right; color: Palette.text-muted; }
+                            VerticalLayout {
+                                width: 100px; alignment: center; padding-left: 8px; padding-right: 8px;
+                                Text { text: row.status; font-size: 9px; font-weight: 600; color: (row.is-error ? Palette.error : Palette.success); horizontal-alignment: center; }
+                                if row.has-progress: Rectangle {
+                                    height: 2px; background: Palette.border;
+                                    Rectangle { x: 0; width: parent.width * row.progress / 100; background: Palette.accent-primary; height: 100%; }
+                                }
+                            }
+                            Text { text: row.speed; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                            Text { text: row.time-left; width: 80px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                            Text { text: row.date-added; width: 130px; font-size: 10px; vertical-alignment: center; horizontal-alignment: center; color: Palette.text-muted; }
+                        }
+                        TouchArea { clicked => { root.select-download(i); } }
                             }
                         }
                     }
@@ -1040,12 +1059,16 @@ export component ClipboardDialog inherits Window {
     title: "Download Detected";
     background: Palette.bg;
 
-    in property <string> url: "";
-    in property <string> file-name: "";
-    in property <string> output-dir: "";
+    in-out property <string> url: "";
+    in-out property <string> file-name: "";
+    in-out property <string> output-dir: "";
+    in property <[string]> queue-options: ["Main"];
+    in-out property <int> queue-index: 0;
+    in-out property <string> category: "General";
 
-    callback queue_later();
-    callback start_now();
+    callback choose-folder();
+    callback queue_later(string, string, int, string);
+    callback start_now(string, string, int, string);
     callback dismiss();
 
     VerticalLayout {
@@ -1100,7 +1123,60 @@ export component ClipboardDialog inherits Window {
                     StandardInput { 
                         width: 100%; 
                         text: root.file-name; 
-                        placeholder: "Auto-detected from URL"; 
+                        placeholder: "Auto-detected from URL";
+                        edited(t) => { root.file-name = t; }
+                    }
+                }
+                
+                // Category
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Category"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    StandardInput {
+                        width: 100%;
+                        text: root.category;
+                        placeholder: "General";
+                        edited(t) => { root.category = t; }
+                    }
+                }
+
+                // Queue Selection
+                VerticalLayout {
+                    spacing: 6px;
+                    Text { text: "Queue"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        ToolbarButton {
+                            text: "-";
+                            min-width: 38px;
+                            height: 32px;
+                            icon-type: "minus";
+                            enabled: root.queue-index > 0;
+                            clicked => { root.queue-index -= 1; }
+                        }
+                        Rectangle {
+                            height: 32px;
+                            width: 100%;
+                            background: Palette.panel;
+                            border-color: Palette.border;
+                            border-width: 1px;
+                            Text {
+                                text: root.queue-index >= 0 && root.queue-index < root.queue-options.length ? root.queue-options[root.queue-index] : "Main";
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: Palette.text-primary;
+                            }
+                        }
+                        ToolbarButton {
+                            text: "+";
+                            min-width: 38px;
+                            height: 32px;
+                            icon-type: "plus";
+                            enabled: root.queue-index + 1 < root.queue-options.length;
+                            clicked => { root.queue-index += 1; }
+                        }
                     }
                 }
                 
@@ -1113,9 +1189,10 @@ export component ClipboardDialog inherits Window {
                         StandardInput { 
                             width: 100%; 
                             text: root.output-dir; 
-                            placeholder: "Default Downloads folder"; 
+                            placeholder: "Default Downloads folder";
+                            edited(t) => { root.output-dir = t; }
                         }
-                        ToolbarButton { text: "..."; min-width: 38px; height: 32px; icon-type: "open"; }
+                        ToolbarButton { text: "..."; min-width: 38px; height: 32px; icon-type: "open"; clicked => { root.choose-folder(); } }
                     }
                 }
                 
@@ -1132,10 +1209,69 @@ export component ClipboardDialog inherits Window {
                 HorizontalLayout {
                     spacing: 8px;
                     alignment: end;
-                    ToolbarButton { text: "Download Now"; height: 36px; clicked => { root.start_now(); } }
-                    ToolbarButton { text: "Queue Later"; height: 36px; clicked => { root.queue_later(); } }
+                    ToolbarButton { text: "Download Now"; height: 36px; clicked => { root.start_now(root.file-name, root.output-dir, root.queue-index, root.category); } }
+                    ToolbarButton { text: "Queue Later"; height: 36px; clicked => { root.queue_later(root.file-name, root.output-dir, root.queue-index, root.category); } }
                     ToolbarButton { text: "Dismiss"; height: 36px; clicked => { root.dismiss(); } }
                 }
+            }
+            Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
+        }
+    }
+}
+
+export component RenameQueueDialog inherits Window {
+    width: 420px; height: 196px;
+    title: "Rename Queue";
+    background: Palette.bg;
+
+    in-out property <string> queue-name: "";
+
+    callback save(string);
+    callback cancel();
+
+    VerticalLayout {
+        padding: 0; spacing: 0;
+
+        Rectangle {
+            height: 48px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px;
+                alignment: center;
+                Text { text: "Rename Queue"; font-size: 14px; font-weight: 700; color: Palette.text-primary; }
+                Rectangle { width: 100%; }
+            }
+            Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Palette.border; }
+        }
+
+        VerticalLayout {
+            padding: 20px; spacing: 12px;
+            Text {
+                text: "Enter a clear queue name for scheduled and grouped downloads.";
+                font-size: 11px;
+                color: Palette.text-muted;
+            }
+            VerticalLayout {
+                spacing: 6px;
+                Text { text: "Queue Name"; font-size: 11px; font-weight: 600; color: Palette.text-light; letter-spacing: 0.3px; }
+                StandardInput {
+                    width: 100%;
+                    text: root.queue-name;
+                    placeholder: "Queue name";
+                    edited(t) => { root.queue-name = t; }
+                }
+            }
+            Rectangle { height: 100%; }
+        }
+
+        Rectangle {
+            height: 52px; background: Palette.panel;
+            HorizontalLayout {
+                padding-left: 20px; padding-right: 20px; padding-top: 12px; padding-bottom: 12px;
+                spacing: 8px;
+                alignment: end;
+                Rectangle { width: 100%; }
+                ToolbarButton { text: "Save"; height: 36px; clicked => { root.save(root.queue-name); } }
+                ToolbarButton { text: "Cancel"; height: 36px; clicked => { root.cancel(); } }
             }
             Rectangle { y: 0; width: 100%; height: 1px; background: Palette.border; }
         }
