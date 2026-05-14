@@ -3,6 +3,7 @@ slint::include_modules!();
 
 mod app_controller;
 mod add_url_actions;
+mod download_row_vm;
 mod home_action_descriptors;
 mod home_action_menu_presentation;
 mod home_action_menu_state;
@@ -12,6 +13,7 @@ mod home_action_status;
 mod home_actions;
 mod queue_actions;
 mod selection_model;
+mod tray_lifecycle;
 
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
@@ -21,6 +23,7 @@ use std::collections::HashSet;
 
 use app_controller::{execute_app_command, AppCommand, UiRefreshHandle};
 use add_url_actions::{prepare_manual_download_submission, render_add_url_error, render_add_url_preview, resolve_manual_category, resolve_manual_file_name, resolve_manual_output_dir};
+use download_row_vm::{apply_queue_refresh_derived, build_queue_refresh_derived, current_downloads_menu_presentation_from_snapshot, current_home_action_registry_from_snapshot, current_home_action_state_from_snapshot, QueueRefreshRequest};
 use home_action_descriptors::{derive_downloads_menu_presentation, derive_home_action_descriptors, DownloadsMenuPresentation, HomeActionId};
 use home_action_menu_presentation::{apply_downloads_menu_presentation, map_submenu_rows};
 use home_action_registry::{HomeActionRegistry, derive_home_action_registry, execute_copy_as_curl, execute_copy_selected_links, execute_delete_selected, execute_move_to_category, execute_move_to_queue, execute_open_edit_dialog, execute_open_file_checksum_dialog, execute_open_file_or_properties, execute_pause_selected, execute_restart_selected, execute_resume_selected, execute_show_selected_properties};
@@ -30,13 +33,12 @@ use home_action_status::{classify_download_activity, DownloadActivity};
 
 use queue_actions::{clear_selection_after_delete, effective_checked_ids, mutate_selected_job_with_status, open_multiple_selected_paths, pause_all_jobs, selected_open_result, stop_all_result};
 use selection_model::{clear_selection, select_all_visible, set_main_selection, sync_selection_to_visible_rows, toggle_item_selection};
+use tray_lifecycle::{setup_tray_if_enabled, TrayContext};
 use flow_core::{flow_clipboard_decision_path, flow_clipboard_pending_path, flow_db_path, flow_signal_path, flow_data_dir, load_settings, pause_active_job, save_settings, set_windows_auto_start, DownloadRepository, PerHostSettings, QueueJobRecord, SqliteDownloadRepository};
 use home_action_registry::FileChecksumDialogPayload;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use sha2::{Digest, Sha256};
-use slint::{CloseRequestResponse, ModelRc, SharedString, VecModel};
-use tray_icon::menu::{Menu, MenuItem};
-use tray_icon::TrayIconBuilder;
+use slint::{ModelRc, SharedString, VecModel};
 
 fn append_startup_log(message: &str) {
     let path = flow_data_dir().join("startup.log");
@@ -51,11 +53,6 @@ fn append_startup_log(message: &str) {
     let _ = std::fs::OpenOptions::new().create(true).append(true).open(path).and_then(|mut file| std::io::Write::write_all(&mut file, line.as_bytes()));
 }
 
-struct TrayContext {
-    _tray_icon: tray_icon::TrayIcon,
-    _timer: slint::Timer,
-}
-
 #[derive(Debug, Clone)]
 struct QueueUiState {
     queue_labels: Vec<SharedString>,
@@ -68,27 +65,6 @@ struct QueueUiState {
     downloaded_bytes: u64,
     total_bytes: u64,
     active_speed_bytes_per_sec: u64,
-}
-
-#[derive(Clone)]
-struct QueueRefreshRequest {
-    weak: slint::Weak<MainWindow>,
-    queue_id: i64,
-    selected_download: Arc<Mutex<Option<String>>>,
-    checked_downloads: Arc<Mutex<std::collections::HashSet<String>>>,
-    sort_state: Arc<Mutex<SortState>>,
-    category_filter: Arc<Mutex<CategoryFilter>>,
-}
-
-#[derive(Clone)]
-struct QueueRefreshDerived {
-    state: QueueUiState,
-    selected_queue_index: i32,
-    selected_index: i32,
-    descriptors: home_action_descriptors::HomeActionDescriptorState,
-    registry: HomeActionRegistry,
-    downloads_menu: DownloadsMenuPresentation,
-    scheduler_state: QueueSchedulerState,
 }
 
 #[derive(Debug, Clone)]
@@ -194,8 +170,13 @@ fn main() {
     app.set_queue_day_sat(scheduler_state.days[6]);
 
     append_startup_log("startup: UI state applied");
-    let __tray_context: Option<TrayContext> = None;
-    append_startup_log("startup: tray setup temporarily bypassed");
+    let _tray_context: Option<TrayContext> = setup_tray_if_enabled(&app);
+    if _tray_context.is_some() {
+        append_startup_log("startup: tray setup enabled");
+        app.set_status_message("Ready — minimize to tray is enabled".into());
+    } else {
+        append_startup_log("startup: tray setup disabled");
+    }
     let _ = app.window().show();
     append_startup_log("startup: window show requested");
 
@@ -725,6 +706,23 @@ fn main() {
         });
     }
 
+    {
+        let weak = app.as_weak();
+        app.on_categories_width_delta(move |delta| {
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                let current = app.get_categories_panel_width();
+                let mut next = current + delta;
+                if next < 160.0 {
+                    next = 160.0;
+                }
+                if next > 420.0 {
+                    next = 420.0;
+                }
+                app.set_categories_panel_width(next);
+            });
+        });
+    }
+
     let weak = app.as_weak();
     let selected_queue_for_thread = Arc::clone(&selected_queue);
     let selected_download_for_thread = Arc::clone(&selected_download);
@@ -750,15 +748,13 @@ fn main() {
                 .and_then(|id| state.row_ids.iter().position(|row_id| row_id == id))
                 .map(|idx| idx as i32)
                 .unwrap_or(-1);
-            let action_state = derive_home_action_state(&state.row_ids, &state.rows, &checked_downloads, selected_download.as_ref());
-            let registry = derive_home_action_registry(
+            let downloads_menu = current_downloads_menu_presentation_from_snapshot(
                 selected,
-                action_state,
+                selected_download_for_thread.clone(),
+                checked_downloads_for_thread.clone(),
                 &sort_state_for_thread,
                 &category_filter_for_thread,
             );
-            let descriptors = derive_home_action_descriptors(&registry);
-            let downloads_menu = derive_downloads_menu_presentation(&descriptors);
             let weak2 = weak.clone();
             let weak_for_clipboard = weak.clone();
             let _ = weak2.upgrade_in_event_loop(move |app| {
@@ -1540,57 +1536,6 @@ fn load_selected_queue_name(queue_id: i64) -> String {
         .unwrap_or_else(|| "Main".to_string())
 }
 
-fn setup_tray_if_enabled(app: &MainWindow) -> Option<TrayContext> {
-    let settings = load_settings(&flow_data_dir().join("settings.json"));
-    if !settings.use_system_tray {
-        return None;
-    }
-
-    let menu = Menu::new();
-    let show_hide = MenuItem::new("Show / Hide", true, None);
-    let quit = MenuItem::new("Quit", true, None);
-    let _ = menu.append(&show_hide);
-    let _ = menu.append(&quit);
-
-    let tray_icon = TrayIconBuilder::new()
-        .with_menu(Box::new(menu))
-        .with_tooltip("Flow Download Manager")
-        .build()
-        .ok()?;
-
-    app.window().on_close_requested(|| CloseRequestResponse::HideWindow);
-
-    let show_hide_id = show_hide.id().clone();
-    let quit_id = quit.id().clone();
-    let app_weak = app.as_weak();
-    let timer = slint::Timer::default();
-    timer.start(
-        slint::TimerMode::Repeated,
-        std::time::Duration::from_millis(180),
-        move || {
-            while let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
-                if event.id == show_hide_id {
-                    let weak = app_weak.clone();
-                    let _ = weak.upgrade_in_event_loop(|app| {
-                        let visible = app.window().is_visible();
-                        if visible {
-                            app.window().hide().ok();
-                        } else {
-                            app.window().show().ok();
-                        }
-                    });
-                } else if event.id == quit_id {
-                    slint::quit_event_loop().ok();
-                }
-            }
-        },
-    );
-
-    Some(TrayContext {
-        _tray_icon: tray_icon,
-        _timer: timer,
-    })
-}
 
 fn queue_scheduler_state_default() -> QueueSchedulerState {
     QueueSchedulerState {
@@ -2002,105 +1947,6 @@ fn format_date_added(created_at: i64) -> String {
     }
 }
 
-fn build_queue_refresh_derived(
-    queue_id: i64,
-    selected_download: Arc<Mutex<Option<String>>>,
-    checked_downloads: Arc<Mutex<std::collections::HashSet<String>>>,
-    sort_state: &Arc<Mutex<SortState>>,
-    category_filter: &Arc<Mutex<CategoryFilter>>,
-) -> QueueRefreshDerived {
-    let state = load_queue_ui_state(queue_id, sort_state, category_filter);
-    let snapshot = sync_selection_to_visible_rows(&state.row_ids, selected_download.clone(), checked_downloads.clone());
-    let checked_ids = snapshot.selected_ids.iter().cloned().collect::<std::collections::HashSet<_>>();
-    let state = apply_checked_rows(state, &checked_ids);
-    let selected_queue_index = state
-        .queue_ids
-        .iter()
-        .position(|id| *id == queue_id)
-        .map(|idx| idx as i32)
-        .unwrap_or(0);
-    let selected_index = snapshot
-        .main_selected_id
-        .as_ref()
-        .and_then(|id| state.row_ids.iter().position(|row_id| row_id == id))
-        .map(|idx| idx as i32)
-        .unwrap_or(-1);
-    let action_state = derive_home_action_state(&state.row_ids, &state.rows, &checked_ids, snapshot.main_selected_id.as_ref());
-    let registry = derive_home_action_registry(queue_id, action_state, sort_state, category_filter);
-    let descriptors = derive_home_action_descriptors(&registry);
-    let downloads_menu = derive_downloads_menu_presentation(&descriptors);
-    let scheduler_state = load_queue_scheduler_state(queue_id);
-    QueueRefreshDerived {
-        state,
-        selected_queue_index,
-        selected_index,
-        descriptors,
-        registry,
-        downloads_menu,
-        scheduler_state,
-    }
-}
-
-fn apply_queue_refresh_derived(
-    weak: &slint::Weak<MainWindow>,
-    _queue_id: i64,
-    derived: QueueRefreshDerived,
-) -> DownloadsMenuPresentation {
-    let downloads_menu_for_ui = derived.downloads_menu.clone();
-    let descriptors = derived.descriptors.clone();
-    let registry = derived.registry.clone();
-    let scheduler_state = derived.scheduler_state.clone();
-    let state = derived.state;
-    let selected_queue_index = derived.selected_queue_index;
-    let selected_index = derived.selected_index;
-    let downloads_menu = derived.downloads_menu;
-    let _ = weak.upgrade_in_event_loop(move |app| {
-        app.set_selected_queue_index(selected_queue_index);
-        app.set_queue_groups(ModelRc::new(VecModel::from(state.queue_labels)));
-        app.set_download_rows(ModelRc::new(VecModel::from(state.rows)));
-        app.set_queue_config_summary(state.queue_summary.into());
-        app.set_queue_name_text(scheduler_state.queue_name.clone().into());
-        app.set_selected_download_index(selected_index);
-        app.set_can_open_selected(descriptors.find(HomeActionId::Open).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_open_selected_folder(descriptors.find(HomeActionId::OpenFolder).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_delete_selected(descriptors.find(HomeActionId::Delete).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_resume_selected(descriptors.find(HomeActionId::Resume).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_stop_selected(descriptors.find(HomeActionId::Pause).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_move_selected_up(registry.action_state.can_move_up);
-        app.set_can_move_selected_down(registry.action_state.can_move_down);
-        app.set_can_requeue_selected(descriptors.find(HomeActionId::Requeue).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        apply_downloads_menu_presentation(&app, &downloads_menu_for_ui);
-        app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
-        app.set_queue_schedule_enabled(scheduler_state.enabled);
-        app.set_queue_schedule_start(scheduler_state.start_text.into());
-        app.set_queue_schedule_stop(scheduler_state.stop_text.into());
-        app.set_footer_active_count(state.active_count);
-        app.set_footer_speed_text(
-            if state.active_speed_bytes_per_sec > 0 {
-                format!("{}/s", format_bytes(state.active_speed_bytes_per_sec))
-            } else {
-                format_bytes(state.downloaded_bytes)
-            }
-            .into(),
-        );
-        app.set_footer_total_text(
-            if state.total_bytes > 0 {
-                format!("{} / {}", state.total_jobs, format_bytes(state.total_bytes))
-            } else {
-                state.total_jobs.to_string()
-            }
-            .into(),
-        );
-        app.set_queue_day_sun(scheduler_state.days[0]);
-        app.set_queue_day_mon(scheduler_state.days[1]);
-        app.set_queue_day_tue(scheduler_state.days[2]);
-        app.set_queue_day_wed(scheduler_state.days[3]);
-        app.set_queue_day_thu(scheduler_state.days[4]);
-        app.set_queue_day_fri(scheduler_state.days[5]);
-        app.set_queue_day_sat(scheduler_state.days[6]);
-    });
-    downloads_menu
-}
 
 fn enqueue_queue_refresh(
     weak: &slint::Weak<MainWindow>,
@@ -2144,7 +1990,7 @@ fn enqueue_queue_refresh(
             if let Ok(mut guard) = LAST_QUEUE_SNAPSHOT.lock() {
                 *guard = Some(derived.state.clone());
             }
-            let _ = apply_queue_refresh_derived(&request.weak, request.queue_id, derived);
+            let _ = apply_queue_refresh_derived(&request.weak, derived);
             if !QUEUE_REFRESH_DIRTY.load(Ordering::Acquire) {
                 REFRESH_IN_FLIGHT.store(false, Ordering::Release);
                 if !QUEUE_REFRESH_DIRTY.swap(false, Ordering::AcqRel) {
@@ -2223,14 +2069,6 @@ fn refresh_queue_ui(
         app.set_queue_config_summary(state.queue_summary.into());
         app.set_queue_name_text(scheduler_state.queue_name.clone().into());
         app.set_selected_download_index(selected_index);
-        app.set_can_open_selected(descriptors.find(HomeActionId::Open).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_open_selected_folder(descriptors.find(HomeActionId::OpenFolder).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_delete_selected(descriptors.find(HomeActionId::Delete).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_resume_selected(descriptors.find(HomeActionId::Resume).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_stop_selected(descriptors.find(HomeActionId::Pause).map(|descriptor| descriptor.enabled).unwrap_or(false));
-        app.set_can_move_selected_up(registry.action_state.can_move_up);
-        app.set_can_move_selected_down(registry.action_state.can_move_down);
-        app.set_can_requeue_selected(descriptors.find(HomeActionId::Requeue).map(|descriptor| descriptor.enabled).unwrap_or(false));
         apply_downloads_menu_presentation(&app, &downloads_menu_for_ui);
         app.set_queue_stop_on_empty(scheduler_state.stop_on_empty);
         app.set_queue_schedule_enabled(scheduler_state.enabled);
@@ -2475,14 +2313,13 @@ fn current_home_action_state(
     sort_state: &Arc<Mutex<SortState>>,
     category_filter: &Arc<Mutex<CategoryFilter>>,
 ) -> HomeActionState {
-    let state = LAST_QUEUE_SNAPSHOT
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone())
-        .unwrap_or_else(|| load_queue_ui_state(queue_id, sort_state, category_filter));
-    let snapshot = sync_selection_to_visible_rows(&state.row_ids, selected_download, checked_downloads);
-    let checked_ids = snapshot.selected_ids.iter().cloned().collect::<std::collections::HashSet<_>>();
-    derive_home_action_state(&state.row_ids, &state.rows, &checked_ids, snapshot.main_selected_id.as_ref())
+    current_home_action_state_from_snapshot(
+        queue_id,
+        selected_download,
+        checked_downloads,
+        sort_state,
+        category_filter,
+    )
 }
 
 fn current_home_action_registry(
@@ -2492,8 +2329,13 @@ fn current_home_action_registry(
     sort_state: &Arc<Mutex<SortState>>,
     category_filter: &Arc<Mutex<CategoryFilter>>,
 ) -> HomeActionRegistry {
-    let action_state = current_home_action_state(queue_id, selected_download, checked_downloads, sort_state, category_filter);
-    derive_home_action_registry(queue_id, action_state, sort_state, category_filter)
+    current_home_action_registry_from_snapshot(
+        queue_id,
+        selected_download,
+        checked_downloads,
+        sort_state,
+        category_filter,
+    )
 }
 
 fn execute_downloads_menu_command(
@@ -3147,14 +2989,13 @@ fn wire_download_toolbar_actions(
         let weak = app.as_weak();
         move |parent_index| {
             let queue_id = selected_queue.lock().map(|v| *v).unwrap_or(0);
-            let registry = derive_home_action_registry(
+            let presentation = current_downloads_menu_presentation_from_snapshot(
                 queue_id,
-                current_home_action_state(queue_id, selected_download.clone(), checked_downloads.clone(), &sort_state, &category_filter),
+                selected_download.clone(),
+                checked_downloads.clone(),
                 &sort_state,
                 &category_filter,
             );
-            let descriptors = derive_home_action_descriptors(&registry);
-            let presentation = derive_downloads_menu_presentation(&descriptors);
             let submenu_rows = map_submenu_rows(&presentation, parent_index);
             let _ = weak.upgrade_in_event_loop(move |app| {
                 app.set_downloads_submenu_rows(ModelRc::new(VecModel::from(submenu_rows)));
