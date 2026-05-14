@@ -4,16 +4,15 @@ use std::sync::{Arc, Mutex};
 use slint::{ModelRc, VecModel};
 
 use crate::{
-    apply_checked_rows, derive_downloads_menu_presentation, derive_home_action_descriptors,
-    derive_home_action_registry, derive_home_action_state, format_bytes,
+    apply_checked_rows, derive_home_action_registry, derive_home_action_state, format_bytes,
     load_queue_scheduler_state, load_queue_ui_state, sync_selection_to_visible_rows,
     CategoryFilter, DownloadsMenuPresentation, HomeActionId, HomeActionRegistry,
     MainWindow, QueueSchedulerState, QueueUiState, SortState,
 };
-use crate::home_action_descriptors::HomeActionDescriptorState;
+use crate::home_action_descriptors::{derive_downloads_menu_presentation, derive_home_action_descriptors, HomeActionDescriptorState};
 use crate::home_action_menu_presentation::apply_downloads_menu_presentation;
-use crate::home_action_state::HomeActionState;
 use crate::home_action_registry::HomeActionRegistry as RegistryAlias;
+use crate::home_action_state::HomeActionState;
 use crate::LAST_QUEUE_SNAPSHOT;
 
 #[derive(Debug, Clone, Copy)]
@@ -117,6 +116,49 @@ pub(crate) fn current_downloads_menu_presentation_from_snapshot(
     derive_downloads_menu_presentation(&descriptors)
 }
 
+pub(crate) fn current_queue_refresh_derived(
+    queue_id: i64,
+    selected_download: Arc<Mutex<Option<String>>>,
+    checked_downloads: Arc<Mutex<HashSet<String>>>,
+    sort_state: &Arc<Mutex<SortState>>,
+    category_filter: &Arc<Mutex<CategoryFilter>>,
+) -> QueueRefreshDerived {
+    let state = LAST_QUEUE_SNAPSHOT
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .unwrap_or_else(|| load_queue_ui_state(queue_id, sort_state, category_filter));
+    let snapshot = sync_selection_to_visible_rows(&state.row_ids, selected_download.clone(), checked_downloads.clone());
+    let checked_ids = snapshot.selected_ids.iter().cloned().collect::<HashSet<_>>();
+    let state = apply_checked_rows(state, &checked_ids);
+    let selected_queue_index = state
+        .queue_ids
+        .iter()
+        .position(|id| *id == queue_id)
+        .map(|idx| idx as i32)
+        .unwrap_or(0);
+    let selected_index = snapshot
+        .main_selected_id
+        .as_ref()
+        .and_then(|id| state.row_ids.iter().position(|row_id| row_id == id))
+        .map(|idx| idx as i32)
+        .unwrap_or(-1);
+    let action_state = derive_home_action_state(&state.row_ids, &state.rows, &checked_ids, snapshot.main_selected_id.as_ref());
+    let registry = derive_home_action_registry(queue_id, action_state, sort_state, category_filter);
+    let descriptors = derive_home_action_descriptors(&registry);
+    let downloads_menu = derive_downloads_menu_presentation(&descriptors);
+    let scheduler_state = load_queue_scheduler_state(queue_id);
+    QueueRefreshDerived {
+        state,
+        selected_queue_index,
+        selected_index,
+        descriptors,
+        registry,
+        downloads_menu,
+        scheduler_state,
+    }
+}
+
 pub(crate) fn build_queue_refresh_derived(
     queue_id: i64,
     selected_download: Arc<Mutex<Option<String>>>,
@@ -161,13 +203,13 @@ pub(crate) fn apply_queue_refresh_derived(
     derived: QueueRefreshDerived,
 ) -> DownloadsMenuPresentation {
     let downloads_menu_for_ui = derived.downloads_menu.clone();
+    let downloads_menu_for_return = downloads_menu_for_ui.clone();
     let descriptors = derived.descriptors.clone();
     let registry = derived.registry.clone();
     let scheduler_state = derived.scheduler_state.clone();
     let state = derived.state;
     let selected_queue_index = derived.selected_queue_index;
     let selected_index = derived.selected_index;
-    let downloads_menu = derived.downloads_menu;
     let availability = derive_action_availability(&descriptors, &registry);
     let _ = weak.upgrade_in_event_loop(move |app| {
         app.set_selected_queue_index(selected_queue_index);
@@ -214,5 +256,5 @@ pub(crate) fn apply_queue_refresh_derived(
         app.set_queue_day_fri(scheduler_state.days[5]);
         app.set_queue_day_sat(scheduler_state.days[6]);
     });
-    downloads_menu
+    downloads_menu_for_return
 }

@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use tokio::sync::{mpsc, Semaphore};
 
 use crate::download::{DownloadControl, DownloadEngine, DownloadEvent, DownloadRequest, SpeedLimiter};
-use crate::storage::{DownloadRepository, QueueGroupRecord, QueueJobRecord, SqliteDownloadRepository};
+use crate::storage::{DownloadRepository, QueueJobRecord, SqliteDownloadRepository};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ScheduleConfig {
