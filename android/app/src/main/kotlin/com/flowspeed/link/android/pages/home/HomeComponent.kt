@@ -24,8 +24,6 @@ import com.flowspeed.link.shared.action.createPerHostSettingsPage
 import com.flowspeed.link.shared.action.createStartQueueGroupAction
 import com.flowspeed.link.shared.action.createStopAllAction
 import com.flowspeed.link.shared.action.createStopQueueGroupAction
-import com.flowspeed.link.shared.action.donate
-import com.flowspeed.link.shared.action.supportActionGroup
 import com.flowspeed.link.shared.downloaderinui.DownloaderInUiRegistry
 import com.flowspeed.link.shared.pagemanager.AboutPageManager
 import com.flowspeed.link.shared.pagemanager.AddDownloadDialogManager
@@ -366,11 +364,8 @@ class HomeComponent(
             Res.string.help.asStringSource(),
             MyIcons.question,
         ) {
-            +supportActionGroup
-            separator()
             +createOpenOpenSourceThirdPartyLibrariesPage(openSourceLibrariesPageManager = openSourceLibrariesPageManager)
             +createOpenTranslatorsPageAction(opeTranslatorsPageManager = translatorsPageManager)
-            +donate
             separator()
             +createCheckForUpdateAction(updateComponent)
             +createOpenAboutPage(aboutPageManager)

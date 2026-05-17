@@ -19,8 +19,6 @@ import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiPro
 import com.flowspeed.link.desktop.pages.category.DesktopCategoryDialogManager
 import com.flowspeed.link.desktop.storage.AppSettingsStorage
 import com.flowspeed.link.resources.Res
-import com.flowspeed.link.shared.action.donate
-import com.flowspeed.link.shared.action.supportActionGroup
 import com.flowspeed.link.shared.pagemanager.EditDownloadDialogManager
 import com.flowspeed.link.shared.pagemanager.EnterNewURLDialogManager
 import com.flowspeed.link.shared.pagemanager.FileChecksumDialogManager
@@ -210,11 +208,8 @@ class HomeComponent(
             +gotoSettingsAction
         }
         subMenu(Res.string.help.asStringSource()) {
-            +supportActionGroup
-            separator()
             +openOpenSourceThirdPartyLibraries
             +openTranslators
-            +donate
             separator()
             +checkForUpdateAction
             +openAboutAction
