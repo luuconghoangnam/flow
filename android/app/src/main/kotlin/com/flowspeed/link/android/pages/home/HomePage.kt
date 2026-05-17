@@ -60,6 +60,10 @@ import com.flowspeed.link.shared.pages.home.BaseHomeComponent
 import com.flowspeed.link.shared.pages.home.CategoryDeletePromptState
 import com.flowspeed.link.shared.pages.home.ConfirmPromptState
 import com.flowspeed.link.shared.pages.home.DeletePromptState
+import com.flowspeed.link.shared.ui.widget.CyberGridBackground
+import com.flowspeed.link.shared.ui.widget.CyberNavigationBar
+import com.flowspeed.link.shared.ui.widget.DashboardStatsHeader
+import com.flowspeed.link.shared.ui.widget.StatusFilterRow
 import com.flowspeed.link.shared.ui.widget.rememberMyComponentCustomRectPositionProvider
 import com.flowspeed.link.shared.util.OnFullyDismissed
 import com.flowspeed.link.shared.util.ResponsiveDialog
@@ -219,24 +223,58 @@ fun HomePage(component: HomeComponent) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     val filterMode by component.filterMode
-                    DownloadList(
-                        downloadList = downloadList,
-                        selectionList = selectionList,
-                        onItemSelectionChange = { id, checked ->
-                            component.onItemSelectionChange(id, checked)
+                    // Cyber-Industrial navigation bar
+                    val categories by component.categoryManager.categoriesFlow.collectAsState()
+                    val currentTypeFilter = component.filterState.typeCategoryFilter
+                    CyberNavigationBar(
+                        categories = categories,
+                        selectedCategory = currentTypeFilter,
+                        onCategorySelected = { category ->
+                            component.onCategoryFilterChange(
+                                component.filterState.statusFilter,
+                                category
+                            )
                         },
-                        onItemClicked = {
-                            component.onItemClicked(it)
-                        },
-                        fileIconProvider = component.fileIconProvider,
-                        onNewSelection = {
-                            component.newSelection(ids = it)
-                        },
-                        lazyListState = lazyListState,
-                        modifier = Modifier
-                            .weight(1f),
-                        contentPadding = params.paddingValues,
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    // Dashboard stats header
+                    val activeCount by component.activeDownloadCountFlow.collectAsState()
+                    val totalSpeed by component.globalSpeedFlow.collectAsState(0L)
+                    val totalDiskUsage by component.totalDiskUsageFlow.collectAsState()
+                    DashboardStatsHeader(
+                        totalSpeed = totalSpeed,
+                        activeCount = activeCount,
+                        totalDiskUsage = totalDiskUsage,
+                    )
+                    // Status filter row
+                    StatusFilterRow(
+                        currentFilter = component.filterState.statusFilter,
+                        onFilterSelected = { filter ->
+                            component.onCategoryFilterChange(filter, component.filterState.typeCategoryFilter)
+                        },
+                    )
+                    // Download list
+                    Box(Modifier.weight(1f)) {
+                        CyberGridBackground(Modifier.fillMaxSize())
+                        DownloadList(
+                            downloadList = downloadList,
+                            selectionList = selectionList,
+                            onItemSelectionChange = { id, checked ->
+                                component.onItemSelectionChange(id, checked)
+                            },
+                            onItemClicked = {
+                                component.onItemClicked(it)
+                            },
+                            fileIconProvider = component.fileIconProvider,
+                            onNewSelection = {
+                                component.newSelection(ids = it)
+                            },
+                            lazyListState = lazyListState,
+                            modifier = Modifier
+                                .fillMaxSize(),
+                            contentPadding = params.paddingValues,
+                        )
+                    }
                 }
                 AnimatedVisibility(
                     isOverlayVisible,
