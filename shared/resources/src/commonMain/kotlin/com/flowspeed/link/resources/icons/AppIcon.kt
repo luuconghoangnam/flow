@@ -1,9 +1,6 @@
 package com.flowspeed.link.resources.icons
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
@@ -21,56 +18,42 @@ val FlowIcons.AppIcon: ImageVector
             viewportWidth = 48f,
             viewportHeight = 48f
         ).apply {
-            // Background circle
-            path(
-                fill = Brush.linearGradient(
-                    colorStops = arrayOf(
-                        0f to Color(0xFFB8451A),
-                        1f to Color(0xFFE8652E)
-                    ),
-                    start = Offset(0f, 0f),
-                    end = Offset(48f, 48f)
-                )
-            ) {
-                moveTo(24f, 0f)
-                curveTo(37.255f, 0f, 48f, 10.745f, 48f, 24f)
-                curveTo(48f, 37.255f, 37.255f, 48f, 24f, 48f)
-                curveTo(10.745f, 48f, 0f, 37.255f, 0f, 24f)
-                curveTo(0f, 10.745f, 10.745f, 0f, 24f, 0f)
+            // Dark background rounded rect
+            path(fill = SolidColor(Color(0xFF0A0A0A))) {
+                moveTo(8f, 0f)
+                curveTo(3.582f, 0f, 0f, 3.582f, 0f, 8f)
+                lineTo(0f, 40f)
+                curveTo(0f, 44.418f, 3.582f, 48f, 8f, 48f)
+                lineTo(40f, 48f)
+                curveTo(44.418f, 48f, 48f, 44.418f, 48f, 40f)
+                lineTo(48f, 8f)
+                curveTo(48f, 3.582f, 44.418f, 0f, 40f, 0f)
                 close()
             }
-            // Download arrow - vertical line
-            path(
-                fill = SolidColor(Color.White)
-            ) {
-                moveTo(22f, 12f)
-                lineTo(26f, 12f)
-                lineTo(26f, 30f)
-                lineTo(22f, 30f)
+            // Down arrow shaft
+            path(fill = SolidColor(Color(0xFFB3BCCF))) {
+                moveTo(22.5f, 12f)
+                lineTo(25.5f, 12f)
+                lineTo(25.5f, 30f)
+                lineTo(22.5f, 30f)
                 close()
             }
-            // Download arrow - triangle head
-            path(
-                fill = SolidColor(Color.White)
-            ) {
+            // Arrow head
+            path(fill = SolidColor(Color(0xFFB3BCCF))) {
                 moveTo(24f, 36f)
-                lineTo(15f, 27f)
-                lineTo(18f, 24f)
-                lineTo(24f, 30f)
-                lineTo(30f, 24f)
-                lineTo(33f, 27f)
+                lineTo(16f, 28f)
+                lineTo(18.2f, 25.8f)
+                lineTo(24f, 31.6f)
+                lineTo(29.8f, 25.8f)
+                lineTo(32f, 28f)
                 close()
             }
-            // Bottom tray/bar
-            path(
-                fill = SolidColor(Color.White)
-            ) {
-                moveTo(12f, 38f)
-                lineTo(36f, 38f)
-                lineTo(36f, 41f)
-                curveTo(36f, 41.552f, 35.552f, 42f, 35f, 42f)
-                lineTo(13f, 42f)
-                curveTo(12.448f, 42f, 12f, 41.552f, 12f, 41f)
+            // Bottom bar
+            path(fill = SolidColor(Color(0xFFB3BCCF))) {
+                moveTo(14f, 38f)
+                lineTo(34f, 38f)
+                lineTo(34f, 40.5f)
+                lineTo(14f, 40.5f)
                 close()
             }
         }.build()
