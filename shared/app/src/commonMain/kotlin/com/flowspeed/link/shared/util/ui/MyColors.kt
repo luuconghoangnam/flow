@@ -71,7 +71,7 @@ data class MyColors(
     val menuBorderColor = onSurface / 0.1f
     val onMenuColor = onSurface
 
-    val primaryGradientColors = listOf(primary, secondary)
+    val primaryGradientColors = listOf(primary, Color(0xFFFF6B35))
     val primaryGradient by lazy {
         Brush.linearGradient(primaryGradientColors)
     }

@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -227,10 +228,10 @@ private fun RenderChangeLog(
         ) {
             val transition = rememberInfiniteTransition()
             val topBorderColors = listOf(
-                myColors.primary to myColors.secondaryVariant,
-                myColors.secondary to myColors.primaryVariant,
-                myColors.primaryVariant to myColors.secondary,
-                myColors.secondaryVariant to myColors.primary,
+                myColors.primary to myColors.primaryVariant,
+                myColors.primaryVariant to Color(0xFFFFB347),
+                Color(0xFFFFB347) to myColors.primaryVariant,
+                myColors.primaryVariant to myColors.primary,
             )
             val animatedTopBorderColors = topBorderColors.map {
                 transition.animateColor(
