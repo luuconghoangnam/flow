@@ -29,6 +29,7 @@
   },
   "action": {
     "default_icon": "icons/icon48.png",
-    "default_title": "Flow Download Manager"
+    "default_title": "Flow Download Manager",
+    "default_popup": "popup.html"
   }
 }

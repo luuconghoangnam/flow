@@ -18,6 +18,10 @@ const MIN_SIZE_BYTES = 1024 * 1024; // 1MB - only intercept files > 1MB
 
 // Intercept browser downloads
 chrome.downloads.onCreated.addListener(async (downloadItem) => {
+  // Check if enabled
+  const settings = await chrome.storage.local.get('enabled');
+  if (settings.enabled === false) return;
+
   const url = downloadItem.url;
   const filename = downloadItem.filename || getFilenameFromUrl(url);
   const fileSize = downloadItem.totalBytes || 0;
