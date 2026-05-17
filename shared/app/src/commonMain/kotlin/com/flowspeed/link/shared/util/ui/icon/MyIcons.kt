@@ -4,9 +4,10 @@ import com.flowspeed.link.resources.icons.FlowIcons
 import com.flowspeed.link.resources.icons.*
 import com.flowspeed.link.shared.util.ui.BaseMyColors
 import com.flowspeed.lib.util.compose.IconSource
+import com.flowspeed.link.shared.util.ui.AppIconSource
 
 object MyIcons : BaseMyColors() {
-    override val appIcon: IconSource = getAppIconSource().also { iconMap["icon:appIcon"] = it }
+    override val appIcon: IconSource = AppIconSource()
 
     override val settings = FlowIcons.Settings.asIconSource("settings")
     override val flag = FlowIcons.Flag.asIconSource("flag")
