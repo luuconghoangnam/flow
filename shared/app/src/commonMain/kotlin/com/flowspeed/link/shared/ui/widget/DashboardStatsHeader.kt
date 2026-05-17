@@ -3,7 +3,9 @@ package com.flowspeed.link.shared.ui.widget
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.core.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -60,9 +62,19 @@ private fun StatBox(
     value: String,
     modifier: Modifier = Modifier,
 ) {
+    val infiniteTransition = rememberInfiniteTransition()
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
     Column(
         modifier = modifier
-            .border(1.dp, myColors.onBackground / 0.1f, RectangleShape)
+            .border(1.dp, myColors.primary.copy(alpha = borderAlpha), RectangleShape)
             .background(myColors.surface, RectangleShape)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

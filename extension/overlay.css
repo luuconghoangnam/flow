@@ -1,42 +1,99 @@
 /* Flow Download Manager - Overlay Styles */
-/* Cyber-Industrial aesthetic: sharp corners, orange accent, dark */
+/* Cyber-Industrial aesthetic: sharp corners, orange accent, animated neon */
+
+@keyframes borderGlow {
+  0% { box-shadow: 0 0 4px #E64A00, inset 0 0 4px rgba(230, 74, 0, 0.1); }
+  50% { box-shadow: 0 0 12px #E64A00, inset 0 0 8px rgba(230, 74, 0, 0.2); }
+  100% { box-shadow: 0 0 4px #E64A00, inset 0 0 4px rgba(230, 74, 0, 0.1); }
+}
+
+@keyframes gradientSlide {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes pulseIn {
+  0% { opacity: 0; transform: translateY(6px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes scanLine {
+  0% { top: -2px; }
+  100% { top: 100%; }
+}
 
 #flow-dm-overlay {
   position: absolute;
   z-index: 2147483647;
   pointer-events: none;
   opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.15s, transform 0.15s;
+  transform: translateY(6px) scale(0.95);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 #flow-dm-overlay.flow-dm-visible {
   pointer-events: auto;
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
+  animation: pulseIn 0.2s ease-out;
 }
 
 #flow-dm-overlay .flow-dm-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: #1a1a1a;
+  gap: 5px;
+  padding: 5px 12px;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
   border: 1px solid #E64A00;
   color: #E64A00;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: borderGlow 2s ease-in-out infinite;
+}
+
+/* Animated scan line inside button */
+#flow-dm-overlay .flow-dm-btn::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #E64A00, transparent);
+  animation: scanLine 2s linear infinite;
+  opacity: 0.6;
+}
+
+/* Gradient shimmer on hover */
+#flow-dm-overlay .flow-dm-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(230, 74, 0, 0.15), transparent);
+  transition: left 0.4s ease;
+}
+
+#flow-dm-overlay .flow-dm-btn:hover::after {
+  left: 100%;
 }
 
 #flow-dm-overlay .flow-dm-btn:hover {
-  background: #E64A00;
+  background: linear-gradient(135deg, #E64A00 0%, #FF6B35 50%, #E64A00 100%);
+  background-size: 200% 100%;
+  animation: gradientSlide 1s linear infinite, borderGlow 1s ease-in-out infinite;
   color: #fff;
+  border-color: #FF6B35;
 }
 
 #flow-dm-overlay .flow-dm-btn:hover svg path {
@@ -44,9 +101,23 @@
 }
 
 #flow-dm-overlay .flow-dm-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
+  transition: transform 0.1s;
+}
+
+#flow-dm-overlay .flow-dm-btn svg {
+  filter: drop-shadow(0 0 2px #E64A00);
 }
 
 #flow-dm-overlay .flow-dm-btn svg path {
   stroke: #E64A00;
+  transition: stroke 0.2s;
+}
+
+/* Success state */
+#flow-dm-overlay .flow-dm-btn.flow-dm-success {
+  border-color: #22C55E;
+  color: #22C55E;
+  animation: none;
+  box-shadow: 0 0 8px #22C55E;
 }

@@ -69,12 +69,20 @@ function hideOverlay() {
 
 function showFeedback() {
   if (overlay) {
-    overlay.querySelector('.flow-dm-btn').textContent = '✓ Sent';
+    const btn = overlay.querySelector('.flow-dm-btn');
+    btn.classList.add('flow-dm-success');
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <path d="M5 12l5 5L20 7" stroke="#22C55E" stroke-width="2.5" stroke-linecap="square"/>
+      </svg>
+      <span>Sent</span>
+    `;
     setTimeout(() => {
       if (overlay) {
-        overlay.querySelector('.flow-dm-btn').innerHTML = `
+        btn.classList.remove('flow-dm-success');
+        btn.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="white" stroke-width="2.5" stroke-linecap="square"/>
+            <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"/>
           </svg>
           <span>Flow</span>
         `;
