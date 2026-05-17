@@ -1,69 +1,95 @@
 /**
- * Flow Download Manager - Browser Extension
- * Background service worker that intercepts downloads and sends them to the app.
+ * Flow Download Manager - Background Service Worker
+ * 
+ * Intercepts downloads BEFORE browser shows save dialog by:
+ * 1. Listening to downloads.onCreated → immediately cancel + send to Flow
+ * 2. Content script catches link clicks with download-like URLs
  */
 
 const DEFAULT_PORT = 15151;
-const SUPPORTED_EXTENSIONS = [
-  '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
-  '.exe', '.msi', '.dmg', '.deb', '.rpm', '.appimage',
-  '.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm',
-  '.mp3', '.flac', '.wav', '.aac', '.ogg', '.wma',
-  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-  '.iso', '.img', '.bin',
-  '.apk', '.ipa',
-];
 
-const MIN_SIZE_BYTES = 1024 * 1024; // 1MB - only intercept files > 1MB
+const DOWNLOAD_EXTENSIONS = new Set([
+  'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'zst',
+  'exe', 'msi', 'dmg', 'deb', 'rpm', 'appimage', 'pkg',
+  'mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v',
+  'mp3', 'flac', 'wav', 'aac', 'ogg', 'wma', 'm4a',
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'iso', 'img', 'bin', 'torrent',
+  'apk', 'ipa', 'crx',
+]);
 
-// Intercept browser downloads
-chrome.downloads.onCreated.addListener(async (downloadItem) => {
-  // Check if enabled
-  const settings = await chrome.storage.local.get('enabled');
-  if (settings.enabled === false) return;
+let isEnabled = true;
 
-  const url = downloadItem.url;
-  const filename = downloadItem.filename || getFilenameFromUrl(url);
-  const fileSize = downloadItem.totalBytes || 0;
-
-  // Check if we should intercept this download
-  if (!shouldIntercept(url, filename, fileSize)) {
-    return;
-  }
-
-  // Cancel the browser download
-  chrome.downloads.cancel(downloadItem.id);
-  chrome.downloads.erase({ id: downloadItem.id });
-
-  // Send to Flow app
-  const success = await sendToFlow(url, filename);
-
-  if (!success) {
-    // If Flow is not running, show notification and let browser handle it
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: 'icons/icon48.png',
-      title: 'Flow Download Manager',
-      message: 'App is not running. Download will proceed in browser.',
-    });
-    // Re-download in browser
-    chrome.downloads.download({ url });
-  }
+// Load settings
+chrome.storage.local.get(['enabled', 'port'], (result) => {
+  isEnabled = result.enabled !== false;
 });
 
-// Listen for messages from content script (link clicks)
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.enabled) isEnabled = changes.enabled.newValue;
+});
+
+/**
+ * PRIMARY INTERCEPTION: catch download the moment browser creates it.
+ * We cancel it immediately (before save dialog appears) and send to Flow.
+ */
+chrome.downloads.onCreated.addListener((downloadItem) => {
+  if (!isEnabled) return;
+
+  const url = downloadItem.url;
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return;
+
+  const filename = downloadItem.filename || getFilenameFromUrl(url);
+  
+  if (!shouldIntercept(url, filename, downloadItem.totalBytes || 0)) return;
+
+  // IMMEDIATELY cancel - this prevents the save dialog from appearing
+  chrome.downloads.cancel(downloadItem.id, () => {
+    chrome.downloads.erase({ id: downloadItem.id });
+  });
+
+  // Send to Flow
+  sendToFlow(url, filename).then(success => {
+    if (!success) {
+      // Flow not running - notify user and re-download normally
+      showNotification('Flow app is not running', 'Download will proceed in browser.');
+      chrome.downloads.download({ url });
+    }
+  });
+});
+
+/**
+ * Listen for messages from content script
+ */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'DOWNLOAD_LINK') {
     sendToFlow(message.url, message.filename).then(success => {
       sendResponse({ success });
     });
-    return true; // async response
+    return true;
   }
 
   if (message.type === 'CHECK_STATUS') {
     checkFlowStatus().then(status => {
       sendResponse(status);
     });
+    return true;
+  }
+
+  if (message.type === 'GET_SETTINGS') {
+    chrome.storage.local.get(['enabled', 'port'], (result) => {
+      sendResponse({
+        enabled: result.enabled !== false,
+        port: result.port || DEFAULT_PORT,
+      });
+    });
+    return true;
+  }
+
+  if (message.type === 'SET_ENABLED') {
+    isEnabled = message.value;
+    chrome.storage.local.set({ enabled: message.value });
+    sendResponse({ ok: true });
     return true;
   }
 });
@@ -89,7 +115,6 @@ async function sendToFlow(url, filename) {
     });
     return response.ok;
   } catch (e) {
-    console.log('Flow app not reachable:', e.message);
     return false;
   }
 }
@@ -97,12 +122,15 @@ async function sendToFlow(url, filename) {
 async function checkFlowStatus() {
   try {
     const port = await getPort();
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 2000);
     const response = await fetch(`http://localhost:${port}/`, {
       method: 'GET',
+      signal: controller.signal,
     });
-    return { running: response.ok, port };
+    return { running: true, port };
   } catch (e) {
-    return { running: false, port: DEFAULT_PORT };
+    return { running: false, port: await getPort() };
   }
 }
 
@@ -112,29 +140,31 @@ async function getPort() {
 }
 
 function shouldIntercept(url, filename, fileSize) {
-  // Don't intercept blob URLs or data URLs
-  if (url.startsWith('blob:') || url.startsWith('data:')) return false;
-
-  // Check file extension
   const ext = getExtension(filename || url);
-  if (ext && SUPPORTED_EXTENSIONS.includes(ext.toLowerCase())) return true;
-
-  // Check file size (if known)
-  if (fileSize > MIN_SIZE_BYTES) return true;
-
+  if (ext && DOWNLOAD_EXTENSIONS.has(ext.toLowerCase())) return true;
+  if (fileSize > 1024 * 1024) return true; // > 1MB
   return false;
 }
 
 function getExtension(str) {
-  const match = str.match(/\.([a-zA-Z0-9]+)(\?|$)/);
-  return match ? '.' + match[1] : null;
+  const match = str.match(/\.([a-zA-Z0-9]{1,10})(\?|#|$)/);
+  return match ? match[1] : null;
 }
 
 function getFilenameFromUrl(url) {
   try {
     const pathname = new URL(url).pathname;
-    return pathname.split('/').pop() || 'download';
+    return decodeURIComponent(pathname.split('/').pop()) || 'download';
   } catch {
     return 'download';
   }
+}
+
+function showNotification(title, message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon48.png',
+    title,
+    message,
+  });
 }

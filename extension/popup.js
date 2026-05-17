@@ -1,41 +1,31 @@
-// Flow Download Manager - Popup Script
+// Popup script - checks Flow app status and manages toggle
 
-const dot = document.getElementById('dot');
+const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const toggle = document.getElementById('toggle');
 const portDisplay = document.getElementById('portDisplay');
 
-// Check connection status
-async function checkStatus() {
-  try {
-    const result = await chrome.storage.local.get(['port', 'enabled']);
-    const port = result.port || 15151;
-    const enabled = result.enabled !== false;
-
-    portDisplay.textContent = port;
-    toggle.classList.toggle('on', enabled);
-
-    const response = await fetch(`http://localhost:${port}/`, { method: 'GET' });
-    if (response.ok) {
-      dot.classList.add('connected');
-      statusText.classList.add('connected');
-      statusText.textContent = 'Connected';
-    } else {
-      throw new Error('Not OK');
-    }
-  } catch (e) {
-    dot.classList.remove('connected');
-    statusText.classList.remove('connected');
-    statusText.textContent = 'App not running';
+// Check status
+chrome.runtime.sendMessage({ type: 'CHECK_STATUS' }, (response) => {
+  if (response && response.running) {
+    statusDot.classList.add('connected');
+    statusText.textContent = 'Connected to Flow';
+  } else {
+    statusText.textContent = 'Flow app not running';
   }
-}
-
-// Toggle auto-intercept
-toggle.addEventListener('click', async () => {
-  const result = await chrome.storage.local.get('enabled');
-  const newState = result.enabled === false;
-  await chrome.storage.local.set({ enabled: newState });
-  toggle.classList.toggle('on', newState);
+  portDisplay.textContent = response?.port || '15151';
 });
 
-checkStatus();
+// Load toggle state
+chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => {
+  if (response) {
+    toggle.classList.toggle('on', response.enabled);
+    portDisplay.textContent = response.port;
+  }
+});
+
+// Toggle click
+toggle.addEventListener('click', () => {
+  const isOn = toggle.classList.toggle('on');
+  chrome.runtime.sendMessage({ type: 'SET_ENABLED', value: isOn });
+});

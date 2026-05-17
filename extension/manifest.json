@@ -2,14 +2,17 @@
   "manifest_version": 3,
   "name": "Flow Download Manager",
   "version": "1.0.0",
-  "description": "Intercept downloads and send them to Flow Download Manager",
+  "description": "Intercept downloads and send them to Flow Download Manager for faster, managed downloads.",
   "permissions": [
     "downloads",
     "activeTab",
-    "storage"
+    "storage",
+    "notifications",
+    "webRequest"
   ],
   "host_permissions": [
-    "http://localhost/*"
+    "http://localhost/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
@@ -22,14 +25,18 @@
       "run_at": "document_end"
     }
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Flow Download Manager"
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  },
-  "action": {
-    "default_icon": "icons/icon48.png",
-    "default_title": "Flow Download Manager",
-    "default_popup": "popup.html"
   }
 }
