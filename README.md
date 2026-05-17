@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="180" src="assets/logo/app_logo_with_background.svg" alt="Flow Logo">
+  <img width="180" src="assets/logo/logo.png" alt="Flow Logo">
 </div>
 <h1 align="center">Flow</h1>
 <p align="center">A fast, modern download manager for Desktop and Android.</p>
