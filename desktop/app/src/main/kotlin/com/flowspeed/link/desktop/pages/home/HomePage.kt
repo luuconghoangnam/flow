@@ -294,34 +294,41 @@ fun HomePage(component: HomeComponent) {
                     .background(myColors.surface)
             )
             Row {
-                val categoriesWidth by component.categoriesWidth.collectAsState()
-                Column(
-                    Modifier
-                        .padding(top = 8.dp).width(categoriesWidth)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Categories(
-                        modifier = Modifier.fillMaxWidth(),
-                        component = component,
-                    )
-                    Spacer(Modifier.size(8.dp))
-                    QueuesSection(
-                        modifier = Modifier.fillMaxWidth(),
-                        component = component,
-                    )
-                    Spacer(Modifier.size(8.dp))
-                }
-                Spacer(Modifier.size(8.dp))
-                //split pane
-                Handle(
-                    Modifier.width(5.dp)
-                        .fillMaxHeight()
-                ) { delta ->
-                    component.setCategoriesWidth { it + delta }
-                }
                 Column(Modifier.weight(1f)) {
+                    // Navigation bar (replaces sidebar)
+                    val categories by component.categoryManager.categoriesFlow.collectAsState()
+                    val currentTypeFilter = component.filterState.typeCategoryFilter
+                    CyberNavigationBar(
+                        categories = categories,
+                        selectedCategory = currentTypeFilter,
+                        onCategorySelected = { category ->
+                            component.onCategoryFilterChange(
+                                component.filterState.statusFilter,
+                                category
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    // Dashboard stats header
+                    val activeCount by component.activeDownloadCountFlow.collectAsState()
+                    val totalSpeed by component.globalSpeedFlow.collectAsState(0L)
+                    val totalDiskUsage by component.totalDiskUsageFlow.collectAsState()
+                    DashboardStatsHeader(
+                        totalSpeed = totalSpeed,
+                        activeCount = activeCount,
+                        totalDiskUsage = totalDiskUsage,
+                    )
+                    // Status filter row
+                    StatusFilterRow(
+                        currentFilter = component.filterState.statusFilter,
+                        onFilterSelected = { filter ->
+                            component.onCategoryFilterChange(filter, component.filterState.typeCategoryFilter)
+                        },
+                    )
+                    // Actions row
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp),
                     ) {
                         Spacer(Modifier.size(4.dp))
                         AddUrlButton {
@@ -332,46 +339,41 @@ fun HomePage(component: HomeComponent) {
                             component.showLabels.collectAsState().value
                         )
                     }
+                    // Download list (keeping existing table for now - grid will replace later)
                     var lastSelected by remember { mutableStateOf(null as Long?) }
-                    DownloadList(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .fillMaxWidth()
-                            .weight(1f),
-                        downloadList = listState,
-                        downloadOptions = component.downloadOptions.collectAsState().value,
-                        onRequestCloseOption = {
-                            component.onRequestCloseDownloadItemOption()
-                        },
-                        onRequestOpenOption = { itemState ->
-                            component.onRequestOpenDownloadItemOption(itemState)
-                        },
-                        selectionList = component.selectionList.collectAsState().value,
-                        onItemSelectionChange = { id, checked ->
-                            lastSelected = id
-                            component.onItemSelectionChange(id, checked)
-                        },
-                        onRequestOpenDownload = {
-                            component.openFileOrShowProperties(it)
-                        },
-                        onNewSelection = {
-                            component.newSelection(ids = it)
-                        },
-                        lastSelectedId = lastSelected,
-                        tableState = tableState,
-                        fileIconProvider = component.fileIconProvider,
-                        categoryManager = component.categoryManager,
-                        lazyListState = lazyListState,
-                    )
-                    Spacer(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(
-                                myColors.surface
-                            )
-                    )
-                    Footer(component)
+                    Box(Modifier.weight(1f)) {
+                        CyberGridBackground(Modifier.fillMaxSize())
+                        DownloadList(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .fillMaxWidth()
+                                .fillMaxHeight(),
+                            downloadList = listState,
+                            downloadOptions = component.downloadOptions.collectAsState().value,
+                            onRequestCloseOption = {
+                                component.onRequestCloseDownloadItemOption()
+                            },
+                            onRequestOpenOption = { itemState ->
+                                component.onRequestOpenDownloadItemOption(itemState)
+                            },
+                            selectionList = component.selectionList.collectAsState().value,
+                            onItemSelectionChange = { id, checked ->
+                                lastSelected = id
+                                component.onItemSelectionChange(id, checked)
+                            },
+                            onRequestOpenDownload = {
+                                component.openFileOrShowProperties(it)
+                            },
+                            onNewSelection = {
+                                component.newSelection(ids = it)
+                            },
+                            lastSelectedId = lastSelected,
+                            tableState = tableState,
+                            fileIconProvider = component.fileIconProvider,
+                            categoryManager = component.categoryManager,
+                            lazyListState = lazyListState,
+                        )
+                    }
                 }
             }
         }
