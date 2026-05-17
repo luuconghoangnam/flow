@@ -67,8 +67,8 @@ dependencies {
     implementation(project(":shared:app"))
     implementation(project(":shared:utils"))
     implementation(project(":shared:updater"))
-    implementation(project(":shared:nanohttp4k"))
-    implementation(project(":desktop:mac_utils"))
+    implementation(project(":shared:local-server"))
+    implementation(project(":desktop:mac-utils"))
 }
 
 aboutLibraries {

@@ -19,7 +19,7 @@ include("android:app")
 include("desktop:app")
 include("desktop:app-utils")
 include("desktop:shared")
-include("desktop:mac_utils")
+include("desktop:mac-utils")
 include("downloader:core")
 include("downloader:monitor")
 include("integration:server")
@@ -31,7 +31,7 @@ include("shared:resources:contracts")
 include("shared:config")
 include("shared:updater")
 include("shared:auto-start")
-include("shared:nanohttp4k")
+include("shared:local-server")
 includeBuild("./compositeBuilds/shared"){
     name="build-shared"
 }

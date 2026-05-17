@@ -10,6 +10,16 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/**
+ * Manages file-type categories used to organize downloads.
+ *
+ * Categories are persisted via [CategoryStorage] and exposed as a [StateFlow].
+ * On first boot, default categories are seeded from [DefaultCategories].
+ *
+ * Category matching uses a priority-based algorithm:
+ * 1. URL pattern match takes precedence over file-type match
+ * 2. More specific patterns (fewer rules) win over broader ones
+ */
 class CategoryManager(
     private val categoryStorage: CategoryStorage,
     private val scope: CoroutineScope,
@@ -79,6 +89,17 @@ class CategoryManager(
             }
     }
 
+    /**
+     * Finds the best-matching category for a download item using both filename and URL.
+     *
+     * Priority order (highest first):
+     * 1. Categories with URL pattern filters (more specific)
+     * 2. Among URL-filtered categories: fewer URL patterns = higher priority
+     * 3. Categories with file-type filters only
+     * 4. Among file-type categories: fewer file types = higher priority
+     *
+     * Returns null if no category matches both the filename and URL.
+     */
     fun getCategoryOf(categoryItem: ICategoryItem): Category? {
         val url = categoryItem.url
         val fileName = categoryItem.fileName

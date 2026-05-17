@@ -14,10 +14,9 @@ import kotlin.getValue
 class DesktopOnQueueEventActionProvider(
     private val desktopExtraQueueSettingsStorage: IExtraQueueSettingsStorage<DesktopExtraQueueSettings>,
 ) : OnQueueCompletionActionProvider, KoinComponent {
-    // TODO: BUG
-    // at the moment if I move this to constructor the DI halts
-    // probably due to Circular Dependency but no exception is thrown
-    // I need to redesign the dependency graph to prevent these sorts of issues!
+    // Injected lazily to avoid circular dependency in the Koin DI graph.
+    // PowerActionManager depends on components that also depend on this provider,
+    // so constructor injection would cause a cycle. Lazy field injection breaks the cycle.
     private val powerActionManager: PowerActionManager by inject()
 
     override suspend fun getOnQueueEventActions(queueId: Long): List<OnQueueEventAction> {

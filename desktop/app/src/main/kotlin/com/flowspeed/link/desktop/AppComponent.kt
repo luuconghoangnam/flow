@@ -105,6 +105,15 @@ sealed interface AppEffects {
     ) : AppEffects
 }
 
+/**
+ * Root component for the desktop application.
+ *
+ * Orchestrates all top-level navigation slots (home, settings, about, queues, etc.),
+ * manages the download system lifecycle, browser integration server, and update checks.
+ *
+ * Uses Decompose for navigation and Koin for dependency injection.
+ * All page managers are implemented here and injected into child components.
+ */
 class AppComponent(
     ctx: ComponentContext,
 ) : BaseComponent(ctx),

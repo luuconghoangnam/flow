@@ -128,6 +128,7 @@ import kotlinx.serialization.modules.polymorphic
 import okhttp3.Protocol
 import okhttp3.internal.tls.OkHostnameVerifier
 
+/** Provides download engine bindings: database, HTTP client, download manager, queue manager. */
 val downloaderModule = module {
     single<IDownloadQueueDatabase> {
         val definedPaths = get<DefinedPaths>()
@@ -258,6 +259,7 @@ val downloaderModule = module {
         )
     }
 }
+/** Provides high-level download system: DownloadSystem, category manager, settings storage, file icon provider. */
 val downloadSystemModule = module {
     single {
         val definedPaths = get<DefinedPaths>()
@@ -356,11 +358,13 @@ val downloadSystemModule = module {
         )
     }
 }
+/** Provides the application-wide CoroutineScope with a SupervisorJob. */
 val coroutineModule = module {
     single {
         CoroutineScope(SupervisorJob())
     }
 }
+/** Provides the kotlinx.serialization Json instance configured for all download credential types. */
 val jsonModule = module {
     single {
         val downloaderRegistry: DownloaderRegistry by inject()
@@ -385,7 +389,7 @@ val jsonModule = module {
                         HttpDownloadCredentials.serializer()
                     }
                 }
-                // TODO remove this later
+                // Legacy polymorphic registration kept for backward compatibility with older stored data.
                 polymorphic(IDownloadCredentialsFromIntegration::class) {
                     subclass(
                         HttpDownloadCredentialsFromIntegration::class,
@@ -403,6 +407,7 @@ val jsonModule = module {
         }
     }
 }
+/** Provides the browser integration HTTP server and its handler. */
 val integrationModule = module {
     single<IntegrationHandler> {
         IntegrationHandlerImp()
@@ -411,6 +416,7 @@ val integrationModule = module {
         Integration(get(), get(), get(), AppInfo.isInDebugMode())
     }
 }
+/** Provides the auto-update checker and applier. */
 val updaterModule = module {
     single {
         val definedPaths = get<DefinedPaths>()
@@ -452,6 +458,7 @@ val updaterModule = module {
         )
     }
 }
+/** Provides the OS startup manager (registers app in system autostart). */
 val startUpModule = module {
     single {
         Startup.getStartUpManagerForDesktop(
@@ -464,6 +471,7 @@ val startUpModule = module {
         bind<AbstractStartupManager>()
     }
 }
+/** Provides native messaging support for browser extension communication. */
 val nativeMessagingModule = module {
     single<NativeMessaging> {
         NativeMessaging(NativeMessagingManifestApplier.getForCurrentPlatform())
