@@ -33,7 +33,7 @@ internal abstract class GenerateFileTypesManifest : DefaultTask() {
             .filterNot { it.isEmpty() }
             .filterNot { it.startsWith("#") }
             .toList()
-        val templateFile = "ir/amirab/plugin/common_android/AndroidManifest.xml.hbs".toPath()
+        val templateFile = "com/flowspeed/lib/plugin/common_android/AndroidManifest.xml.hbs".toPath()
         val templateContent = FileSystem.RESOURCES.read(templateFile) {
             readUtf8()
         }

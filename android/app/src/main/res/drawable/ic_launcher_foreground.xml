@@ -4,18 +4,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Arrow pointing down (download symbol) -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,28 L54,65 M54,65 L42,53 M54,65 L66,53"
-        android:strokeWidth="6"
-        android:strokeColor="#FFFFFF"
-        android:fillColor="@android:color/transparent"/>
     <path
         android:pathData="M54,28 L54,62"
         android:strokeWidth="6"
         android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round"/>
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
     <path
         android:pathData="M43,53 L54,65 L65,53"
         android:strokeWidth="6"
@@ -23,10 +17,10 @@
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:fillColor="@android:color/transparent"/>
-    <!-- Horizontal line at bottom -->
     <path
         android:pathData="M38,72 L70,72"
         android:strokeWidth="6"
         android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round"/>
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"/>
 </vector>
