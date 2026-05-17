@@ -1,0 +1,18 @@
+package com.flowspeed.link.shared.pages.home
+
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.flowspeed.link.shared.pages.home.category.DefinedStatusCategories
+import com.flowspeed.link.shared.pages.home.category.DownloadStatusCategoryFilter
+import com.flowspeed.link.shared.util.category.Category
+import com.flowspeed.lib.downloader.db.QueueModel
+
+@Stable
+class FilterState {
+    var textToSearch by mutableStateOf("")
+    var typeCategoryFilter by mutableStateOf(null as Category?)
+    var queueFilter by mutableStateOf(null as QueueModel?)
+    var statusFilter by mutableStateOf<DownloadStatusCategoryFilter>(DefinedStatusCategories.All)
+}

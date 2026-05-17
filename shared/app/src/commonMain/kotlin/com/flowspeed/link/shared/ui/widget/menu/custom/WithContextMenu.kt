@@ -1,0 +1,12 @@
+package com.flowspeed.link.shared.ui.widget.menu.custom
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import com.flowspeed.lib.util.compose.action.MenuItem
+
+@Composable
+expect fun WithContextMenu(
+    menuProvider: () -> List<MenuItem>,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+)
