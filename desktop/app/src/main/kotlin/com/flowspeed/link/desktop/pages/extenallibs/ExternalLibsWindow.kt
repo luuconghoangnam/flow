@@ -33,7 +33,7 @@ fun ShowOpenSourceLibraries(
             size = DpSize(650.dp, 400.dp)
         )
     ) {
-        WindowTitle(myStringResource(Res.string.open_source_software_used_in_this_app))
+        WindowTitle("Third-Party Libraries")
         ExternalLibsPage()
     }
 }

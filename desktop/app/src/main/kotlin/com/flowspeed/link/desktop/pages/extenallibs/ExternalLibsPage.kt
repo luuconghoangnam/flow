@@ -1,18 +1,20 @@
 package com.flowspeed.link.desktop.pages.extenallibs
 
-import com.flowspeed.link.shared.util.ui.ProvideTextStyle
 import com.flowspeed.link.shared.util.ui.theme.myTextSizes
-import com.flowspeed.link.shared.ui.widget.table.customtable.Table
-import com.flowspeed.link.shared.ui.widget.table.customtable.TableState
 import com.flowspeed.link.shared.util.ui.WithContentAlpha
+import com.flowspeed.link.shared.util.ui.myColors
+import com.flowspeed.link.shared.util.div
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import com.flowspeed.link.shared.ui.widget.Text
-import com.flowspeed.link.shared.ui.widget.table.customtable.styled.MyStyledTableHeader
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.mikepenz.aboutlibraries.Libs
@@ -23,145 +25,74 @@ import okio.Path.Companion.toPath
 @Composable
 internal fun ExternalLibsPage() {
     val libs = rememberLibs()
-    OpenSourceLibraries(
-        libs = libs,
-        modifier = Modifier.fillMaxSize(),
-    )
-}
-
-@Composable
-private fun OpenSourceLibraries(
-    libs: Libs,
-    modifier: Modifier,
-) {
-    var currentDialog by remember {
-        mutableStateOf(null as Library?)
-    }
-    Column(
-        modifier
-    ) {
-        val tableState = remember {
-            TableState(
-                cells = LibraryCells.all()
+    Column(Modifier.fillMaxSize()) {
+        // Header
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(myColors.surface)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                "Third-Party Libraries",
+                fontSize = myTextSizes.lg,
+                fontWeight = FontWeight.Bold,
             )
         }
-        val itemHorizontalPadding = 16.dp
-        Table(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-                .weight(1f),
-            list = libs.libraries,
-            listState = rememberLazyListState(),
-            tableState = tableState,
-            wrapHeader = {
-                MyStyledTableHeader(
-                    itemHorizontalPadding = itemHorizontalPadding,
-                    content = it,
-                )
-            },
-            wrapItem = { _, item, rowContent ->
-                Box(
-                    Modifier
-                        .clickable {
-                            currentDialog = item
-                        }
-                        .widthIn(getTableSize().visibleWidth)
-                        .padding(vertical = 6.dp, horizontal = itemHorizontalPadding)) {
-                    rowContent()
-                }
-            },
-            renderCell = { libraryCell, library ->
-                when (libraryCell) {
-                    LibraryCells.Name -> {
-                        Column {
-                            WithContentAlpha(1f) {
-                                Row(Modifier) {
-                                    Text(
-                                        library.name,
-                                        fontSize = myTextSizes.base,
-                                        overflow = TextOverflow.Ellipsis,
-                                        maxLines = 1
-                                    )
-                                    Spacer(Modifier.width(2.dp))
-                                    library.artifactVersion?.let { version ->
-                                        Text(
-                                            text = version,
-                                            fontSize = myTextSizes.base,
-                                            overflow = TextOverflow.Ellipsis,
-                                            maxLines = 1,
-                                        )
-                                    }
-                                }
-                            }
-                            WithContentAlpha(0.75f) {
-                                Text(
-                                    library.artifactId,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    fontSize = myTextSizes.sm,
-                                )
-                            }
-                        }
-                    }
+        Spacer(Modifier.height(1.dp).fillMaxWidth().background(myColors.onBackground / 0.1f))
 
-                    LibraryCells.Author -> {
-                        val by = library.by()
-                        if (by.isNotEmpty()) {
-                            Row {
-                                WithContentAlpha(0.7f) {
-                                    ProvideTextStyle(
-                                        TextStyle(fontSize = myTextSizes.sm)
-                                    ) {
-                                        for ((name) in by) {
-                                            Spacer(Modifier.width(4.dp))
-                                            Text(
-                                                text = name,
-                                                fontSize = myTextSizes.base,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    LibraryCells.License -> {
-                        WithContentAlpha(0.75f) {
-                            Text(
-                                text = library.licenses.joinToString(", ") { it.name },
-                                fontSize = myTextSizes.base,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            },
-        )
-    }
-    currentDialog.let { library ->
-        if (library != null) {
-            LibraryDialog(library) {
-                currentDialog = null
+        // Library list
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(libs.libraries) { library ->
+                LibraryItem(library)
             }
         }
     }
 
+    // Dialog removed - just show inline info
 }
 
-private fun Library.by(): List<Pair<String, String?>> {
-    val d = developers.filter {
-        it.name != null
-    }.map {
-        it.name!! to it.organisationUrl
-    }.takeIf { it.isNotEmpty() }
-    if (d != null) return d
-    return organization?.let {
-        listOf(it.name to it.url)
-    } ?: emptyList()
+@Composable
+private fun LibraryItem(library: Library) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .border(1.dp, myColors.onBackground / 0.05f, RectangleShape)
+            .background(myColors.surface / 0.3f, RectangleShape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "${library.name} ${library.artifactVersion ?: ""}",
+                fontSize = myTextSizes.base,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            WithContentAlpha(0.5f) {
+                Text(
+                    library.artifactId,
+                    fontSize = myTextSizes.xs,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        WithContentAlpha(0.6f) {
+            Text(
+                library.licenses.joinToString(", ") { it.name },
+                fontSize = myTextSizes.sm,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 @Composable
