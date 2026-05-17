@@ -18,42 +18,78 @@ val FlowIcons.AppIcon: ImageVector
             viewportWidth = 48f,
             viewportHeight = 48f
         ).apply {
-            // Dark background rounded rect
+            // Background - dark
             path(fill = SolidColor(Color(0xFF0A0A0A))) {
-                moveTo(8f, 0f)
-                curveTo(3.582f, 0f, 0f, 3.582f, 0f, 8f)
-                lineTo(0f, 40f)
-                curveTo(0f, 44.418f, 3.582f, 48f, 8f, 48f)
-                lineTo(40f, 48f)
-                curveTo(44.418f, 48f, 48f, 44.418f, 48f, 40f)
-                lineTo(48f, 8f)
-                curveTo(48f, 3.582f, 44.418f, 0f, 40f, 0f)
+                moveTo(0f, 0f)
+                lineTo(48f, 0f)
+                lineTo(48f, 48f)
+                lineTo(0f, 48f)
                 close()
             }
-            // Down arrow shaft
-            path(fill = SolidColor(Color(0xFFB3BCCF))) {
-                moveTo(22.5f, 12f)
-                lineTo(25.5f, 12f)
-                lineTo(25.5f, 30f)
-                lineTo(22.5f, 30f)
+            // Diamond shape - outer
+            path(fill = SolidColor(Color(0xFF586F9D))) {
+                // Top point
+                moveTo(24f, 2f)
+                // Right point
+                lineTo(46f, 24f)
+                // Bottom point
+                lineTo(24f, 46f)
+                // Left point
+                lineTo(2f, 24f)
                 close()
             }
-            // Arrow head
-            path(fill = SolidColor(Color(0xFFB3BCCF))) {
-                moveTo(24f, 36f)
-                lineTo(16f, 28f)
-                lineTo(18.2f, 25.8f)
-                lineTo(24f, 31.6f)
-                lineTo(29.8f, 25.8f)
-                lineTo(32f, 28f)
+            // Inner diamond - darker
+            path(fill = SolidColor(Color(0xFF253050))) {
+                moveTo(24f, 6f)
+                lineTo(42f, 24f)
+                lineTo(24f, 42f)
+                lineTo(6f, 24f)
                 close()
             }
-            // Bottom bar
+            // Center V-shape / chevron pattern (like the logo)
             path(fill = SolidColor(Color(0xFFB3BCCF))) {
-                moveTo(14f, 38f)
-                lineTo(34f, 38f)
-                lineTo(34f, 40.5f)
-                lineTo(14f, 40.5f)
+                // Left arm of V
+                moveTo(12f, 14f)
+                lineTo(15f, 14f)
+                lineTo(24f, 32f)
+                lineTo(21f, 32f)
+                close()
+            }
+            path(fill = SolidColor(Color(0xFFB3BCCF))) {
+                // Right arm of V
+                moveTo(33f, 14f)
+                lineTo(36f, 14f)
+                lineTo(27f, 32f)
+                lineTo(24f, 32f)
+                close()
+            }
+            // Horizontal bars (speed lines)
+            path(fill = SolidColor(Color(0xFF8090B0))) {
+                moveTo(10f, 22f)
+                lineTo(18f, 22f)
+                lineTo(18f, 23.5f)
+                lineTo(10f, 23.5f)
+                close()
+            }
+            path(fill = SolidColor(Color(0xFF8090B0))) {
+                moveTo(30f, 22f)
+                lineTo(38f, 22f)
+                lineTo(38f, 23.5f)
+                lineTo(30f, 23.5f)
+                close()
+            }
+            path(fill = SolidColor(Color(0xFF8090B0))) {
+                moveTo(11f, 25.5f)
+                lineTo(19f, 25.5f)
+                lineTo(19f, 27f)
+                lineTo(11f, 27f)
+                close()
+            }
+            path(fill = SolidColor(Color(0xFF8090B0))) {
+                moveTo(29f, 25.5f)
+                lineTo(37f, 25.5f)
+                lineTo(37f, 27f)
+                lineTo(29f, 27f)
                 close()
             }
         }.build()
