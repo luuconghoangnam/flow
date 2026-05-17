@@ -318,7 +318,7 @@ fun HomePage(component: HomeComponent) {
                         activeCount = activeCount,
                         totalDiskUsage = totalDiskUsage,
                     )
-                    // Combined filter + actions row (Cyber-Industrial style)
+                    // Combined filter + actions row - each takes half width
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -326,7 +326,7 @@ fun HomePage(component: HomeComponent) {
                             .background(myColors.surface / 0.5f)
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
-                        // Status filters on the left
+                        // Status filters - left half
                         StatusFilterRow(
                             currentFilter = component.filterState.statusFilter,
                             onFilterSelected = { filter ->
@@ -334,15 +334,21 @@ fun HomePage(component: HomeComponent) {
                             },
                             modifier = Modifier.weight(1f),
                         )
-                        // Compact action buttons on the right
-                        Spacer(Modifier.width(8.dp))
-                        AddUrlButton {
-                            component.requestEnterNewURL()
+                        // Actions - right half
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            AddUrlButton {
+                                component.requestEnterNewURL()
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Actions(
+                                component.headerActions,
+                                false
+                            )
                         }
-                        Actions(
-                            component.headerActions,
-                            false // never show labels - compact mode
-                        )
                     }
                     // Download list (keeping existing table for now - grid will replace later)
                     var lastSelected by remember { mutableStateOf(null as Long?) }
