@@ -65,7 +65,7 @@ private val desktopSpacings = MySpacings(
 )
 
 val desktopShapes = MyShapes(
-    defaultRounded = RoundedCornerShape(6.dp)
+    defaultRounded = RoundedCornerShape(0.dp)
 )
 
 @Composable

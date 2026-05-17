@@ -58,7 +58,7 @@ private val androidTextSizes = TextSizes(
 )
 
 private val androidShapes = MyShapes(
-    defaultRounded = RoundedCornerShape(12.dp),
+    defaultRounded = RoundedCornerShape(0.dp),
 )
 
 @Composable
