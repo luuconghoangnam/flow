@@ -223,6 +223,9 @@ abstract class BaseHomeComponent(
         it.sumOf { it.speed }
     }
 
+    val totalDiskUsageFlow = downloadSystem.downloadMonitor.completedDownloadListFlow.map { list ->
+        list.sumOf { it.contentLength }
+    }.stateIn(scope, SharingStarted.Eagerly, 0L)
 
     val activeDownloadList = downloadSystem.downloadMonitor.activeDownloadListFlow
     val completedList = downloadSystem.downloadMonitor.completedDownloadListFlow
