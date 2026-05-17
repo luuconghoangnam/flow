@@ -318,25 +318,30 @@ fun HomePage(component: HomeComponent) {
                         activeCount = activeCount,
                         totalDiskUsage = totalDiskUsage,
                     )
-                    // Status filter row
-                    StatusFilterRow(
-                        currentFilter = component.filterState.statusFilter,
-                        onFilterSelected = { filter ->
-                            component.onCategoryFilterChange(filter, component.filterState.typeCategoryFilter)
-                        },
-                    )
-                    // Actions row
+                    // Combined filter + actions row (Cyber-Industrial style)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(myColors.surface / 0.5f)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
-                        Spacer(Modifier.size(4.dp))
+                        // Status filters on the left
+                        StatusFilterRow(
+                            currentFilter = component.filterState.statusFilter,
+                            onFilterSelected = { filter ->
+                                component.onCategoryFilterChange(filter, component.filterState.typeCategoryFilter)
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Compact action buttons on the right
+                        Spacer(Modifier.width(8.dp))
                         AddUrlButton {
                             component.requestEnterNewURL()
                         }
                         Actions(
                             component.headerActions,
-                            component.showLabels.collectAsState().value
+                            false // never show labels - compact mode
                         )
                     }
                     // Download list (keeping existing table for now - grid will replace later)

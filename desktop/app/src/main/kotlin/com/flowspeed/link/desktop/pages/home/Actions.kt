@@ -17,162 +17,107 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import com.flowspeed.link.shared.ui.widget.Tooltip
-import com.flowspeed.link.shared.util.ui.LocalMultiplatformScrollbarStyle
-import com.flowspeed.link.shared.util.ui.MultiplatformHorizontalScrollbar
-import com.flowspeed.link.shared.util.ui.needScroll
 import com.flowspeed.lib.util.compose.IconSource
 import com.flowspeed.lib.util.compose.StringSource
 
+/**
+ * Compact action toolbar - Cyber-Industrial style.
+ * Icons only, tight spacing, sharp separators.
+ */
 @Composable
 fun Actions(
     list: List<MenuItem>,
     showLabels: Boolean,
 ) {
-    val scrollState = rememberScrollState()
-    Column {
-        Row(
-            Modifier
-                .height(IntrinsicSize.Max)
-                .horizontalScroll(scrollState)
-        ) {
-            for (a in list) {
-                when (a) {
-                    MenuItem.Separator -> {
-                        Spacer(
-                            Modifier
-                                .padding(horizontal = 4.dp)
-                                .fillMaxHeight()
-                                .padding(vertical = 4.dp)
-                                .width(1.dp)
-                                .background(myColors.onBackground / 5)
-                        )
-                    }
+    Row(
+        Modifier.height(IntrinsicSize.Max),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        for (a in list) {
+            when (a) {
+                MenuItem.Separator -> {
+                    Spacer(
+                        Modifier
+                            .padding(horizontal = 2.dp)
+                            .fillMaxHeight()
+                            .padding(vertical = 6.dp)
+                            .width(1.dp)
+                            .background(myColors.onBackground / 0.1f)
+                    )
+                }
 
-                    is MenuItem.SingleItem -> {
-                        ActionButton(Modifier, a, showLabels)
-                    }
+                is MenuItem.SingleItem -> {
+                    CompactActionButton(a)
+                }
 
-                    is MenuItem.SubMenu -> {
-                        GroupActionButton(Modifier, a, showLabels)
-                    }
+                is MenuItem.SubMenu -> {
+                    CompactGroupButton(a)
                 }
             }
         }
-        val adapter = rememberScrollbarAdapter(scrollState)
-        if (adapter.needScroll()) {
-            MultiplatformHorizontalScrollbar(
-                adapter = adapter,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 2.dp),
-            )
+    }
+}
+
+@Composable
+private fun CompactActionButton(
+    action: MenuItem.SingleItem,
+) {
+    val enabled by action.isEnabled.collectAsState()
+    val title = action.title.collectAsState().value
+    Tooltip(title) {
+        Box(
+            modifier = Modifier
+                .clickable(enabled = enabled, onClick = { action() })
+                .ifThen(!enabled) { alpha(0.4f) }
+                .padding(6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            WithContentColor(myColors.onBackground) {
+                action.icon.collectAsState().value?.let { icon ->
+                    MyIcon(
+                        icon = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ActionButton(
-    modifier: Modifier = Modifier,
-    action: MenuItem.SingleItem,
-    showLabels: Boolean,
-) {
-    val enabled by action.isEnabled.collectAsState()
-    Column(modifier) {
-        ActionIconWithLabel(
-            title = action.title.collectAsState().value,
-            icon = action.icon.collectAsState().value,
-            showLabels = showLabels,
-            onClick = {
-                action()
-            },
-            enabled = enabled
-        )
-    }
-}
-
-@Composable
-private fun GroupActionButton(
-    modifier: Modifier = Modifier,
+private fun CompactGroupButton(
     action: MenuItem.SubMenu,
-    showLabels: Boolean,
 ) {
     val enabled by action.isEnabled.collectAsState()
     var showSubMenu by remember { mutableStateOf(false) }
-    Column(modifier) {
-        ActionIconWithLabel(
-            title = action.title.collectAsState().value,
-            icon = action.icon.collectAsState().value,
-            showLabels = showLabels,
-            onClick = {
-                showSubMenu = !showSubMenu
-            },
-            enabled = enabled
-        )
-        val close = {
-            showSubMenu = false
-        }
-        if (enabled && showSubMenu) {
-            MyDropDown(onDismissRequest = close) {
-                val items by action.items.collectAsState()
-                SubMenu(subMenu = items, onRequestClose = close)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionIconWithLabel(
-    title: StringSource,
-    icon: IconSource?,
-    showLabels: Boolean,
-    onClick: () -> Unit,
-    enabled: Boolean,
-) {
-    OptionalTooltip(
-        title.takeIf { !showLabels },
-    ) {
-        Column(
+    val title = action.title.collectAsState().value
+    Tooltip(title) {
+        Box(
             modifier = Modifier
-                .clickable(enabled = enabled, onClick = onClick)
-                .ifThen(!enabled) {
-                    alpha(0.5f)
-                }
-                .padding(if (showLabels) 8.dp else 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .clickable(enabled = enabled, onClick = { showSubMenu = !showSubMenu })
+                .ifThen(!enabled) { alpha(0.4f) }
+                .padding(6.dp),
+            contentAlignment = Alignment.Center,
         ) {
             WithContentColor(myColors.onBackground) {
-                WithContentAlpha(1f) {
-                    icon?.let {
-                        val iconSize = if (showLabels) 16.dp else 24.dp
-                        MyIcon(
-                            icon = it,
-                            contentDescription = null,
-                            modifier = Modifier.size(iconSize)
-                        )
-                    }
-                    if (showLabels) {
-                        Spacer(Modifier.size(2.dp))
-                        Text(title.rememberString(), maxLines = 1, fontSize = myTextSizes.sm)
-                    }
+                action.icon.collectAsState().value?.let { icon ->
+                    MyIcon(
+                        icon = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
     }
-
-}
-
-@Composable
-private fun OptionalTooltip(
-    tooltip: StringSource?,
-    content: @Composable () -> Unit
-) {
-    if (tooltip != null) {
-        Tooltip(tooltip) {
-            content()
+    if (enabled && showSubMenu) {
+        MyDropDown(onDismissRequest = { showSubMenu = false }) {
+            val items by action.items.collectAsState()
+            SubMenu(subMenu = items, onRequestClose = { showSubMenu = false })
         }
-    } else {
-        content()
     }
 }
