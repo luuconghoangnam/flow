@@ -1,0 +1,52 @@
+/* Flow Download Manager - Overlay Styles */
+/* Cyber-Industrial aesthetic: sharp corners, orange accent, dark */
+
+#flow-dm-overlay {
+  position: absolute;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+#flow-dm-overlay.flow-dm-visible {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#flow-dm-overlay .flow-dm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #1a1a1a;
+  border: 1px solid #E64A00;
+  color: #E64A00;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+#flow-dm-overlay .flow-dm-btn:hover {
+  background: #E64A00;
+  color: #fff;
+}
+
+#flow-dm-overlay .flow-dm-btn:hover svg path {
+  stroke: #fff;
+}
+
+#flow-dm-overlay .flow-dm-btn:active {
+  transform: scale(0.95);
+}
+
+#flow-dm-overlay .flow-dm-btn svg path {
+  stroke: #E64A00;
+}
