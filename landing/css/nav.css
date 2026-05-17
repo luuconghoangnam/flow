@@ -1,0 +1,35 @@
+/* NAV */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,8,8,0.9);
+  backdrop-filter: blur(16px);
+  transition: border-color 0.3s;
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto; padding: 0 24px;
+  height: 60px; display: flex; align-items: center; gap: 32px;
+}
+.logo {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 800; font-size: 16px; letter-spacing: 2px;
+  font-family: var(--mono);
+}
+.nav-links { display: flex; list-style: none; gap: 24px; }
+.nav-links a { color: var(--text-muted); font-size: 13px; transition: color 0.2s; }
+.nav-links a:hover { color: var(--text); }
+.btn-nav {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--orange); color: var(--orange);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  transition: all 0.2s;
+}
+.btn-nav:hover { background: var(--orange); color: #fff; }
+.nav-progress { height: 2px; background: var(--orange); width: 0%; transition: width 0.1s; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .btn-nav { margin-left: auto; }
+}
