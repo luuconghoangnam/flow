@@ -22,9 +22,6 @@ const DOWNLOAD_EXTENSIONS = new Set([
 
 let isEnabled = true;
 
-// Track IDs we've already handled to avoid double-processing
-const handledIds = new Set();
-
 chrome.storage.local.get(['enabled', 'port'], (result) => {
   isEnabled = result.enabled !== false;
 });
@@ -33,9 +30,9 @@ chrome.storage.onChanged.addListener((changes) => {
 });
 
 /**
- * BEST METHOD: onDeterminingFilename fires BEFORE the save dialog.
- * Returning true from the listener tells Chrome we're handling it.
- * We cancel the download immediately — no save dialog appears.
+ * ONLY METHOD: onDeterminingFilename fires BEFORE save dialog.
+ * Returning true tells Chrome we're handling this download.
+ * onCreated is NOT used — it causes duplicate dialogs.
  */
 chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
   if (!isEnabled) return false;
@@ -46,54 +43,20 @@ chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
   const filename = downloadItem.filename || getFilenameFromUrl(url);
   if (!shouldIntercept(url, filename, downloadItem.fileSize || 0)) return false;
 
-  // Mark as handled so onCreated doesn't double-process
-  handledIds.add(downloadItem.id);
-
-  // Cancel immediately — this is what prevents the save dialog
+  // Cancel immediately — prevents save dialog
   chrome.downloads.cancel(downloadItem.id, () => {
     chrome.downloads.erase({ id: downloadItem.id });
-    handledIds.delete(downloadItem.id);
   });
 
   // Send to Flow app
   sendToFlow(url, filename).then(success => {
     if (!success) {
       showNotification('Flow app is not running', 'Open Flow and try again.');
-      // Re-download in browser as fallback
       chrome.downloads.download({ url });
     }
   });
 
-  // Returning true signals we're handling this download
-  return true;
-});
-
-/**
- * FALLBACK: onCreated catches downloads that onDeterminingFilename missed
- * (e.g. downloads triggered programmatically without a filename phase).
- */
-chrome.downloads.onCreated.addListener((downloadItem) => {
-  if (!isEnabled) return;
-  if (handledIds.has(downloadItem.id)) return; // already handled above
-
-  const url = downloadItem.url;
-  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return;
-
-  const filename = downloadItem.filename || getFilenameFromUrl(url);
-  if (!shouldIntercept(url, filename, downloadItem.totalBytes || 0)) return;
-
-  handledIds.add(downloadItem.id);
-  chrome.downloads.cancel(downloadItem.id, () => {
-    chrome.downloads.erase({ id: downloadItem.id });
-    handledIds.delete(downloadItem.id);
-  });
-
-  sendToFlow(url, filename).then(success => {
-    if (!success) {
-      showNotification('Flow app is not running', 'Download will proceed in browser.');
-      chrome.downloads.download({ url });
-    }
-  });
+  return true; // signals Chrome we handled it
 });
 
 /**
