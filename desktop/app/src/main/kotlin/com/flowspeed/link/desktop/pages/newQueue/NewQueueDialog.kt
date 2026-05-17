@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.newQueue
+package com.flowspeed.link.desktop.pages.newqueue
 
 import com.flowspeed.link.desktop.AppComponent
 import com.flowspeed.link.desktop.window.custom.CustomWindow

@@ -6,8 +6,8 @@ import com.flowspeed.link.shared.pages.adddownload.AddDownloadComponent
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadConfig
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps
 import com.flowspeed.link.shared.pages.adddownload.ImportOptions
-import com.flowspeed.link.desktop.pages.addDownload.multiple.DesktopAddMultiDownloadComponent
-import com.flowspeed.link.desktop.pages.addDownload.single.DesktopAddSingleDownloadComponent
+import com.flowspeed.link.desktop.pages.adddownload.multiple.DesktopAddMultiDownloadComponent
+import com.flowspeed.link.desktop.pages.adddownload.single.DesktopAddSingleDownloadComponent
 import com.flowspeed.link.desktop.pages.batchdownload.DesktopBatchDownloadComponent
 import com.flowspeed.link.shared.pages.category.CategoryComponent
 import com.flowspeed.link.desktop.pages.category.DesktopCategoryDialogManager
@@ -19,7 +19,7 @@ import com.flowspeed.link.desktop.pages.perhostsettings.DesktopPerHostSettingsCo
 import com.flowspeed.link.desktop.pages.queue.QueuesComponent
 import com.flowspeed.link.desktop.pages.settings.DesktopSettingsComponent
 import com.flowspeed.link.desktop.pages.poweractionalert.PowerActionComponent
-import com.flowspeed.link.desktop.pages.singleDownloadPage.DesktopSingleDownloadComponent
+import com.flowspeed.link.desktop.pages.singledownloadpage.DesktopSingleDownloadComponent
 import com.flowspeed.link.desktop.repository.AppRepository
 import com.flowspeed.link.desktop.storage.AppSettingsStorage
 import com.flowspeed.link.desktop.storage.DesktopExtraDownloadItemSettings

@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.singleDownloadPage
+package com.flowspeed.link.desktop.pages.singledownloadpage
 
 import arrow.optics.Lens
 import arrow.optics.optics

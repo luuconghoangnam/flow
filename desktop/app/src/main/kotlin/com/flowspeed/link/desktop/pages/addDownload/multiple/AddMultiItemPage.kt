@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.addDownload.multiple
+package com.flowspeed.link.desktop.pages.adddownload.multiple
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,11 +9,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.flowspeed.link.shared.ui.widget.*
-import com.flowspeed.link.desktop.pages.addDownload.shared.CategoryAddButton
-import com.flowspeed.link.desktop.pages.addDownload.shared.CategorySelect
-import com.flowspeed.link.desktop.pages.addDownload.shared.ExtraConfig
-import com.flowspeed.link.desktop.pages.addDownload.shared.LocationTextField
-import com.flowspeed.link.desktop.pages.addDownload.shared.ShowAddToQueueDialog
+import com.flowspeed.link.desktop.pages.adddownload.shared.CategoryAddButton
+import com.flowspeed.link.desktop.pages.adddownload.shared.CategorySelect
+import com.flowspeed.link.desktop.pages.adddownload.shared.ExtraConfig
+import com.flowspeed.link.desktop.pages.adddownload.shared.LocationTextField
+import com.flowspeed.link.desktop.pages.adddownload.shared.ShowAddToQueueDialog
 import com.flowspeed.link.desktop.pages.home.sections.SearchBox
 import com.flowspeed.link.shared.util.ui.myColors
 import com.flowspeed.link.shared.util.ui.theme.myTextSizes

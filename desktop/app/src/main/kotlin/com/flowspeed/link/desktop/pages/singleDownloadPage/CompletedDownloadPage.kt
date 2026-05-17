@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.singleDownloadPage
+package com.flowspeed.link.desktop.pages.singledownloadpage
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee

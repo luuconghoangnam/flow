@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.addDownload
+package com.flowspeed.link.desktop.pages.adddownload
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,9 +12,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
 import com.flowspeed.link.desktop.DesktopAddDownloadDialogManager
-import com.flowspeed.link.desktop.pages.addDownload.multiple.DesktopAddMultiDownloadComponent
-import com.flowspeed.link.desktop.pages.addDownload.multiple.AddMultiItemPage
-import com.flowspeed.link.desktop.pages.addDownload.single.AddDownloadPage
+import com.flowspeed.link.desktop.pages.adddownload.multiple.DesktopAddMultiDownloadComponent
+import com.flowspeed.link.desktop.pages.adddownload.multiple.AddMultiItemPage
+import com.flowspeed.link.desktop.pages.adddownload.single.AddDownloadPage
 import com.flowspeed.link.shared.pages.adddownload.single.BaseAddSingleDownloadComponent
 import com.flowspeed.link.desktop.window.custom.CustomWindow
 import com.flowspeed.link.desktop.window.custom.WindowIcon

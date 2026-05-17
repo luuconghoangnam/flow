@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.*
 import com.flowspeed.link.shared.ui.widget.*
-import com.flowspeed.link.desktop.pages.addDownload.shared.ExtraConfig
+import com.flowspeed.link.desktop.pages.adddownload.shared.ExtraConfig
 import com.flowspeed.link.desktop.window.custom.CustomWindow
 import com.flowspeed.link.desktop.window.custom.WindowTitle
 import com.flowspeed.link.shared.util.ui.theme.LocalUiScale

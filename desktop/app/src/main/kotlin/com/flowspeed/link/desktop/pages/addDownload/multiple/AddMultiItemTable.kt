@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.addDownload.multiple
+package com.flowspeed.link.desktop.pages.adddownload.multiple
 
 import com.flowspeed.link.shared.util.ui.WithContentAlpha
 import com.flowspeed.link.shared.util.ui.myColors

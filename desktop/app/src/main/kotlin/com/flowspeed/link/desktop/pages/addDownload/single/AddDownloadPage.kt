@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.addDownload.single
+package com.flowspeed.link.desktop.pages.adddownload.single
 
 import com.flowspeed.link.shared.util.ui.WithContentAlpha
 import com.flowspeed.link.shared.util.ui.WithContentColor
@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.*
 import arrow.core.Some
 import com.flowspeed.link.shared.ui.widget.*
-import com.flowspeed.link.desktop.pages.addDownload.shared.*
+import com.flowspeed.link.desktop.pages.adddownload.shared.*
 import com.flowspeed.link.shared.util.mvi.HandleEffects
 import com.flowspeed.link.resources.Res
 import com.flowspeed.link.shared.downloaderinui.add.CanAddResult

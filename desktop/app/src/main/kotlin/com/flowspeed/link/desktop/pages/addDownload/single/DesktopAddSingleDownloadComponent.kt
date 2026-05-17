@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.addDownload.single
+package com.flowspeed.link.desktop.pages.adddownload.single
 
 import com.flowspeed.link.shared.action.createNewQueueAction
 import com.flowspeed.link.shared.downloaderinui.DownloaderInUi

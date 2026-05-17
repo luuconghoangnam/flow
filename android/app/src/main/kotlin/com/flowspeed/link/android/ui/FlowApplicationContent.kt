@@ -4,8 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import com.flowspeed.link.android.ui.configurable.comon.CommonConfigurableRenderersForAndroid
-import com.flowspeed.link.android.ui.configurable.comon.ConfigurableRenderersForAndroid
+import com.flowspeed.link.android.ui.configurable.common.CommonConfigurableRenderersForAndroid
+import com.flowspeed.link.android.ui.configurable.common.ConfigurableRenderersForAndroid
 import com.flowspeed.link.android.util.AppInfo
 import com.flowspeed.link.shared.repository.BaseAppRepository
 import com.flowspeed.link.shared.storage.BaseAppSettingsStorage

@@ -15,8 +15,8 @@ import com.flowspeed.link.shared.pagemanager.PerHostSettingsPageManager
 import com.flowspeed.link.shared.pagemanager.QueuePageManager
 import com.flowspeed.link.shared.util.SharedConstants
 import com.flowspeed.link.desktop.PowerActionManager
-import com.flowspeed.link.desktop.actions.onevennts.DesktopOnDownloadCompletionActionProvider
-import com.flowspeed.link.desktop.actions.onevennts.DesktopOnQueueEventActionProvider
+import com.flowspeed.link.desktop.actions.onevents.DesktopOnDownloadCompletionActionProvider
+import com.flowspeed.link.desktop.actions.onevents.DesktopOnQueueEventActionProvider
 import com.flowspeed.link.desktop.integration.IntegrationHandlerImp
 import com.flowspeed.link.desktop.pages.category.DesktopCategoryDialogManager
 import com.flowspeed.link.desktop.pages.settings.FontManager

@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.singleDownloadPage
+package com.flowspeed.link.desktop.pages.singledownloadpage
 
 import com.flowspeed.link.desktop.DesktopDownloadDialogManager
 import com.flowspeed.link.desktop.window.custom.CustomWindow

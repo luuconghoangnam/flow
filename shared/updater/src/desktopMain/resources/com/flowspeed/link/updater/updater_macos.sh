@@ -1,79 +1,68 @@
-APP_NAME="ABDownloadManager"
+#!/usr/bin/env bash
+# Flow Download Manager — macOS updater script
+# Called by the app to apply an update while it is not running.
 
-awaitTermination(){
+APP_NAME="Flow"
+
+awaitTermination() {
   local processName="${1:?}"
   local count=0
   while true; do
-    local pids=$(pgrep -x "$processName")
-    if [ -z "$pids" ]; then
+    local pids
+    pids=$(pgrep -x "$processName") || true
+    [ -z "$pids" ] && break
+    if [ $count -ge 10 ]; then
+      echo "Timeout waiting for $processName to terminate."
       break
     fi
-    if [ $count -eq 10 ]; then
-      echo "timeout waiting for $processName to terminate"
-      break
-    fi
-    echo "waiting for $processName to terminate"
+    echo "Waiting for $processName to stop..."
     sleep 1
-    count=$((count + 1))
+    ((count++))
   done
 }
 
-stopApp(){
-  echo "stopping the app"
-  local pids=$(pgrep -x "$APP_NAME")
+stopApp() {
+  echo "Stopping ${APP_NAME}..."
+  local pids
+  pids=$(pgrep -x "$APP_NAME") || true
   if [ -z "$pids" ]; then
-    echo "no process found with name $APP_NAME"
-    return
+    echo "${APP_NAME} is not running."
+    return 0
   fi
   kill -9 $pids
   awaitTermination "$APP_NAME"
-  if [ $? -ne 0 ]; then
-    echo "failed to stop $APP_NAME"
-    return 1
-  fi
-  echo "process $APP_NAME stopped"
+  echo "${APP_NAME} stopped."
 }
 
-removeCurrentInstallation(){
+removeCurrentInstallation() {
   local installationFolder="${1:?}"
-  echo "removing current installation"
-  echo "executing rm -rf \"$installationFolder\""
+  echo "Removing current installation: $installationFolder"
   rm -rf "$installationFolder"
 }
 
-copyUpdateToInstallationFolder(){
+copyUpdateToInstallationFolder() {
   local updateFile="$1"
   local installationFolder="${2:?}"
-  echo "copying update files to installation folder"
-  echo "executing: cp -Rp \"$updateFile\" \"$installationFolder\""
+  echo "Applying update..."
   cp -Rp "$updateFile" "$installationFolder"
 }
 
-removeUpdateFiles(){
+removeUpdateFiles() {
   local updateFile="$1"
-  echo "removing update folder"
-  echo "executing: rm -rf \"$updateFile\""
+  echo "Cleaning up update files..."
   rm -rf "$updateFile"
 }
 
-executeProgram(){
-  local installationFolder=$1
-  echo "starting $APP_NAME..."
-  echo "executing: open \"$installationFolder\""
+executeProgram() {
+  local installationFolder="$1"
+  echo "Starting ${APP_NAME}..."
   open "$installationFolder"
 }
 
-main(){
+main() {
   local updateFile="$1"
   local installationFolder="$2"
-
-  stopApp "$APP_NAME"
-  if [ $? -ne 0 ]; then
-    echo "returning back to program"
-    executeProgram "$installationFolder"
-    exit 1
-  fi
-
+  stopApp || { executeProgram "$installationFolder"; exit 1; }
   removeCurrentInstallation "$installationFolder"
   copyUpdateToInstallationFolder "$updateFile" "$installationFolder"
   removeUpdateFiles "$updateFile"

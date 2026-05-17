@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.addDownload.shared
+package com.flowspeed.link.desktop.pages.adddownload.shared
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

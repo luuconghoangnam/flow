@@ -5,8 +5,8 @@ import androidx.datastore.core.DataStore
 import arrow.optics.Lens
 import arrow.optics.optics
 import com.flowspeed.link.desktop.pages.settings.SettingPageStateToPersist
-import com.flowspeed.link.desktop.pages.singleDownloadPage.SingleDownloadPageStateStorage
-import com.flowspeed.link.desktop.pages.singleDownloadPage.SingleDownloadPageStateToPersist
+import com.flowspeed.link.desktop.pages.singledownloadpage.SingleDownloadPageStateStorage
+import com.flowspeed.link.desktop.pages.singledownloadpage.SingleDownloadPageStateToPersist
 import com.flowspeed.link.shared.storage.ILastSavedLocationsStorage
 import com.flowspeed.link.shared.util.ConfigBaseSettingsByMapConfig
 import com.flowspeed.lib.util.config.getDecoded

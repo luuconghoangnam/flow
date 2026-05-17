@@ -1,7 +1,7 @@
-package com.flowspeed.link.desktop.pages.singleDownloadPage
+package com.flowspeed.link.desktop.pages.singledownloadpage
 
 import com.flowspeed.link.shared.ui.configurable.RenderConfigurable
-import com.flowspeed.link.desktop.pages.singleDownloadPage.SingleDownloadPageSections.*
+import com.flowspeed.link.desktop.pages.singledownloadpage.SingleDownloadPageSections.*
 import com.flowspeed.link.shared.util.ui.LocalContentColor
 import com.flowspeed.link.shared.util.ui.WithContentAlpha
 import com.flowspeed.lib.util.compose.IconSource

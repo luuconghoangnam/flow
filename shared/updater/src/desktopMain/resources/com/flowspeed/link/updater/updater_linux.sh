@@ -1,82 +1,78 @@
-APP_NAME="ABDownloadManager"
-awaitTermination(){
+#!/usr/bin/env bash
+# Flow Download Manager — Linux updater script
+# Called by the app to apply an update while it is not running.
+
+APP_NAME="Flow"
+
+awaitTermination() {
   local processName="${1:?}"
   local count=0
   while true; do
-    local pids=$(pidof "$processName")
-    if [ -z "$pids" ]; then
+    local pids
+    pids=$(pidof "$processName") || true
+    [ -z "$pids" ] && break
+    if [ $count -ge 10 ]; then
+      echo "Timeout waiting for $processName to terminate."
       break
     fi
-    if [ $count -eq 10 ]; then
-      echo "timeout waiting for $processName to terminate"
-      break
-    fi
-    echo "waiting for $processName to terminate"
+    echo "Waiting for $processName to stop..."
     sleep 1
+    ((count++))
   done
 }
-stopApp(){
-  echo "stopping the app"
-  local pids=$(pidof "$APP_NAME")
+
+stopApp() {
+  echo "Stopping ${APP_NAME}..."
+  local pids
+  pids=$(pidof "$APP_NAME") || true
   if [ -z "$pids" ]; then
-    echo "no process found with name $APP_NAME"
-    return
+    echo "${APP_NAME} is not running."
+    return 0
   fi
   kill -9 "$pids"
   awaitTermination "$APP_NAME"
-  if [ $? -ne 0 ]; then
-    echo "failed to stop $APP_NAME"
-    return 1
-  fi
-  echo "process $APP_NAME stopped"
+  echo "${APP_NAME} stopped."
 }
-removeCurrentInstallation(){
+
+removeCurrentInstallation() {
   local installationFolder="${1:?}"
-  filesToRemove=(
-    "bin"
-    "lib"
-  )
-  echo "removing current installation"
-  for filesToRemove in "${filesToRemove[@]}" ; do
-      echo "executing rm -rf \"$installationFolder/$filesToRemove\""
-      rm -rf "$installationFolder/$filesToRemove"
+  local targets=("bin" "lib")
+  echo "Removing current installation..."
+  for target in "${targets[@]}"; do
+    rm -rf "${installationFolder}/${target}"
   done
 }
-copyUpdateToInstallationFolder(){
-    local updateFile="$1"
-    local installationFolder="${2:?"installationFolder not passed"}"
-    echo "copying update files to installation folder"
-    echo "executing: cp -a \"$updateFile/.\" $installationFolder"
-    cp -a "$updateFile/." "$installationFolder"
+
+copyUpdateToInstallationFolder() {
+  local updateFile="$1"
+  local installationFolder="${2:?installationFolder not provided}"
+  echo "Applying update..."
+  cp -a "${updateFile}/." "${installationFolder}"
 }
 
-removeUpdateFiles(){
-    local updateFile="$1"
-    echo "removing update folder"
-    echo "executing: rm -rf \"$updateFile\""
-    rm -rf "$updateFile"
+removeUpdateFiles() {
+  local updateFile="$1"
+  echo "Cleaning up update files..."
+  rm -rf "${updateFile}"
 }
-executablePath(){
+
+executablePath() {
   local installationFolder="${1:?}"
-  echo "$installationFolder/bin/$APP_NAME"
+  echo "${installationFolder}/bin/${APP_NAME}"
 }
-executeProgram(){
-  local installationFolder=$1
-  local path=$(executablePath "$installationFolder")
-  echo "starting $APP_NAME..."
-  echo "executing: \"$path\""
+
+executeProgram() {
+  local installationFolder="$1"
+  local path
+  path=$(executablePath "$installationFolder")
+  echo "Starting ${APP_NAME}..."
   "$path"
 }
-main(){
+
+main() {
   local updateFile="$1"
   local installationFolder="$2"
-
-  stopApp "$installationFolder"
-  if [ $? -ne 0 ]; then
-      echo "returning back to program"
-      executeProgram "$installationFolder"
-      exit 1
-  fi
+  stopApp || { executeProgram "$installationFolder"; exit 1; }
   removeCurrentInstallation "$installationFolder"
   copyUpdateToInstallationFolder "$updateFile" "$installationFolder"
   removeUpdateFiles "$updateFile"
