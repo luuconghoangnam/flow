@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/sections.css">
   <link rel="stylesheet" href="css/support.css">
   <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/showcase.css">
 </head>
 <body>
 
@@ -141,6 +142,58 @@
       <div class="feature-card reveal" data-delay="80"><div class="feature-icon-wrap"><span class="feature-icon">📱</span></div><h3>Android Client</h3><p>Full-featured Android app. Start downloads on your phone, monitor progress, manage queues — all from the same sharp interface.</p><div class="feature-tag">Mobile</div></div>
       <div class="feature-card reveal" data-delay="160"><div class="feature-icon-wrap"><span class="feature-icon">🔒</span></div><h3>Zero Telemetry</h3><p>No analytics, no ads, no subscriptions. Fully open source under Apache 2.0. Your downloads stay private.</p><div class="feature-tag">Privacy</div></div>
     </div>
+  </div>
+</section>
+
+<!-- SHOWCASE -->
+<section class="showcase-section">
+  <div class="section-inner">
+    <div class="section-label reveal">Screenshots</div>
+    <h2 class="section-title reveal">See it in action.</h2>
+  </div>
+  <!-- Hero banner -->
+  <div class="showcase-hero reveal">
+    <img src="assets/showcase/showcase_hero_banner.jpg" alt="Flow Download Manager" class="showcase-hero-img">
+    <div class="showcase-hero-overlay">
+      <div class="showcase-hero-text">
+        <span class="showcase-tag">Desktop App</span>
+        <h3>Powerful. Fast. Beautiful.</h3>
+        <p>Multi-threaded downloads, smart queues, and a sharp Cyber-Industrial interface.</p>
+      </div>
+    </div>
+  </div>
+  <!-- Auto-scroll carousel -->
+  <div class="showcase-carousel-wrap">
+    <div class="showcase-carousel" id="showcaseCarousel">
+      <div class="showcase-slide active" data-label="Main Interface" data-desc="Download list with speed, status and progress at a glance">
+        <img src="assets/showcase/showcase_main.jpg" alt="Main Interface">
+      </div>
+      <div class="showcase-slide" data-label="Add Download" data-desc="Paste any URL or let the browser extension capture it automatically">
+        <img src="assets/showcase/showcase_add_download.jpg" alt="Add Download">
+      </div>
+      <div class="showcase-slide" data-label="Queue Manager" data-desc="Create multiple queues with custom bandwidth limits and schedules">
+        <img src="assets/showcase/showcase_queues.jpg" alt="Queue Manager">
+      </div>
+      <div class="showcase-slide" data-label="Appearance Settings" data-desc="Dark, Light, OLED Black, Terminal and more themes to choose from">
+        <img src="assets/showcase/showcase_settings_appearance.jpg" alt="Appearance Settings">
+      </div>
+      <div class="showcase-slide" data-label="Download Engine" data-desc="Fine-tune thread count, speed limits and connection settings">
+        <img src="assets/showcase/showcase_settings_engine.jpg" alt="Engine Settings">
+      </div>
+    </div>
+    <!-- Controls -->
+    <div class="showcase-controls">
+      <button class="sc-prev" onclick="showcaseNav(-1)">←</button>
+      <div class="showcase-dots" id="showcaseDots"></div>
+      <button class="sc-next" onclick="showcaseNav(1)">→</button>
+    </div>
+    <!-- Caption -->
+    <div class="showcase-caption" id="showcaseCaption">
+      <span class="sc-label" id="scLabel">Main Interface</span>
+      <span class="sc-desc" id="scDesc">Download list with speed, status and progress at a glance</span>
+    </div>
+    <!-- Progress bar -->
+    <div class="showcase-progress"><div class="showcase-progress-fill" id="showcaseProgressFill"></div></div>
   </div>
 </section>
 
@@ -287,5 +340,6 @@
 <script src="js/canvas.js"></script>
 <script src="js/animations.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/showcase.js"></script>
 </body>
 </html>
