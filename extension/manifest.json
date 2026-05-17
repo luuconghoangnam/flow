@@ -5,6 +5,7 @@
   "description": "Intercept downloads and send them to Flow Download Manager for faster, managed downloads.",
   "permissions": [
     "downloads",
+    "downloads.shelf",
     "activeTab",
     "storage",
     "notifications",

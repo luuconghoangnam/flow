@@ -1,9 +1,11 @@
 /**
  * Flow Download Manager - Background Service Worker
- * 
- * Intercepts downloads BEFORE browser shows save dialog by:
- * 1. Listening to downloads.onCreated → immediately cancel + send to Flow
- * 2. Content script catches link clicks with download-like URLs
+ *
+ * Intercept strategy (in order of priority):
+ * 1. onDeterminingFilename — fires BEFORE save dialog, can suggest filename
+ *    → We cancel here to prevent save dialog entirely
+ * 2. onCreated fallback — catches anything onDeterminingFilename missed
+ * 3. Content script — catches link clicks before browser even starts download
  */
 
 const DEFAULT_PORT = 15151;
@@ -20,38 +22,74 @@ const DOWNLOAD_EXTENSIONS = new Set([
 
 let isEnabled = true;
 
-// Load settings
+// Track IDs we've already handled to avoid double-processing
+const handledIds = new Set();
+
 chrome.storage.local.get(['enabled', 'port'], (result) => {
   isEnabled = result.enabled !== false;
 });
-
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.enabled) isEnabled = changes.enabled.newValue;
+  if (changes.enabled !== undefined) isEnabled = changes.enabled.newValue;
 });
 
 /**
- * PRIMARY INTERCEPTION: catch download the moment browser creates it.
- * We cancel it immediately (before save dialog appears) and send to Flow.
+ * BEST METHOD: onDeterminingFilename fires BEFORE the save dialog.
+ * Returning true from the listener tells Chrome we're handling it.
+ * We cancel the download immediately — no save dialog appears.
+ */
+chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
+  if (!isEnabled) return false;
+
+  const url = downloadItem.url;
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return false;
+
+  const filename = downloadItem.filename || getFilenameFromUrl(url);
+  if (!shouldIntercept(url, filename, downloadItem.fileSize || 0)) return false;
+
+  // Mark as handled so onCreated doesn't double-process
+  handledIds.add(downloadItem.id);
+
+  // Cancel immediately — this is what prevents the save dialog
+  chrome.downloads.cancel(downloadItem.id, () => {
+    chrome.downloads.erase({ id: downloadItem.id });
+    handledIds.delete(downloadItem.id);
+  });
+
+  // Send to Flow app
+  sendToFlow(url, filename).then(success => {
+    if (!success) {
+      showNotification('Flow app is not running', 'Open Flow and try again.');
+      // Re-download in browser as fallback
+      chrome.downloads.download({ url });
+    }
+  });
+
+  // Returning true signals we're handling this download
+  return true;
+});
+
+/**
+ * FALLBACK: onCreated catches downloads that onDeterminingFilename missed
+ * (e.g. downloads triggered programmatically without a filename phase).
  */
 chrome.downloads.onCreated.addListener((downloadItem) => {
   if (!isEnabled) return;
+  if (handledIds.has(downloadItem.id)) return; // already handled above
 
   const url = downloadItem.url;
   if (!url || url.startsWith('blob:') || url.startsWith('data:')) return;
 
   const filename = downloadItem.filename || getFilenameFromUrl(url);
-  
   if (!shouldIntercept(url, filename, downloadItem.totalBytes || 0)) return;
 
-  // IMMEDIATELY cancel - this prevents the save dialog from appearing
+  handledIds.add(downloadItem.id);
   chrome.downloads.cancel(downloadItem.id, () => {
     chrome.downloads.erase({ id: downloadItem.id });
+    handledIds.delete(downloadItem.id);
   });
 
-  // Send to Flow
   sendToFlow(url, filename).then(success => {
     if (!success) {
-      // Flow not running - notify user and re-download normally
       showNotification('Flow app is not running', 'Download will proceed in browser.');
       chrome.downloads.download({ url });
     }
@@ -59,33 +97,25 @@ chrome.downloads.onCreated.addListener((downloadItem) => {
 });
 
 /**
- * Listen for messages from content script
+ * Messages from content script and popup
  */
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'DOWNLOAD_LINK') {
     sendToFlow(message.url, message.filename).then(success => {
       sendResponse({ success });
     });
     return true;
   }
-
   if (message.type === 'CHECK_STATUS') {
-    checkFlowStatus().then(status => {
-      sendResponse(status);
-    });
+    checkFlowStatus().then(status => sendResponse(status));
     return true;
   }
-
   if (message.type === 'GET_SETTINGS') {
     chrome.storage.local.get(['enabled', 'port'], (result) => {
-      sendResponse({
-        enabled: result.enabled !== false,
-        port: result.port || DEFAULT_PORT,
-      });
+      sendResponse({ enabled: result.enabled !== false, port: result.port || DEFAULT_PORT });
     });
     return true;
   }
-
   if (message.type === 'SET_ENABLED') {
     isEnabled = message.value;
     chrome.storage.local.set({ enabled: message.value });
@@ -97,24 +127,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function sendToFlow(url, filename) {
   try {
     const port = await getPort();
-    const response = await fetch(`http://localhost:${port}/add`, {
+    const res = await fetch(`http://localhost:${port}/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        items: [{
-          type: 'http',
-          link: url,
-          headers: {},
-          downloadPage: '',
-        }],
-        options: {
-          silentAdd: false,
-          silentStart: false,
-        }
+        items: [{ type: 'http', link: url, headers: {}, downloadPage: '' }],
+        options: { silentAdd: false, silentStart: false },
       }),
     });
-    return response.ok;
-  } catch (e) {
+    return res.ok;
+  } catch {
     return false;
   }
 }
@@ -124,12 +146,9 @@ async function checkFlowStatus() {
     const port = await getPort();
     const controller = new AbortController();
     setTimeout(() => controller.abort(), 2000);
-    const response = await fetch(`http://localhost:${port}/`, {
-      method: 'GET',
-      signal: controller.signal,
-    });
+    await fetch(`http://localhost:${port}/`, { method: 'GET', signal: controller.signal });
     return { running: true, port };
-  } catch (e) {
+  } catch {
     return { running: false, port: await getPort() };
   }
 }
@@ -142,7 +161,7 @@ async function getPort() {
 function shouldIntercept(url, filename, fileSize) {
   const ext = getExtension(filename || url);
   if (ext && DOWNLOAD_EXTENSIONS.has(ext.toLowerCase())) return true;
-  if (fileSize > 1024 * 1024) return true; // > 1MB
+  if (fileSize > 1024 * 1024) return true;
   return false;
 }
 
@@ -153,8 +172,7 @@ function getExtension(str) {
 
 function getFilenameFromUrl(url) {
   try {
-    const pathname = new URL(url).pathname;
-    return decodeURIComponent(pathname.split('/').pop()) || 'download';
+    return decodeURIComponent(new URL(url).pathname.split('/').pop()) || 'download';
   } catch {
     return 'download';
   }
@@ -162,9 +180,6 @@ function getFilenameFromUrl(url) {
 
 function showNotification(title, message) {
   chrome.notifications.create({
-    type: 'basic',
-    iconUrl: 'icons/icon48.png',
-    title,
-    message,
+    type: 'basic', iconUrl: 'icons/icon48.png', title, message,
   });
 }
