@@ -1,0 +1,25 @@
+plugins{
+    `kotlin-dsl`
+}
+repositories {
+    gradlePluginPortal()
+    mavenCentral()
+    google()
+}
+dependencies{
+    implementation(libs.pluginKotlin)
+    implementation(libs.pluginAndroidGradle)
+    implementation(libs.pluginComposeCompiler)
+    implementation(libs.pluginKsp)
+    implementation(libs.pluginSerialization)
+    implementation(libs.pluginComposeMultiplatform)
+    implementation(libs.pluginChangeLog)
+    implementation(libs.pluginBuildConfig)
+    implementation(libs.pluginAboutLibraries)
+    implementation(libs.pluginGradleVersions)
+    implementation(libs.semver)
+    implementation("com.flowspeed.lib.util:platform:1")
+    implementation("com.flowspeed.lib.plugin:git-version-plugin:1")
+    implementation("com.flowspeed.lib.plugin:installer-plugin:1")
+    implementation("com.flowspeed.lib.plugin:common-android:1")
+}

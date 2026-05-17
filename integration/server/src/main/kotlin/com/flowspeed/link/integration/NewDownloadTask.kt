@@ -1,0 +1,11 @@
+package com.flowspeed.link.integration
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class NewDownloadTask(
+    val downloadSource: IDownloadCredentialsFromIntegration,
+    var folder: String? = null,
+    var name: String? = null,
+    var queueId: Long? = null,
+)
