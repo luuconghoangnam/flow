@@ -9,3 +9,7 @@ local.properties
 
 # Ignore android keystores
 *.jks
+
+
+# Ownership registry (private)
+.ownership
