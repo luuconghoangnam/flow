@@ -65,8 +65,9 @@ class AppBootstrapper : AutoCloseable, KoinComponent {
                 Di.boot()
                 bootSubsystems()
                 SingleInstanceServerInitializer.boot(singleInstanceServerHandler)
-                Ui.boot(appArguments, globalAppExceptionHandler)
             }
+            // Ui.boot blocks the main thread (either via latch or Compose application loop)
+            Ui.boot(appArguments, globalAppExceptionHandler)
         } catch (e: Exception) {
             globalAppExceptionHandler.onProcessIsUseless()
             throw e

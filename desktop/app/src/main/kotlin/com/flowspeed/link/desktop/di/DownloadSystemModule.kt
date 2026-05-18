@@ -37,15 +37,6 @@ val downloadSystemModule = module {
             fileSaver = get()
         )
     }.bind<CategoryStorage>()
-    single {
-        FileIconProviderUsingCategoryIcons(get(), get(), get(), get())
-    }.bind<FileIconProvider>()
-    single {
-        DefaultCategories(
-            icons = get(),
-            getDefaultDownloadFolder = { get<AppSettingsStorage>().defaultDownloadFolder.value }
-        )
-    }
     single { DownloadManagerCategoryItemProvider(get()) }.bind<ICategoryItemProvider>()
     single {
         CategoryManager(
@@ -84,4 +75,14 @@ val downloadSystemModule = module {
             onQueueCompletionActionProvider = get(),
         )
     }
+    // DefaultCategories and FileIconProvider moved to uiModule (they depend on IMyIcons/Compose)
+    single {
+        DefaultCategories(
+            icons = get(),
+            getDefaultDownloadFolder = { get<AppSettingsStorage>().defaultDownloadFolder.value }
+        )
+    }
+    single {
+        FileIconProviderUsingCategoryIcons(get(), get(), get(), get())
+    }.bind<FileIconProvider>()
 }

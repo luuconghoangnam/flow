@@ -92,6 +92,53 @@ object Ui : KoinComponent {
         appArguments: AppArguments,
         globalAppExceptionHandler: GlobalAppExceptionHandler,
     ) {
+        if (appArguments.startSilent) {
+            // Background mode: NO Compose, NO AppComponent, NO Skia loaded
+            // Only show lightweight AWT tray and block until UI is requested
+            bootBackgroundMode(globalAppExceptionHandler)
+        } else {
+            // Normal mode: load full UI immediately
+            bootFullUiMode(globalAppExceptionHandler)
+        }
+    }
+
+    /**
+     * Background mode: minimal memory footprint.
+     * Only AWT tray is shown. Compose/Skia not loaded until user clicks tray.
+     */
+    private fun bootBackgroundMode(globalAppExceptionHandler: GlobalAppExceptionHandler) {
+        val latch = java.util.concurrent.CountDownLatch(1)
+
+        val tray = LightweightTray(
+            tooltip = "Flow Download Manager",
+            onShowWindow = {
+                composeUiRequested.value = true
+                latch.countDown()
+            },
+            onOpenSettings = {
+                composeUiRequested.value = true
+                latch.countDown()
+            },
+            onExit = {
+                System.exit(0)
+            },
+        )
+        tray.show()
+        lightweightTray = tray
+
+        // Block main thread until user clicks tray (AWT events still process on EDT)
+        latch.await()
+
+        // User requested UI → hide tray and boot full UI
+        tray.hide()
+        lightweightTray = null
+        bootFullUiMode(globalAppExceptionHandler)
+    }
+
+    /**
+     * Full UI mode: loads Compose, AppComponent, Skia - the full experience.
+     */
+    private fun bootFullUiMode(globalAppExceptionHandler: GlobalAppExceptionHandler) {
         val appComponent: AppComponent = get()
         val themeManager: ThemeManager = get()
         val fontManager: FontManager = get()
@@ -117,17 +164,9 @@ object Ui : KoinComponent {
             }
         }
 
-        if (appArguments.startSilent) {
-            // Background mode: show lightweight AWT tray, no Compose loaded
-            showLightweightTray(appComponent)
-            // Block main thread waiting for Compose UI to be requested
-            runComposeLoop(appComponent, themeManager, fontManager, languageManager, notificationManager, globalAppExceptionHandler)
-        } else {
-            // Normal mode: open window immediately
-            appComponent.openHome()
-            composeUiRequested.value = true
-            runComposeLoop(appComponent, themeManager, fontManager, languageManager, notificationManager, globalAppExceptionHandler)
-        }
+        appComponent.openHome()
+        composeUiRequested.value = true
+        runComposeLoop(appComponent, themeManager, fontManager, languageManager, notificationManager, globalAppExceptionHandler)
     }
 
     /**
@@ -186,26 +225,21 @@ object Ui : KoinComponent {
             System.gc()
 
             // Show lightweight tray again
-            showLightweightTray(appComponent)
+            lightweightTray = LightweightTray(
+                tooltip = AppInfo.displayName,
+                onShowWindow = { requestComposeUi(appComponent) },
+                onOpenSettings = {
+                    appComponent.openSettings()
+                    requestComposeUi(appComponent)
+                },
+                onExit = { scope.launch { appComponent.requestExitApp() } },
+            ).also { it.show() }
         }
     }
 
     private fun requestComposeUi(appComponent: AppComponent) {
         appComponent.openHome()
         composeUiRequested.value = true
-    }
-
-    private fun showLightweightTray(appComponent: AppComponent) {
-        if (lightweightTray != null) return
-        lightweightTray = LightweightTray(
-            tooltip = AppInfo.displayName,
-            onShowWindow = { requestComposeUi(appComponent) },
-            onOpenSettings = {
-                appComponent.openSettings()
-                requestComposeUi(appComponent)
-            },
-            onExit = { scope.launch { appComponent.requestExitApp() } },
-        ).also { it.show() }
     }
 
     @Composable

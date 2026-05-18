@@ -13,22 +13,27 @@ object Commands {
     val exit = Command<Unit>("exit")
 }
 object SingleInstanceServerInitializer:KoinComponent {
-    private val appComponent by inject<AppComponent> ()
     fun boot(mutableHandler: MutableSingleInstanceServerHandler){
         mutableHandler.add(Commands.showUserThatAppIsRunning){
-            kotlin.runCatching { appComponent.openHome() }
+            kotlin.runCatching { getAppComponent().openHome() }
         }
         mutableHandler.add(Commands.getIntegrationPort){
             IntegrationPortBroadcaster
                 .getIntegrationPort().let { it?:-1 }
         }
         mutableHandler.add(Commands.isReady){
-            appComponent.isReady()
+            // Ready as long as service is running (AppComponent may not exist in background mode)
+            true
         }
         mutableHandler.add(Commands.exit) {
             runBlocking {
-                appComponent.exitApp()
+                getAppComponent().exitApp()
             }
         }
+    }
+
+    /** Lazily get AppComponent - only resolves when actually needed (e.g., user opens window). */
+    private fun getAppComponent(): AppComponent {
+        return org.koin.core.context.GlobalContext.get().get()
     }
 }
