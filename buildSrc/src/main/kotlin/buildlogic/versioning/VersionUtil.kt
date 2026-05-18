@@ -60,3 +60,11 @@ fun Project.getAppVersionStringForPackaging(targetFormat: TargetFormat? = null):
         TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Pkg -> simple()
     }
 }
+
+/**
+ * Unique build fingerprint for this distribution.
+ * Used for integrity verification and origin tracking.
+ */
+const val BUILD_FINGERPRINT = "FLWSPD-2025-LCHN-7f3a9b"
+const val BUILD_AUTHOR = "flowspeed.link"
+const val BUILD_ORIGIN = "github.com/luuconghoangnam/flowspeed.link"

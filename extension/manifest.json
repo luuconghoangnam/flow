@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "author": "Luu Cong Hoang Nam <flowspeed.link>",
   "name": "Flow Download Manager",
   "version": "1.0.0",
   "description": "Intercept downloads and send them to Flow Download Manager for faster, managed downloads.",

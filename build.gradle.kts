@@ -1,3 +1,9 @@
+/**
+ * Flow Download Manager
+ * Copyright (c) 2025 Luu Cong Hoang Nam
+ * Build ID: FLWSPD-LCHN-7f3a9b4e
+ * https://flowspeed.link
+ */
 import buildlogic.CiUtils
 import buildlogic.versioning.getAppVersionString
 import io.github.z4kn4fein.semver.toVersion
