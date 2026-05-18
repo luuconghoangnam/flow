@@ -61,6 +61,7 @@ dependencies {
     implementation(project(":integration:server"))
     implementation(project(":desktop:shared"))
     implementation(project(":desktop:app-utils"))
+    implementation(project(":desktop:service"))
 
     implementation(libs.composeNativeTray)
 
