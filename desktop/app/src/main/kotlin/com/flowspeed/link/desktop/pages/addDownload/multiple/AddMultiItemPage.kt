@@ -1,0 +1,337 @@
+package com.flowspeed.link.desktop.pages.adddownload.multiple
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.onClick
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.flowspeed.link.shared.ui.widget.*
+import com.flowspeed.link.desktop.pages.adddownload.shared.CategoryAddButton
+import com.flowspeed.link.desktop.pages.adddownload.shared.CategorySelect
+import com.flowspeed.link.desktop.pages.adddownload.shared.ExtraConfig
+import com.flowspeed.link.desktop.pages.adddownload.shared.LocationTextField
+import com.flowspeed.link.desktop.pages.adddownload.shared.ShowAddToQueueDialog
+import com.flowspeed.link.desktop.pages.home.sections.SearchBox
+import com.flowspeed.link.shared.util.ui.myColors
+import com.flowspeed.link.shared.util.ui.theme.myTextSizes
+import com.flowspeed.link.shared.util.div
+import com.flowspeed.link.resources.Res
+import com.flowspeed.link.shared.downloaderinui.DownloadSize
+import com.flowspeed.link.shared.downloaderinui.rememberString
+import com.flowspeed.link.shared.util.category.Category
+import com.flowspeed.link.shared.util.ui.WithContentAlpha
+import com.flowspeed.link.shared.util.ui.icon.MyIcons
+import com.flowspeed.link.shared.util.ui.widget.MyIcon
+import com.flowspeed.lib.util.compose.resources.myStringResource
+import com.flowspeed.lib.util.ifThen
+
+@Composable
+fun AddMultiItemPage(
+    addMultiDownloadComponent: DesktopAddMultiDownloadComponent,
+) {
+    Column(Modifier) {
+        Column(
+            Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = 8.dp)
+                .weight(1f)
+        ) {
+            WithContentAlpha(1f) {
+                Text(
+                    myStringResource(Res.string.add_multi_download_page_header),
+                    fontSize = myTextSizes.base
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            AddMultiDownloadTable(
+                Modifier.weight(1f),
+                addMultiDownloadComponent,
+            )
+        }
+        Footer(
+            Modifier,
+            addMultiDownloadComponent,
+        )
+    }
+    val currentDownloadConfigurableList by addMultiDownloadComponent.currentDownloadConfigurableList.collectAsState()
+    currentDownloadConfigurableList?.let {
+        ExtraConfig(
+            onDismiss = {
+                addMultiDownloadComponent.openConfigurableList(null)
+            },
+            configurables = it
+        )
+    }
+    if (addMultiDownloadComponent.showAddToQueue) {
+        ShowAddToQueueDialog(
+            queueList = addMultiDownloadComponent.queueList.collectAsState().value,
+            onQueueSelected = { queue, startQueue ->
+                addMultiDownloadComponent.requestAddDownloads(
+                    queue, startQueue
+                )
+            },
+            onClose = {
+                addMultiDownloadComponent.closeAddToQueue()
+            }
+        )
+    }
+}
+
+@Composable
+fun Footer(
+    modifier: Modifier = Modifier,
+    component: DesktopAddMultiDownloadComponent,
+) {
+    Column(modifier) {
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(myColors.onBackground / 0.15f)
+        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(myColors.surface / 0.5f)
+        ) {
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SaveSettings(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    component = component,
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(
+                    Modifier.align(Alignment.Bottom)
+                        .width(IntrinsicSize.Max),
+                ) {
+                    val filterText by component.filterText.collectAsState()
+                    SearchBox(
+                        text = filterText,
+                        onTextChange = component::setFilterText,
+                        placeholder = myStringResource(Res.string.search),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.End),
+                        textPadding = PaddingValues(
+                            vertical = 6.dp,
+                            horizontal = 8.dp
+                        ),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        PrimaryMainActionButton(
+                            text = myStringResource(Res.string.add),
+                            onClick = {
+                                component.openAddToQueueDialog()
+                            },
+                            enabled = component.canClickAdd,
+                            modifier = Modifier,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        ActionButton(
+                            text = myStringResource(Res.string.cancel),
+                            onClick = {
+                                component.requestClose()
+                            },
+                            modifier = Modifier,
+                        )
+                    }
+                }
+            }
+            Spacer(
+                Modifier
+                    .fillMaxWidth()
+                    .height(2.dp)
+                    .background(
+                        myColors.surface
+                    )
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                SelectionDetail(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    totalDownloadItems = component.totalList.size,
+                    selectedDownloadItems = component.selectionList.size,
+                    sizes = component.selectedTotalSize.collectAsState().value,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaveSettings(
+    modifier: Modifier,
+    component: DesktopAddMultiDownloadComponent,
+) {
+    val selectedCategory by component.selectedCategory.collectAsState()
+
+    val folder by component.folder.collectAsState()
+
+    Column(modifier) {
+        Text("${myStringResource(Res.string.save_to)}:")
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            CategorySaveOption(selectedCategory, component)
+            Spacer(Modifier.width(8.dp))
+            LocationSaveOption(component, folder)
+            Spacer(Modifier)
+        }
+    }
+}
+
+@Composable
+private fun SelectionDetail(
+    modifier: Modifier,
+    totalDownloadItems: Int,
+    selectedDownloadItems: Int,
+    sizes: List<DownloadSize>,
+) {
+    val selectionCount = "$selectedDownloadItems / $totalDownloadItems"
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        WithContentAlpha(.25f) {
+            MyIcon(
+                icon = MyIcons.activeCount,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Text(selectionCount, fontSize = myTextSizes.base)
+
+        val sizes = sizes.ifThen(sizes.isEmpty()){
+            listOf(DownloadSize.Bytes.Zero)
+        }
+        WithContentAlpha(.25f) {
+            MyIcon(
+                icon = MyIcons.data,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        for (sizeType in sizes) {
+            val sizeString = sizeType.rememberString()
+            Text(sizeString, fontSize = myTextSizes.base)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.LocationSaveOption(
+    component: DesktopAddMultiDownloadComponent,
+    folder: String
+) {
+    val allItemsInSameLocation by component.allInSameLocation.collectAsState()
+    SaveOption(
+        title = myStringResource(Res.string.all_items_in_one_Location),
+        selectedHelp = myStringResource(Res.string.all_items_in_one_Location_description),
+        unselectedHelp = myStringResource(Res.string.unselected_all_items_in_specific_location_description),
+        selected = allItemsInSameLocation,
+        onSelectedChange = {
+            component.setAllItemsInSameLocation(it)
+        },
+        selectedContent = {
+            LocationTextField(
+                text = folder,
+                setText = {
+                    component.setFolder(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                lastUsedLocations = component.lastUsedLocations.collectAsState().value,
+                onRequestRemoveSaveLocation = component::removeFromLastDownloadLocation
+            )
+        }
+    )
+}
+
+@Composable
+private fun RowScope.CategorySaveOption(
+    selectedCategory: Category?,
+    component: DesktopAddMultiDownloadComponent
+) {
+
+    SaveOption(
+        title = myStringResource(Res.string.all_items_in_one_category),
+        selectedHelp = myStringResource(Res.string.all_items_in_one_category_description),
+        unselectedHelp = myStringResource(Res.string.each_item_on_its_own_category_description),
+        selected = selectedCategory != null,
+        onSelectedChange = {
+            if (it) {
+                component.setSelectedCategory(component.categories.value.firstOrNull())
+            } else {
+                component.setSelectedCategory(null)
+            }
+            component.setAlsoAutoCategorize(!it)
+        },
+        selectedContent = {
+            Row(
+                Modifier.height(IntrinsicSize.Max).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CategorySelect(
+                    categories = component.categories.collectAsState().value,
+                    modifier = Modifier.weight(1f),
+                    selectedCategory = component.selectedCategory.collectAsState().value,
+                    onCategorySelected = {
+                        component.setSelectedCategory(it)
+                    }
+                )
+                Spacer(Modifier.width(8.dp))
+                CategoryAddButton(
+                    Modifier.fillMaxHeight(),
+                    enabled = true,
+                    onClick = {
+                        component.onRequestAddCategory()
+                    },
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun RowScope.SaveOption(
+    title: String,
+    selectedHelp: String,
+    unselectedHelp: String,
+    selected: Boolean,
+    onSelectedChange: (Boolean) -> Unit,
+    selectedContent: @Composable () -> Unit
+) {
+    ExpandableItem(
+        modifier = Modifier.fillMaxWidth().weight(1f),
+        isExpanded = selected,
+        header = {
+            Row(
+                modifier = Modifier.onClick { onSelectedChange(!selected) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CheckBox(
+                    value = selected,
+                    onValueChange = onSelectedChange
+                )
+                Text(title)
+                Help(if (selected) selectedHelp else unselectedHelp)
+            }
+        },
+        body = {
+            Column {
+                Spacer(Modifier.height(8.dp))
+                selectedContent()
+            }
+        }
+    )
+}

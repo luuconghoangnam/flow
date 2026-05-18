@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2025 Luu Cong Hoang Nam
+ * Licensed under the Apache License, Version 2.0
+ * https://github.com/luuconghoangnam/flowspeed.link
+ */
+package buildlogic.versioning
+
+import io.github.z4kn4fein.semver.Version
+import com.flowspeed.lib.util.platform.Platform
+import org.gradle.api.Project
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
+fun Project.getAppVersion(): Version {
+    return rootProject.version as Version
+}
+
+fun Project.getAppVersionString(): String {
+    return rootProject.version.toString()
+}
+fun Version.convertToVersionCode(): Int {
+    require(major in 0..1023) { "Major must be 0..1023" }
+    require(minor in 0..1023) { "Minor must be 0..1023" }
+    require(patch in 0..511) { "Patch must be 0..511" }
+
+    return (major shl 19) or
+            (minor shl 9)  or
+            patch
+}
+
+fun Project.getAppName(): String {
+    return rootProject.name
+}
+
+fun Project.getPrettifiedAppName(): String {
+    return "Flow"
+}
+fun Project.getAppDataDirName(): String {
+    return ".flow"
+}
+
+fun Project.getApplicationPackageName(): String {
+    return "com.flowspeed.link"
+}
+
+private fun guessTargetFormatBasedOnCurrentOs()= when (Platform.getCurrentPlatform()) {
+    Platform.Desktop.Linux -> TargetFormat.Deb
+    Platform.Desktop.MacOS -> TargetFormat.Dmg
+    Platform.Desktop.Windows -> TargetFormat.Msi
+    Platform.Android -> error("we are executing gradle in desktop :D")
+}
+
+fun Project.getAppVersionStringForPackaging(targetFormat: TargetFormat? = null): String {
+    val v = getAppVersion()
+    val simple = { v.run { "$major.$minor.$patch" } }
+    val semantic = { v.toString() }
+    val forRpm = { semantic().replace("-", "_") }
+    return when (targetFormat?: guessTargetFormatBasedOnCurrentOs()) {
+        TargetFormat.Rpm -> forRpm()
+        TargetFormat.Deb, TargetFormat.AppImage -> semantic()
+        TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Dmg, TargetFormat.Pkg -> simple()
+    }
+}
