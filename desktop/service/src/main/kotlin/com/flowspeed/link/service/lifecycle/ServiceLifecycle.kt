@@ -23,6 +23,9 @@ class ServiceLifecycle(
     fun boot() {
         di = ServiceDi(config)
 
+        // Migrate legacy data if needed (first startup after upgrade)
+        DataMigration.migrateIfNeeded(config.dataDir)
+
         runBlocking {
             // 1. Create data directories
             di.foldersRegistry.boot()

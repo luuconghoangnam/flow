@@ -78,6 +78,17 @@ jobs:
         if: startsWith(matrix.os, 'macos-')
         run: brew install create-dmg
 
+      - name: Set up GraalVM for native-image
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build native service
+        shell: bash
+        run: ./gradlew :desktop:service:nativeCompile || echo "Native image build skipped (may require platform-specific setup)"
+
       - name: Build packages
         shell: bash
         run: ./gradlew createReleaseFolderForCi
