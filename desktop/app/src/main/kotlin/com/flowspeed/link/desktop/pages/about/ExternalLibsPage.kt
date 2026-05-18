@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.externallibs
+package com.flowspeed.link.desktop.pages.about
 
 import com.flowspeed.link.shared.util.ui.theme.myTextSizes
 import com.flowspeed.link.shared.util.ui.WithContentAlpha

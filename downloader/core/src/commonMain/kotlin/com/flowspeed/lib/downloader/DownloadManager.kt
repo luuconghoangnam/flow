@@ -350,7 +350,7 @@ class DownloadManager(
     }
 
     override val listOfJobsEvents: MutableSharedFlow<DownloadManagerEvents> =
-        MutableSharedFlow(extraBufferCapacity = 64)
+        MutableSharedFlow(extraBufferCapacity = 16)
 
     //global speed limiter
     internal val throttler = Throttler()

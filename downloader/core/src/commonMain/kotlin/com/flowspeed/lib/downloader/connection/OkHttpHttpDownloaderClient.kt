@@ -17,6 +17,10 @@ class OkHttpHttpDownloaderClient(
     private val systemProxySelectorProvider: SystemProxySelectorProvider,
     private val autoConfigurableProxyProvider: AutoConfigurableProxyProvider,
 ) : HttpDownloaderClient() {
+
+    // Cache proxy-configured clients to avoid creating new instances per connection
+    private val proxyClientCache = java.util.concurrent.ConcurrentHashMap<ProxyStrategy, OkHttpClient>()
+
     private fun newCall(
         downloadCredentials: IHttpBasedDownloadCredentials,
         start: Long?,
@@ -76,12 +80,20 @@ class OkHttpHttpDownloaderClient(
     private fun OkHttpClient.applyProxy(
         downloadCredentials: IHttpBasedDownloadCredentials,
     ): OkHttpClient {
-        return when (
-            val strategy = proxyStrategyProvider.getProxyStrategyFor(downloadCredentials.link)
-        ) {
-            ProxyStrategy.Direct -> return this
+        val strategy = proxyStrategyProvider.getProxyStrategyFor(downloadCredentials.link)
+        return when (strategy) {
+            ProxyStrategy.Direct -> this
+            else -> proxyClientCache.getOrPut(strategy) {
+                buildProxyClient(strategy)
+            }
+        }
+    }
+
+    private fun buildProxyClient(strategy: ProxyStrategy): OkHttpClient {
+        return when (strategy) {
+            ProxyStrategy.Direct -> okHttpClient
             ProxyStrategy.UseSystem -> {
-                newBuilder()
+                okHttpClient.newBuilder()
                     .proxySelector(
                         systemProxySelectorProvider.getSystemProxySelector()
                             ?: ProxySelector.getDefault()
@@ -92,17 +104,17 @@ class OkHttpHttpDownloaderClient(
             is ProxyStrategy.ByScript -> {
                 val proxySelector = autoConfigurableProxyProvider.getAutoConfigurableProxy(strategy.scriptPath)
                 if (proxySelector != null) {
-                    newBuilder()
+                    okHttpClient.newBuilder()
                         .proxySelector(proxySelector)
                         .build()
                 } else {
-                    this
+                    okHttpClient
                 }
             }
 
             is ProxyStrategy.ManualProxy -> {
                 val proxy = strategy.proxy
-                return newBuilder()
+                okHttpClient.newBuilder()
                     .proxy(
                         Proxy(
                             when (proxy.type) {

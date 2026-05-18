@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.confirmexit
+package com.flowspeed.link.desktop.pages.home
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState

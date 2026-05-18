@@ -104,6 +104,19 @@ compose {
 
             // Define the main class for the application.
             mainClass = "$desktopPackageName.AppKt"
+            jvmArgs(
+                // Return unused memory to OS aggressively
+                "-XX:+UseG1GC",
+                "-XX:MaxHeapFreeRatio=30",
+                "-XX:MinHeapFreeRatio=10",
+                "-XX:G1PeriodicGCInterval=10000",
+                // Start with small heap, grow only when needed
+                "-Xms32m",
+                // Deduplicate strings to save memory
+                "-XX:+UseStringDeduplication",
+                // Smaller heap regions = more granular memory management
+                "-XX:G1HeapRegionSize=1m",
+            )
             nativeDistributions {
                 modules(
                     "java.instrument",
