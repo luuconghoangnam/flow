@@ -19,7 +19,6 @@ import com.flowspeed.link.shared.action.createOpenAboutPage
 import com.flowspeed.link.shared.action.createOpenBatchDownloadAction
 import com.flowspeed.link.shared.action.createOpenOpenSourceThirdPartyLibrariesPage
 import com.flowspeed.link.shared.action.createOpenSettingsAction
-import com.flowspeed.link.shared.action.createOpenTranslatorsPageAction
 import com.flowspeed.link.shared.action.createPerHostSettingsPage
 import com.flowspeed.link.shared.action.createStartQueueGroupAction
 import com.flowspeed.link.shared.action.createStopAllAction
@@ -38,7 +37,6 @@ import com.flowspeed.link.shared.pagemanager.OpenSourceLibrariesPageManager
 import com.flowspeed.link.shared.pagemanager.PerHostSettingsPageManager
 import com.flowspeed.link.shared.pagemanager.QueuePageManager
 import com.flowspeed.link.shared.pagemanager.SettingsPageManager
-import com.flowspeed.link.shared.pagemanager.TranslatorsPageManager
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps
 import com.flowspeed.link.shared.pages.home.BaseHomeComponent
 import com.flowspeed.link.shared.pages.home.category.DefinedStatusCategories
@@ -94,7 +92,6 @@ class HomeComponent(
     categoryManager: CategoryManager,
     queueManager: QueueManager,
     openSourceLibrariesPageManager: OpenSourceLibrariesPageManager,
-    translatorsPageManager: TranslatorsPageManager,
     settingsPageManager: SettingsPageManager,
     perHostSettingsPageManager: PerHostSettingsPageManager,
     browserPageManager: IBrowserPageManager,
@@ -365,7 +362,6 @@ class HomeComponent(
             MyIcons.question,
         ) {
             +createOpenOpenSourceThirdPartyLibrariesPage(openSourceLibrariesPageManager = openSourceLibrariesPageManager)
-            +createOpenTranslatorsPageAction(opeTranslatorsPageManager = translatorsPageManager)
             separator()
             +createCheckForUpdateAction(updateComponent)
             +createOpenAboutPage(aboutPageManager)

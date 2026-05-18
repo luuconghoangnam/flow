@@ -19,7 +19,6 @@ import com.flowspeed.link.desktop.pages.adddownload.ShowAddDownloadDialogs
 import com.flowspeed.link.desktop.pages.batchdownload.BatchDownloadWindow
 import com.flowspeed.link.desktop.pages.category.ShowCategoryDialogs
 import com.flowspeed.link.desktop.pages.confirmexit.ConfirmExit
-import com.flowspeed.link.desktop.pages.credits.translators.ShowTranslators
 import com.flowspeed.link.desktop.pages.editdownload.EditDownloadWindow
 import com.flowspeed.link.desktop.pages.enterurl.EnterNewDownloadWindow
 import com.flowspeed.link.desktop.pages.externallibs.ShowOpenSourceLibraries
@@ -141,7 +140,6 @@ object Ui : KoinComponent {
                 NewQueueDialog(appComponent)
                 ShowMessageDialogs(appComponent)
                 ShowOpenSourceLibraries(appComponent)
-                ShowTranslators(appComponent)
                 ConfirmExit(appComponent)
                 PowerActionAlert(appComponent)
                 PerHostSettingsWindow(appComponent)

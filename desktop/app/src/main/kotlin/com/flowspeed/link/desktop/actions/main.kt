@@ -23,7 +23,6 @@ import com.flowspeed.link.shared.action.createOpenBatchDownloadAction
 import com.flowspeed.link.shared.action.createOpenOpenSourceThirdPartyLibrariesPage
 import com.flowspeed.link.shared.action.createOpenQueuesAction
 import com.flowspeed.link.shared.action.createOpenSettingsAction
-import com.flowspeed.link.shared.action.createOpenTranslatorsPageAction
 import com.flowspeed.link.shared.action.createPerHostSettingsPage
 import com.flowspeed.link.shared.action.createRequestExitAction
 import com.flowspeed.link.shared.action.createStartQueueGroupAction
@@ -91,7 +90,6 @@ val browserIntegrations = MenuItem.SubMenu(
 // commonUsage but with desktop implementations
 val newQueueAction = createNewQueueAction(scope, appComponent)
 val openQueuesAction = createOpenQueuesAction(appComponent)
-val openTranslators = createOpenTranslatorsPageAction(appComponent)
 val openAboutAction = createOpenAboutPage(appComponent)
 val checkForUpdateAction = createCheckForUpdateAction(appComponent.updater)
 val gotoSettingsAction = createOpenSettingsAction(appComponent)

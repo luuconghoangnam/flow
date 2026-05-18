@@ -36,7 +36,6 @@ import com.flowspeed.link.shared.pagemanager.OpenSourceLibrariesPageManager
 import com.flowspeed.link.shared.pagemanager.PerHostSettingsPageManager
 import com.flowspeed.link.shared.pagemanager.QueuePageManager
 import com.flowspeed.link.shared.pagemanager.SettingsPageManager
-import com.flowspeed.link.shared.pagemanager.TranslatorsPageManager
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadConfig
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps
 import com.flowspeed.link.shared.pages.adddownload.ImportOptions
@@ -94,8 +93,6 @@ sealed interface Screen {
 
     data object OpenSourceThirdPartyLibraries : Screen
 
-    data object Translators : Screen
-
     data class PerHostSettings(
         val component: AndroidPerHostSettingsComponent,
     ) : Screen
@@ -126,9 +123,6 @@ sealed interface ScreenConfig {
 
     @Serializable
     data object OpenSourceThirdPartyLibraries : ScreenConfig
-
-    @Serializable
-    data object Translators : ScreenConfig
 
     @Serializable
     data class PerHostSettings(
@@ -179,7 +173,6 @@ class MainComponent(
     CategoryDialogManager,
     NotificationSender,
     SettingsPageManager,
-    TranslatorsPageManager,
     OpenSourceLibrariesPageManager,
     AboutPageManager,
     BatchDownloadPageManager,
@@ -331,7 +324,6 @@ class MainComponent(
                             defaultCategories = defaultCategories,
                             fileIconProvider = fileIconProvider,
                             openSourceLibrariesPageManager = this,
-                            translatorsPageManager = this,
                             aboutPageManager = this,
                             batchDownloadPageManager = this,
                             settingsPageManager = this,
@@ -360,10 +352,6 @@ class MainComponent(
 
                 ScreenConfig.OpenSourceThirdPartyLibraries -> {
                     OpenSourceThirdPartyLibraries
-                }
-
-                ScreenConfig.Translators -> {
-                    Translators
                 }
 
                 is ScreenConfig.PerHostSettings -> {
@@ -625,20 +613,6 @@ class MainComponent(
                 )
             )
         )
-    }
-
-    override fun openTranslatorsPage() {
-        scope.launch {
-            stackNavigation.pushToFront(ScreenConfig.Translators)
-        }
-    }
-
-    override fun closeTranslatorsPage() {
-        scope.launch {
-            stackNavigation.navigate {
-                it.filterNot { config -> config is ScreenConfig.Translators }
-            }
-        }
     }
 
     override fun openOpenSourceLibrariesPage() {

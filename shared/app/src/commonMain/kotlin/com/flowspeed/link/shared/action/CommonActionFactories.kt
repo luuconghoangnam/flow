@@ -11,7 +11,6 @@ import com.flowspeed.link.shared.pagemanager.OpenSourceLibrariesPageManager
 import com.flowspeed.link.shared.pagemanager.PerHostSettingsPageManager
 import com.flowspeed.link.shared.pagemanager.QueuePageManager
 import com.flowspeed.link.shared.pagemanager.SettingsPageManager
-import com.flowspeed.link.shared.pagemanager.TranslatorsPageManager
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps
 import com.flowspeed.link.shared.pages.updater.UpdateComponent
 import com.flowspeed.link.shared.util.ClipboardUtil
@@ -173,11 +172,8 @@ fun createCheckForUpdateAction(
     return simpleAction(
         title = Res.string.update_check_for_update.asStringSource(),
         icon = MyIcons.refresh,
-        checkEnable = MutableStateFlow(
-            updaterComponent.isUpdateSupported()
-        )
     ) {
-        updaterComponent.requestCheckForUpdate()
+        URLOpener.openUrl("https://github.com/luuconghoangnam/flowspeed.link/releases/latest")
     }
 }
 
@@ -199,17 +195,6 @@ fun createOpenOpenSourceThirdPartyLibrariesPage(
         icon = MyIcons.openSource,
     ) {
         openSourceLibrariesPageManager.openOpenSourceLibrariesPage()
-    }
-}
-
-fun createOpenTranslatorsPageAction(
-    opeTranslatorsPageManager: TranslatorsPageManager,
-): AnAction {
-    return simpleAction(
-        title = Res.string.meet_the_translators.asStringSource(),
-        icon = MyIcons.language,
-    ) {
-        opeTranslatorsPageManager.openTranslatorsPage()
     }
 }
 

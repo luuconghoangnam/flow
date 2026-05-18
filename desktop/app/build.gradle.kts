@@ -175,7 +175,7 @@ installerPlugin {
             "app_publisher" to "flowspeed.link",
             "app_version_with_build" to "${getAppVersionStringForPackaging(Exe)}.0",
             "source_code_url" to "https://github.com/flowspeed/flow-download-manager",
-            "project_website" to "www.flowspeed.link",
+            "project_website" to "flow.getdrops.link",
             "copyright" to "© 2025-present Flow App",
             "header_image_file" to project.file("resources/installer/flow-header-image.bmp"),
             "sidebar_image_file" to project.file("resources/installer/flow-sidebar-image.bmp")

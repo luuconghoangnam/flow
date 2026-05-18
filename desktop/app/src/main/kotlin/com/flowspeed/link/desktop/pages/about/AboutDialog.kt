@@ -27,9 +27,6 @@ fun ShowAboutDialog(appComponent: AppComponent) {
             onRequestShowOpenSourceLibraries = {
                 appComponent.openOpenSourceLibrariesPage()
             },
-            onRequestShowTranslators = {
-                appComponent.openTranslatorsPage()
-            }
         )
     }
 }
@@ -38,7 +35,6 @@ fun ShowAboutDialog(appComponent: AppComponent) {
 fun AboutDialog(
     onClose: () -> Unit,
     onRequestShowOpenSourceLibraries: () -> Unit,
-    onRequestShowTranslators: () -> Unit,
 ) {
     CustomWindow(
         resizable = false,
@@ -56,7 +52,6 @@ fun AboutDialog(
         WindowIcon(MyIcons.info)
         AboutPage(
             onRequestShowOpenSourceLibraries = onRequestShowOpenSourceLibraries,
-            onRequestShowTranslators = onRequestShowTranslators
         )
     }
 }

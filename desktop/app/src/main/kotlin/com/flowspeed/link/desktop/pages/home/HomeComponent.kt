@@ -209,7 +209,6 @@ class HomeComponent(
         }
         subMenu(Res.string.help.asStringSource()) {
             +openOpenSourceThirdPartyLibraries
-            +openTranslators
             separator()
             +checkForUpdateAction
             +openAboutAction
