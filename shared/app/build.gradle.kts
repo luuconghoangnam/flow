@@ -102,7 +102,7 @@ buildConfig {
     buildConfigField(
         "PROJECT_WEBSITE",
         provider {
-            "https://flowspeed.link"
+            "https://flow.getdrops.link"
         }
     )
     buildConfigField(
