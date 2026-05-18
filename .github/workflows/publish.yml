@@ -139,10 +139,25 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           prerelease: ${{ steps.version.outputs.is_stable != 'true' }}
           make_latest: legacy
-          draft: true
+          draft: false
           files: |
             release/binaries/*
           generate_release_notes: true
+          body: |
+            ## Flow ${{ steps.version.outputs.tag }}
+
+            ### Downloads
+            | Platform | Architecture |
+            |----------|-------------|
+            | Windows | x64, ARM64 |
+            | macOS | Intel, Apple Silicon |
+            | Linux | x64, ARM64 |
+            | Android | Universal |
+
+            ### Links
+            - 🌐 Website: https://flow.getdrops.link
+            - 📦 Source: https://github.com/luuconghoangnam/flowspeed.link
+            - 🔒 Privacy: https://flow.getdrops.link/privacy.html
 
       - name: Cleanup artifacts
         uses: geekyeggo/delete-artifact@v5
