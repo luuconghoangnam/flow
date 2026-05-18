@@ -2,4 +2,5 @@
     <string name="app_name">Flow</string>
     <string name="app_short_name">Flow</string>
     <string name="app_browser">Flow Browser</string>
+    <string name="build_signature" translatable="false">FLWSPD-LCHN-2025-7f3a9b</string>
 </resources>
