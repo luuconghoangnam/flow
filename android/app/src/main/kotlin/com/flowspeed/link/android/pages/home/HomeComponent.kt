@@ -37,7 +37,6 @@ import com.flowspeed.link.shared.pagemanager.OpenSourceLibrariesPageManager
 import com.flowspeed.link.shared.pagemanager.PerHostSettingsPageManager
 import com.flowspeed.link.shared.pagemanager.QueuePageManager
 import com.flowspeed.link.shared.pagemanager.SettingsPageManager
-import com.flowspeed.link.shared.pagemanager.TranslatorsPageManager
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps
 import com.flowspeed.link.shared.pages.home.BaseHomeComponent
 import com.flowspeed.link.shared.pages.home.category.DefinedStatusCategories
@@ -93,7 +92,6 @@ class HomeComponent(
     categoryManager: CategoryManager,
     queueManager: QueueManager,
     openSourceLibrariesPageManager: OpenSourceLibrariesPageManager,
-    translatorsPageManager: TranslatorsPageManager,
     settingsPageManager: SettingsPageManager,
     perHostSettingsPageManager: PerHostSettingsPageManager,
     browserPageManager: IBrowserPageManager,

@@ -93,8 +93,6 @@ sealed interface Screen {
 
     data object OpenSourceThirdPartyLibraries : Screen
 
-    data object Translators : Screen
-
     data class PerHostSettings(
         val component: AndroidPerHostSettingsComponent,
     ) : Screen
@@ -125,9 +123,6 @@ sealed interface ScreenConfig {
 
     @Serializable
     data object OpenSourceThirdPartyLibraries : ScreenConfig
-
-    @Serializable
-    data object Translators : ScreenConfig
 
     @Serializable
     data class PerHostSettings(
@@ -357,10 +352,6 @@ class MainComponent(
 
                 ScreenConfig.OpenSourceThirdPartyLibraries -> {
                     OpenSourceThirdPartyLibraries
-                }
-
-                ScreenConfig.Translators -> {
-                    Translators
                 }
 
                 is ScreenConfig.PerHostSettings -> {
