@@ -39,34 +39,33 @@ private fun SystemButton(
     val isFocused = isWindowFocused()
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    MyIcon(
-        icon = icon,
-        contentDescription = null,
-        tint = animateColorAsState(
-            when {
-                isHovered -> onHoveredBackgroundColor
-                else -> onBackground
-            }.copy(
-                alpha = if (isFocused || isHovered) {
-                    1f
-                } else {
-                    0.5f
-                }
-            )
-        ).value,
+    val bgColor by animateColorAsState(
+        when {
+            isHovered -> hoveredBackgroundColor
+            else -> background
+        }
+    )
+    val iconColor by animateColorAsState(
+        when {
+            isHovered -> onHoveredBackgroundColor
+            else -> onBackground
+        }.copy(alpha = if (isFocused || isHovered) 1f else 0.4f)
+    )
+    Box(
         modifier = modifier
             .clickable { onClick() }
-            .background(
-                animateColorAsState(
-                    when {
-                        isHovered -> hoveredBackgroundColor
-                        else -> background
-                    }
-                ).value
-            )
             .hoverable(interactionSource)
-            .windowButton()
-    )
+            .background(bgColor)
+            .windowButton(),
+        contentAlignment = Alignment.Center,
+    ) {
+        MyIcon(
+            icon = icon,
+            contentDescription = null,
+            tint = iconColor,
+            modifier = Modifier.requiredSize(9.dp)
+        )
+    }
 }
 
 
@@ -89,10 +88,7 @@ private fun CloseButton(
 private fun Modifier.windowButton(): Modifier {
     return fillMaxHeight()
         .wrapContentHeight()
-        .padding(
-            horizontal = 20.dp,
-        )
-        .requiredSize(8.dp)
+        .padding(horizontal = 18.dp, vertical = 4.dp)
 }
 
 @Composable
