@@ -8,6 +8,8 @@
 plugins {
     id(MyPlugins.kotlin)
     id(Plugins.Kotlin.serialization)
+    application
+    id("org.graalvm.buildtools.native") version "0.10.6"
 }
 
 dependencies {
@@ -25,14 +27,25 @@ dependencies {
     implementation(project(":shared:config"))
 }
 
-tasks.register<JavaExec>("run") {
+application {
     mainClass.set("com.flowspeed.link.service.ServiceMainKt")
-    classpath = sourceSets["main"].runtimeClasspath
-    jvmArgs(
-        "-Xms8m",
-        "-Xmx64m",
-        "-XX:+UseG1GC",
-        "-XX:MaxHeapFreeRatio=20",
-        "-XX:MinHeapFreeRatio=5",
-    )
 }
+
+graalvmNative {
+    binaries {
+        named("main") {
+            imageName.set("flow-service")
+            mainClass.set("com.flowspeed.link.service.ServiceMainKt")
+            buildArgs.addAll(
+                "--no-fallback",
+                "--enable-url-protocols=http,https",
+                "-H:+ReportExceptionStackTraces",
+                "--gc=serial",
+                "-O2",
+            )
+        }
+    }
+}
+
+// Run task is provided by the application plugin
+// Use: ./gradlew :desktop:service:run --args="--port 15151"
