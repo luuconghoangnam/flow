@@ -120,7 +120,9 @@ jobs:
           enableCrossOsArchive: true
 
       - name: Set signing secrets
-        if: ${{ secrets.FLOW_KEYSTORE_FILE != '' }}
+        env:
+          KEYSTORE: ${{ secrets.FLOW_KEYSTORE_FILE }}
+        if: ${{ env.KEYSTORE != '' }}
         run: |
           echo "FLOW_KEYSTORE_FILE=${{ secrets.FLOW_KEYSTORE_FILE }}" >> $GITHUB_ENV
           echo "FLOW_KEYSTORE_FILE_PASSWORD=${{ secrets.FLOW_KEYSTORE_FILE_PASSWORD }}" >> $GITHUB_ENV
