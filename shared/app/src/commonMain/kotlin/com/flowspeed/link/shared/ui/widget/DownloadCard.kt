@@ -9,10 +9,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.core.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
@@ -85,6 +88,35 @@ fun DownloadCard(
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .background(progressColor, RectangleShape)
             )
+            // Shimmer overlay for active downloads
+            if (isActive && progress > 0f) {
+                val shimmerTransition = rememberInfiniteTransition()
+                val shimmerOffset by shimmerTransition.animateFloat(
+                    initialValue = -1f,
+                    targetValue = 2f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    )
+                )
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.2f),
+                                    Color.Transparent,
+                                ),
+                                startX = shimmerOffset * 200f,
+                                endX = (shimmerOffset + 0.5f) * 200f,
+                            ),
+                            RectangleShape
+                        )
+                )
+            }
         }
 
         Spacer(Modifier.height(4.dp))

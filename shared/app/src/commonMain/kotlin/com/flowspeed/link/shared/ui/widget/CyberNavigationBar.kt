@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,20 +36,21 @@ fun CyberNavigationBar(
     onCategorySelected: (Category?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(myColors.surface)
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // "All" tab
-        CyberTab(
-            label = myStringResource(Res.string.all),
-            isSelected = selectedCategory == null,
-            onClick = { onCategorySelected(null) },
-        )
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(myColors.surface)
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // "All" tab
+            CyberTab(
+                label = myStringResource(Res.string.all),
+                isSelected = selectedCategory == null,
+                onClick = { onCategorySelected(null) },
+            )
 
         // Category tabs
         categories.forEach { category ->
@@ -57,6 +60,24 @@ fun CyberNavigationBar(
                 onClick = { onCategorySelected(category) },
             )
         }
+        }
+        // Animated accent line below nav
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            myColors.primary.copy(alpha = 0.4f),
+                            myColors.primary,
+                            myColors.primary.copy(alpha = 0.4f),
+                            Color.Transparent,
+                        )
+                    )
+                )
+        )
     }
 }
 
