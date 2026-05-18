@@ -11,13 +11,19 @@ import org.koin.core.component.inject
  * Manages memory usage by triggering GC and trimming resources when the app is idle.
  * When no downloads are active and no UI is shown, aggressively reclaims memory
  * to keep the background footprint minimal (similar to IDM behavior).
+ *
+ * Strategy:
+ * - Evict idle OkHttp connections (each holds socket buffers ~64KB)
+ * - Force GC to release unreachable objects
+ * - Periodic trim every 60s when idle to catch any leaked memory
  */
 class MemoryManager(
     private val downloadSystem: DownloadSystem,
     private val scope: CoroutineScope,
 ) : KoinComponent {
     private val okHttpClient: OkHttpClient by inject()
-    private var job: Job? = null
+    private var idleJob: Job? = null
+    private var periodicJob: Job? = null
 
     /**
      * Tracks whether the UI window is currently visible.
@@ -30,9 +36,10 @@ class MemoryManager(
     }
 
     fun boot() {
-        job?.cancel()
-        job = scope.launch {
-            // Combine UI visibility and active download count
+        idleJob?.cancel()
+        periodicJob?.cancel()
+
+        idleJob = scope.launch {
             combine(
                 _isUiVisible,
                 downloadSystem.downloadMonitor.activeDownloadCount,
@@ -47,8 +54,9 @@ class MemoryManager(
                     }
                 }
         }
+
         // Periodic memory trim when idle (every 60 seconds)
-        scope.launch {
+        periodicJob = scope.launch {
             while (true) {
                 delay(60_000)
                 val isIdle = !_isUiVisible.value &&
@@ -66,16 +74,19 @@ class MemoryManager(
      */
     private fun trimMemory() {
         // Evict all idle connections from OkHttp pool
+        // Each idle connection holds ~64KB of socket buffers
         okHttpClient.connectionPool.evictAll()
+
         // Hint the JVM to release unused memory back to the OS
         System.gc()
-        // Second pass to collect objects finalized in first pass
         System.runFinalization()
         System.gc()
     }
 
     fun stop() {
-        job?.cancel()
-        job = null
+        idleJob?.cancel()
+        periodicJob?.cancel()
+        idleJob = null
+        periodicJob = null
     }
 }

@@ -40,4 +40,17 @@ class FlowApp : Application(), KoinComponent {
         )
         appManager.boot()
     }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_MODERATE) {
+            // Evict idle OkHttp connections when system is low on memory
+            scope.launch {
+                try {
+                    val client = org.koin.core.context.GlobalContext.get().get<okhttp3.OkHttpClient>()
+                    client.connectionPool.evictAll()
+                } catch (_: Exception) {}
+            }
+        }
+    }
 }

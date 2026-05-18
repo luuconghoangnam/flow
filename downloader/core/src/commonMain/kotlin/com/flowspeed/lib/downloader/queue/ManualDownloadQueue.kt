@@ -44,7 +44,7 @@ class ManualDownloadQueue(
         totalItemsFlow,
     ) { active, total ->
         total - active
-    }.stateIn(scope, SharingStarted.Eagerly, emptyList())
+    }.stateIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000), emptyList())
 
 
     fun boot() {

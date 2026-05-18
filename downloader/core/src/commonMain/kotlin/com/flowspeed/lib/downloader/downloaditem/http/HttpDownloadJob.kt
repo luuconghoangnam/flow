@@ -717,6 +717,8 @@ class HttpDownloadJob(
         cancelRetry()
         cancelDownloadScope()
         stopAllParts()
+        // Release part downloader resources when paused to free memory
+        clearPartDownloaderList()
         onDownloadCanceled(throwable)
     }
 

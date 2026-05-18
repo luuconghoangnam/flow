@@ -406,9 +406,7 @@ val updaterModule = module {
             githubApi = GithubApi(
                 owner = SharedConstants.projectGithubOwner,
                 repo = SharedConstants.projectGithubRepo,
-                client = OkHttpClient
-                    .Builder()
-                    .build()
+                client = get<OkHttpClient>().newBuilder().build()
             )
         )
     }
@@ -548,6 +546,11 @@ fun getAppModule(context: FlowApp) = module {
                 maxRequests = Int.MAX_VALUE
                 maxRequestsPerHost = Int.MAX_VALUE
             })
+            .connectionPool(okhttp3.ConnectionPool(
+                maxIdleConnections = 5,
+                keepAliveDuration = 30,
+                timeUnit = java.util.concurrent.TimeUnit.SECONDS
+            ))
             .sslSocketFactory(
                 appSSLFactoryProvider.createSSLSocketFactory(),
                 appSSLFactoryProvider.trustManager,

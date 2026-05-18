@@ -289,7 +289,7 @@ class DownloadMonitor(
         downloadManager.getActiveCount()
     }.stateIn(
         scope,
-        SharingStarted.Eagerly,
+        SharingStarted.WhileSubscribed(stopTimeoutMillis = 5000),
         downloadManager.getActiveCount()
     )
 

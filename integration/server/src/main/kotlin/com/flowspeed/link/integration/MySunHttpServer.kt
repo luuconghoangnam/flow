@@ -17,7 +17,7 @@ class MySunHttpServer(
     private fun createServer(): HttpServer {
         val httpServer = HttpServer.create(
             InetSocketAddress("localhost", port),
-            1000,
+            10,
         )
         httpServer.createContext(
             /* path = */ "/",
@@ -26,7 +26,14 @@ class MySunHttpServer(
                 isDebugMode = isDebugMode
             )
         )
-        httpServer.executor = Executors.newWorkStealingPool()
+        // Use a cached thread pool with limited max threads and short keep-alive
+        // to minimize idle memory usage while handling bursts
+        httpServer.executor = java.util.concurrent.ThreadPoolExecutor(
+            0, 4,
+            30L, java.util.concurrent.TimeUnit.SECONDS,
+            java.util.concurrent.SynchronousQueue(),
+            Executors.defaultThreadFactory(),
+        )
         return httpServer
     }
 

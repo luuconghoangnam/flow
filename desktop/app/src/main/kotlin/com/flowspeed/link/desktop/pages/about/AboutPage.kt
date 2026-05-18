@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.flowspeed.link.shared.util.SharedConstants
 import com.flowspeed.link.shared.util.ui.widget.MyIcon
-import com.flowspeed.link.shared.ui.widget.LinkText
 import com.flowspeed.link.shared.util.div
 import com.flowspeed.link.resources.Res
 import com.flowspeed.link.shared.util.ui.LocalContentColor
@@ -80,22 +79,19 @@ fun AboutPage(
                 description = Res.string.view_the_open_source_licenses.asStringSource(),
                 onClick = { onRequestShowOpenSourceLibraries() }
             )
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        // Footer
-        WithContentAlpha(0.5f) {
             val websiteUrl = SharedConstants.projectWebsite
             val websiteDisplayName = remember(websiteUrl) {
                 HttpUrlUtils.getHost(websiteUrl) ?: websiteUrl
             }
-            LinkText(
-                text = websiteDisplayName,
-                link = websiteUrl,
-                showExternalIndicator = false,
+            AboutItem(
+                icon = MyIcons.earth,
+                title = Res.string.website.asStringSource(),
+                description = websiteDisplayName.asStringSource(),
+                onClick = { URLOpener.openUrl(websiteUrl) }
             )
         }
+
+        Spacer(Modifier.weight(1f))
         Spacer(Modifier.height(8.dp))
     }
 }
