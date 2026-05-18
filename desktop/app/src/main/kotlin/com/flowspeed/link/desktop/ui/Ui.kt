@@ -137,6 +137,7 @@ object Ui : KoinComponent {
 
     /**
      * Full UI mode: loads Compose, AppComponent, Skia - the full experience.
+     * When user closes the window, the process exits (Go service handles tray).
      */
     private fun bootFullUiMode(globalAppExceptionHandler: GlobalAppExceptionHandler) {
         val appComponent: AppComponent = get()
@@ -150,7 +151,7 @@ object Ui : KoinComponent {
 
         if (Platform.isMac()) {
             MacEventHandler.configure(
-                onClickIcon = { requestComposeUi(appComponent) },
+                onClickIcon = { appComponent.activateHomeIfNotOpen() },
                 onAboutClick = { appComponent.showAboutPage.value = true },
                 onSettingsClick = appComponent::openSettings,
                 onQuit = { scope.launch { appComponent.requestExitApp() } }
@@ -165,8 +166,55 @@ object Ui : KoinComponent {
         }
 
         appComponent.openHome()
-        composeUiRequested.value = true
-        runComposeLoop(appComponent, themeManager, fontManager, languageManager, notificationManager, globalAppExceptionHandler)
+
+        // If launched with --add-download URL, open the add-download dialog
+        val addUrl = AppArguments.get().addDownloadUrl
+        if (addUrl != null) {
+            scope.launch {
+                delay(500)
+                val downloaderInUiRegistry: com.flowspeed.link.shared.downloaderinui.DownloaderInUiRegistry = get()
+                val credentials = downloaderInUiRegistry
+                    .bestMatchForThisLink(addUrl)
+                    ?.createMinimumCredentials(addUrl)
+                if (credentials != null) {
+                    appComponent.openAddDownloadDialog(
+                        links = listOf(
+                            com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps(
+                                credentials = credentials
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        // Run Compose UI - when window closes, exit process
+        // Go service handles tray icon and will relaunch us when needed
+        application(exitProcessOnExit = true) {
+            ProvideLocalProviders(
+                languageManager = languageManager,
+                appComponent = appComponent,
+                themeManager = themeManager,
+                fontManager = fontManager,
+                globalAppExceptionHandler = globalAppExceptionHandler,
+                notificationManager = notificationManager,
+            ) {
+                HandleEffectsForApp(appComponent)
+                // NO system tray in UI process - Go service owns the tray
+                RenderAllWindows(appComponent)
+
+                // When home window is closed, exit the UI process
+                val hasHomeWindow = appComponent.showHomeSlot.collectAsState().value.child != null
+                LaunchedEffect(hasHomeWindow) {
+                    if (!hasHomeWindow) {
+                        // Small delay to avoid exit during initial composition
+                        delay(500)
+                        exitApplication()
+                    }
+                }
+            }
+        }
+        // If we get here, Compose exited → process will exit
     }
 
     /**
@@ -224,6 +272,9 @@ object Ui : KoinComponent {
             System.runFinalization()
             System.gc()
 
+            // Start Go service to handle extension requests while UI is closed
+            com.flowspeed.link.desktop.bootstrap.ServiceProcessManager.ensureRunning()
+
             // Show lightweight tray again
             lightweightTray = LightweightTray(
                 tooltip = AppInfo.displayName,
@@ -238,6 +289,8 @@ object Ui : KoinComponent {
     }
 
     private fun requestComposeUi(appComponent: AppComponent) {
+        // Stop Go service - UI will take over the integration port
+        com.flowspeed.link.desktop.bootstrap.ServiceProcessManager.stop()
         appComponent.openHome()
         composeUiRequested.value = true
     }

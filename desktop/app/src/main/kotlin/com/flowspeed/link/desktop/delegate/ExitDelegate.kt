@@ -1,5 +1,6 @@
 package com.flowspeed.link.desktop.delegate
 
+import com.flowspeed.link.desktop.bootstrap.ServiceProcessManager
 import com.flowspeed.link.shared.pagemanager.ExitApplicationRequestManager
 import com.flowspeed.link.shared.util.DownloadSystem
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +36,8 @@ class ExitDelegate(
 
     suspend fun exitApp() {
         downloadSystem.stopAnything()
+        // Stop the Go background service when user exits completely
+        ServiceProcessManager.stop()
         exitProcess(0)
     }
 

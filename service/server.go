@@ -128,6 +128,15 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 			s.engine.Resume(id)
 		}
 	}
+
+	// Launch UI to show the add-download overlay with the download info
+	if !req.Options.SilentAdd {
+		// Pass download URL to UI so it opens the add-download dialog directly
+		if len(req.Items) > 0 {
+			go LaunchUIWithDownload(req.Items[0].Link)
+		}
+	}
+
 	writeJSON(w, AddDownloadResponse{IDs: ids})
 }
 

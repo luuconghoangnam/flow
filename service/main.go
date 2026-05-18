@@ -14,8 +14,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
@@ -59,13 +57,15 @@ func main() {
 			cfg.IntegrationPort, cfg.IpcPort, cfg.DataDir)
 	}
 
-	// Wait for shutdown signal
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
-
-	if !cfg.Background {
-		fmt.Println("Shutting down...")
-	}
-	svc.Shutdown()
+	// Run system tray (blocks until exit)
+	// Tray handles: left-click → open UI, right-click → menu (Show/Exit)
+	RunTray("Flow Download Manager", func() {
+		// User clicked tray or extension sent /add → launch UI
+		LaunchUI()
+	}, func() {
+		// User clicked Exit → shutdown
+		svc.Shutdown()
+		lock.Release()
+		os.Exit(0)
+	})
 }

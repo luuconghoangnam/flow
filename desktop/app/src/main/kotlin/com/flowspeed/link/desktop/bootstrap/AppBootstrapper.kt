@@ -61,6 +61,9 @@ class AppBootstrapper : AutoCloseable, KoinComponent {
         globalAppExceptionHandler: GlobalAppExceptionHandler,
     ) {
         try {
+            // Stop Go service if it was running (UI takes over integration port)
+            ServiceProcessManager.stop()
+
             runBlocking {
                 Di.boot()
                 bootSubsystems()
