@@ -1,4 +1,4 @@
-package com.flowspeed.link.desktop.pages.externallibs
+package com.flowspeed.link.desktop.pages.about
 
 import com.flowspeed.link.desktop.AppComponent
 import com.flowspeed.link.desktop.window.custom.CustomWindow

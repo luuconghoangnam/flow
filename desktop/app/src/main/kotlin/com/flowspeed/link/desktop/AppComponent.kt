@@ -33,6 +33,7 @@ import com.flowspeed.link.desktop.ui.widget.MessageDialogModel
 import com.flowspeed.link.shared.ui.widget.MessageDialogType
 import com.flowspeed.link.shared.ui.widget.NotificationModel
 import com.flowspeed.link.shared.ui.widget.NotificationType
+import com.flowspeed.link.desktop.delegate.ExitDelegate
 import com.flowspeed.link.desktop.utils.*
 import com.flowspeed.link.shared.util.mvi.ContainsEffects
 import com.flowspeed.link.shared.util.mvi.supportEffects
@@ -151,6 +152,14 @@ class AppComponent(
     val updaterManager: UpdateManager by inject()
     val extraDownloadSettingStorage: ExtraDownloadSettingsStorage<DesktopExtraDownloadItemSettings> by inject()
     val useSystemTray = appSettings.useSystemTray
+
+    // --- Delegates ---
+    private val exitDelegate by lazy { ExitDelegate(scope, downloadSystem) }
+    val showConfirmExitDialog get() = exitDelegate.showConfirmExitDialog
+    fun exitAppAsync() = exitDelegate.exitAppAsync()
+    suspend fun exitApp() = exitDelegate.exitApp()
+    fun closeConfirmExit() = exitDelegate.closeConfirmExit()
+    override suspend fun requestExitApp() = exitDelegate.requestExitApp()
     fun openHome() {
         scope.launch {
             showHomeSlot.value.child?.instance.let {
@@ -946,31 +955,6 @@ class AppComponent(
                 downloadSystem.userManualResume(it)
             }
         }
-    }
-
-    private val _showConfirmExitDialog = MutableStateFlow(false)
-    val showConfirmExitDialog = _showConfirmExitDialog.asStateFlow()
-
-    fun exitAppAsync() {
-        scope.launch { exitApp() }
-    }
-
-    suspend fun exitApp() {
-        downloadSystem.stopAnything()
-        exitProcess(0)
-    }
-
-    fun closeConfirmExit() {
-        _showConfirmExitDialog.value = false
-    }
-
-    override suspend fun requestExitApp() {
-        val hasActiveDownloads = downloadSystem.downloadMonitor.activeDownloadCount.value > 0
-        if (hasActiveDownloads) {
-            _showConfirmExitDialog.value = true
-            return
-        }
-        exitApp()
     }
 
     override fun openAboutPage() {

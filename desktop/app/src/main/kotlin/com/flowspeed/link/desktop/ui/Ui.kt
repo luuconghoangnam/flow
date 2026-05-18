@@ -18,10 +18,10 @@ import com.flowspeed.link.desktop.pages.about.ShowAboutDialog
 import com.flowspeed.link.desktop.pages.adddownload.ShowAddDownloadDialogs
 import com.flowspeed.link.desktop.pages.batchdownload.BatchDownloadWindow
 import com.flowspeed.link.desktop.pages.category.ShowCategoryDialogs
-import com.flowspeed.link.desktop.pages.confirmexit.ConfirmExit
+import com.flowspeed.link.desktop.pages.home.ConfirmExit
 import com.flowspeed.link.desktop.pages.editdownload.EditDownloadWindow
 import com.flowspeed.link.desktop.pages.enterurl.EnterNewDownloadWindow
-import com.flowspeed.link.desktop.pages.externallibs.ShowOpenSourceLibraries
+import com.flowspeed.link.desktop.pages.about.ShowOpenSourceLibraries
 import com.flowspeed.link.desktop.pages.checksum.FileChecksumWindow
 import com.flowspeed.link.desktop.pages.home.HomeWindow
 import com.flowspeed.link.desktop.pages.newqueue.NewQueueDialog
