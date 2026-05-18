@@ -177,6 +177,34 @@ compose {
     }
 }
 
+// ======= Go Service bundling =======
+// Copies the pre-built Go service binary into the distributable app directory.
+// The binary must be built separately (via `go build` in service/ directory).
+// In CI, this is handled by the "Build Go service" step.
+val goServiceBinaryName = if (Platform.getCurrentPlatform() == Platform.Desktop.Windows) {
+    "flow-service.exe"
+} else {
+    "flow-service"
+}
+val goServiceBinary = rootProject.file("service/$goServiceBinaryName")
+
+// Task to copy Go service into distributable after it's created
+tasks.matching { it.name == "createDistributable" || it.name == "createReleaseDistributable" }.configureEach {
+    doLast {
+        if (goServiceBinary.exists()) {
+            val appDir = outputs.files.singleFile
+            val dest = File(appDir, goServiceBinaryName)
+            goServiceBinary.copyTo(dest, overwrite = true)
+            if (Platform.getCurrentPlatform() != Platform.Desktop.Windows) {
+                dest.setExecutable(true)
+            }
+            logger.lifecycle("Bundled Go service: ${dest.absolutePath} (${dest.length() / 1024}KB)")
+        } else {
+            logger.warn("Go service binary not found at ${goServiceBinary.absolutePath}, skipping bundle")
+        }
+    }
+}
+
 installerPlugin {
     dependsOn("createReleaseDistributable")
     outputFolder.set(layout.buildDirectory.dir("custom-installer"))

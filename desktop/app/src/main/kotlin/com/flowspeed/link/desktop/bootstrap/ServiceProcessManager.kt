@@ -60,6 +60,9 @@ object ServiceProcessManager {
             return
         }
 
+        // Register auto-start if not already registered
+        registerAutoStart(binary)
+
         try {
             val pb = ProcessBuilder(
                 binary.absolutePath,
@@ -75,6 +78,15 @@ object ServiceProcessManager {
             Thread.sleep(500)
         } catch (e: Exception) {
             System.err.println("[ServiceProcessManager] Failed to start service: ${e.message}")
+        }
+    }
+
+    /** Registers the service for auto-start on login (first run). */
+    private fun registerAutoStart(binary: File) {
+        try {
+            com.flowspeed.link.service.lifecycle.AutoStartRegistrar.register(binary.absolutePath)
+        } catch (_: Exception) {
+            // Best effort
         }
     }
 
