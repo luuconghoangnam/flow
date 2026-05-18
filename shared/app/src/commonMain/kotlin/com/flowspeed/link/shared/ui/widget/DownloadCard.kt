@@ -62,7 +62,7 @@ fun DownloadCard(
 
         Spacer(Modifier.height(8.dp))
 
-        // Progress bar
+        // Progress bar with glow effect for active downloads
         val progress = when (item) {
             is ProcessingDownloadItemState -> {
                 if (item.contentLength > 0) item.progress.toFloat() / item.contentLength.toFloat()
@@ -71,6 +71,8 @@ fun DownloadCard(
             is CompletedDownloadItemState -> 1f
             else -> 0f
         }
+        val isActive = item is ProcessingDownloadItemState
+        val progressColor = if (item is CompletedDownloadItemState) myColors.success else myColors.primary
         Box(
             Modifier
                 .fillMaxWidth()
@@ -81,7 +83,7 @@ fun DownloadCard(
                 Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
-                    .background(myColors.primary, RectangleShape)
+                    .background(progressColor, RectangleShape)
             )
         }
 
