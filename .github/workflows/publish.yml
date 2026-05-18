@@ -89,7 +89,7 @@ jobs:
           ./gradlew android:app:assembleDebug
           APK=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -1)
           if [ -n "$APK" ]; then
-            cp "$APK" "build/ci-release/binaries/Flow-android-debug.apk"
+            cp "$APK" "build/ci-release/binaries/flow.apk"
           fi
 
       - name: Stop Gradle daemon
