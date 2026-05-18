@@ -173,11 +173,8 @@ fun createCheckForUpdateAction(
     return simpleAction(
         title = Res.string.update_check_for_update.asStringSource(),
         icon = MyIcons.refresh,
-        checkEnable = MutableStateFlow(
-            updaterComponent.isUpdateSupported()
-        )
     ) {
-        updaterComponent.requestCheckForUpdate()
+        URLOpener.openUrl("https://github.com/luuconghoangnam/flowspeed.link/releases/latest")
     }
 }
 
