@@ -5,190 +5,77 @@
  */
 package com.flowspeed.link.desktop
 
-import com.flowspeed.link.UpdateManager
-import com.flowspeed.link.desktop.di.Di
-import com.flowspeed.link.desktop.repository.AppRepository
-import com.flowspeed.link.desktop.ui.Ui
+import com.flowspeed.link.desktop.bootstrap.AppBootstrapper
+import com.flowspeed.link.desktop.bootstrap.SingleInstanceLauncher
 import com.flowspeed.link.desktop.utils.*
-import com.flowspeed.link.desktop.utils.renderapi.CustomRenderApi
 import com.flowspeed.link.desktop.utils.singleInstance.AnotherInstanceIsRunning
 import com.flowspeed.link.desktop.utils.singleInstance.MutableSingleInstanceServerHandler
 import com.flowspeed.link.desktop.utils.singleInstance.SingleInstanceUtil
-import com.flowspeed.link.integration.Integration
 import com.flowspeed.link.shared.util.AppVersion
-import com.flowspeed.link.shared.util.DownloadSystem
-import com.flowspeed.link.shared.util.appinfo.PreviousVersion
-import kotlinx.coroutines.runBlocking
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import kotlin.system.exitProcess
 
-class App : AutoCloseable,
-    KoinComponent {
-    private val downloadSystem: DownloadSystem by inject()
-    private val appRepository: AppRepository by inject()
-    private val integration: Integration by inject()
-    private val previousVersion: PreviousVersion by inject()
-    private val updateManager: UpdateManager by inject()
-    private val keepAwakeManager: KeepAwakeManager by inject()
-    private val customRenderApi: CustomRenderApi by inject()
-    private val memoryManager: MemoryManager by inject()
-
-    //TODO Setup Native Messaging Feature
-    //private val browserNativeMessaging: NativeMessaging by inject()
-    fun start(
-        appArguments: AppArguments,
-        singleInstanceServerHandler: MutableSingleInstanceServerHandler,
-        globalAppExceptionHandler: GlobalAppExceptionHandler,
-    ) {
-        try {
-            runBlocking {
-                //make sure to not get any dependency until boot the DI Container
-                Di.boot()
-                // it's better to organize these list of boot functions in a separate class
-
-                // boot configs from the storage so download manager can use them on boot!
-                customRenderApi.boot()
-                appRepository.boot()
-                integration.boot()
-                downloadSystem.boot()
-                previousVersion.boot()
-                keepAwakeManager.boot()
-                memoryManager.boot()
-                //TODO Setup Native Messaging Feature
-                //waiting for compose kmp to add multi launcher to nativeDistributions,the PR is already exists but not merger
-                //or maybe I should use a custom solution
-                //browserNativeMessaging.boot()
-                SingleInstanceServerInitializer.boot(singleInstanceServerHandler)
-                Ui.boot(appArguments, globalAppExceptionHandler)
-            }
-        } catch (e: Exception) {
-            globalAppExceptionHandler.onProcessIsUseless()
-            throw e
-        }
-    }
-
-    override fun close() {
-        //nothing yet!
-    }
-}
-
-
+/**
+ * Application entry point.
+ *
+ * Handles CLI argument dispatch, single-instance locking,
+ * and delegates to [AppBootstrapper] for the actual boot sequence.
+ */
 fun main(args: Array<String>) {
     try {
         AppArguments.init(args)
         AppProperties.boot()
+
         val appArguments = AppArguments.get()
-        if (appArguments.version) {
-            dispatchVersionAndExit()
-        }
         val singleInstance = SingleInstanceUtil(AppInfo.definedPaths.configDir)
+
+        // CLI dispatch commands — these print output and exit immediately
+        if (appArguments.version) {
+            SingleInstanceLauncher.dispatchVersionAndExit()
+        }
         if (appArguments.exit) {
-            exitExistingProcessAndExit(singleInstance)
+            SingleInstanceLauncher.exitExistingProcessAndExit(singleInstance)
         }
         if (appArguments.startIfNotStarted && !AppInfo.isInIDE()) {
-            startAndWaitForRunIfNotRunning(singleInstance)
+            SingleInstanceLauncher.startAndWaitForRunIfNotRunning(singleInstance)
         }
         if (appArguments.getIntegrationPort) {
-            dispatchIntegrationPortAndExit(singleInstance)
+            SingleInstanceLauncher.dispatchIntegrationPortAndExit(singleInstance)
         }
-        //going to start main app
-        defaultApp(
-            singleInstance = singleInstance,
-            appArguments = appArguments,
-        )
+
+        // Normal startup — acquire single-instance lock and boot
+        startApplication(singleInstance, appArguments)
 
     } catch (e: Throwable) {
-        System.err.println("Fail to start the ${AppInfo.displayName} app because:")
+        System.err.println("Failed to start ${AppInfo.displayName}:")
         e.printStackTrace()
         exitProcess(-1)
     }
 }
 
-private fun startAppInAnotherProcess() {
-    val exeFile = requireNotNull(AppInfo.exeFile)
-    val cmd = listOf(
-        exeFile,
-        AppArguments.Args.BACKGROUND
-    ).joinToString(" ").also {
-//        println("executing $it")
-    }
-    Runtime.getRuntime().exec(cmd)
-}
-
-private fun dispatchVersionAndExit(): Nothing {
-    print(AppInfo.version)
-    exitProcess(0)
-}
-
-private fun exitExistingProcessAndExit(singleInstance: SingleInstanceUtil): Nothing {
-    singleInstance.sendToInstance(Commands.exit)
-    exitProcess(0)
-}
-
-private fun dispatchIntegrationPortAndExit(singleInstance: SingleInstanceUtil): Nothing {
-    val port =
-        singleInstance.sendToInstance(Commands.getIntegrationPort)
-            .orElse { IntegrationPortBroadcaster.INTEGRATION_UNKNOWN }
-    print(port)
-    exitProcess(0)
-}
-
-private fun startAndWaitForRunIfNotRunning(
+/**
+ * Acquires the single-instance lock and starts the application.
+ * If another instance is already running, notifies it and returns.
+ */
+private fun startApplication(
     singleInstance: SingleInstanceUtil,
-    howMuchWait: Long = 10_000,
-    initialDelay: Long = 0,
-    eachTimeDelay: Long = 500L,
-) {
-    val deadLine = System.currentTimeMillis() + howMuchWait
-    if (initialDelay > 0) {
-        Thread.sleep(initialDelay)
-    }
-    var firstLoop = true
-    while (true) {
-        val isReady: Boolean = singleInstance
-            .sendToInstance(Commands.isReady)
-            .orElse {
-//                println("or else $it")
-                false
-            }
-//        println("isReady: $isReady")
-        if (isReady) {
-            return
-        }
-        if (firstLoop) {
-            startAppInAnotherProcess()
-//            println("send start signal")
-        }
-        if (System.currentTimeMillis() >= deadLine) {
-//            println("dead line reached")
-            //deadline reached exiting now
-            exitProcess(1)
-        }
-        Thread.sleep(eachTimeDelay)
-        firstLoop = false
-    }
-}
-
-private fun defaultApp(
     appArguments: AppArguments,
-    singleInstance: SingleInstanceUtil,
 ) {
     val singleInstanceServerHandler by lazy { MutableSingleInstanceServerHandler() }
+
     try {
         singleInstance.lockInstance { singleInstanceServerHandler }
-    } catch (e: AnotherInstanceIsRunning) {
+    } catch (_: AnotherInstanceIsRunning) {
         println("instance already running")
         singleInstance.sendToInstance(Commands.showUserThatAppIsRunning)
         return
     }
+
     if (AppInfo.isInIDE()) {
-        println("app version ${AppVersion.get()} is started")
-        println("it seems we are in ide")
+        println("app version ${AppVersion.get()} started (IDE mode)")
     }
 
     val globalExceptionHandler = createAndSetGlobalExceptionHandler()
-    App().use {
+    AppBootstrapper().use {
         it.start(
             appArguments = appArguments,
             globalAppExceptionHandler = globalExceptionHandler,
