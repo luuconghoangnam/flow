@@ -71,7 +71,6 @@ jobs:
           enableCrossOsArchive: true
 
       - name: Skip Android build
-        if: ${{ !matrix.build_android }}
         shell: bash
         run: echo "SKIP_ANDROID_BUILD=true" >> $GITHUB_ENV
 
