@@ -40,8 +40,8 @@ fun DashboardStatsHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         StatBox(
             label = myStringResource(Res.string.speed),
@@ -81,7 +81,7 @@ private fun StatBox(
         modifier = modifier
             .border(1.dp, myColors.primary.copy(alpha = borderAlpha), RectangleShape)
             .background(myColors.surface, RectangleShape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         WithContentAlpha(0.5f) {
@@ -90,10 +90,10 @@ private fun StatBox(
                 fontSize = myTextSizes.xs,
             )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = value,
-            fontSize = myTextSizes.lg,
+            fontSize = myTextSizes.base,
             fontWeight = FontWeight.Bold,
         )
     }

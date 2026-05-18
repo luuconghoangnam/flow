@@ -28,6 +28,7 @@ import com.flowspeed.lib.util.compose.resources.myStringResource
 /**
  * Horizontal category navigation bar - replaces the left sidebar.
  * Cyber-Industrial style: sharp edges, orange accent indicator.
+ * Mobile-optimized: compact height, scrollable tabs.
  */
 @Composable
 fun CyberNavigationBar(
@@ -42,7 +43,7 @@ fun CyberNavigationBar(
                 .fillMaxWidth()
                 .background(myColors.surface)
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // "All" tab
@@ -52,16 +53,16 @@ fun CyberNavigationBar(
                 onClick = { onCategorySelected(null) },
             )
 
-        // Category tabs
-        categories.forEach { category ->
-            CyberTab(
-                label = category.name,
-                isSelected = selectedCategory?.id == category.id,
-                onClick = { onCategorySelected(category) },
-            )
+            // Category tabs
+            categories.forEach { category ->
+                CyberTab(
+                    label = category.name,
+                    isSelected = selectedCategory?.id == category.id,
+                    onClick = { onCategorySelected(category) },
+                )
+            }
         }
-        }
-        // Animated accent line below nav
+        // Accent line below nav
         Spacer(
             Modifier
                 .fillMaxWidth()
@@ -90,23 +91,24 @@ private fun CyberTab(
     Column(
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = label,
-            fontSize = myTextSizes.sm,
+            fontSize = myTextSizes.xs,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color = if (isSelected) myColors.primary else myColors.onSurface / 0.7f,
+            maxLines = 1,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(3.dp))
         // Active indicator bar
         Box(
             Modifier
-                .width(32.dp)
+                .width(24.dp)
                 .height(2.dp)
                 .background(
-                    if (isSelected) myColors.primary else myColors.surface,
+                    if (isSelected) myColors.primary else Color.Transparent,
                     RectangleShape
                 )
         )
