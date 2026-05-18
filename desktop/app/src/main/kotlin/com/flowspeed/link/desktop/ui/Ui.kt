@@ -39,6 +39,7 @@ import com.flowspeed.link.desktop.ui.widget.Tray
 import com.flowspeed.link.desktop.ui.widget.ShowMessageDialogs
 import com.flowspeed.link.desktop.utils.AppInfo
 import com.flowspeed.link.desktop.utils.GlobalAppExceptionHandler
+import com.flowspeed.link.desktop.utils.MemoryManager
 import com.flowspeed.link.desktop.utils.ProvideGlobalExceptionHandler
 import com.flowspeed.link.desktop.utils.isInDebugMode
 import com.flowspeed.link.shared.ui.ProvideCommonSettings
@@ -67,6 +68,7 @@ import org.koin.core.component.inject
 
 object Ui : KoinComponent {
     val scope: CoroutineScope by inject()
+    private val memoryManager: MemoryManager by inject()
     fun boot(
         appArguments: AppArguments,
         globalAppExceptionHandler: GlobalAppExceptionHandler,
@@ -93,6 +95,12 @@ object Ui : KoinComponent {
                     scope.launch { appComponent.requestExitApp() }
                 }
             )
+        }
+        // Track UI visibility for memory management
+        scope.launch {
+            appComponent.showHomeSlot.collect { slot ->
+                memoryManager.setUiVisible(slot.child != null)
+            }
         }
         application {
             ProvideLocalProviders(

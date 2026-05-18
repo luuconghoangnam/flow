@@ -132,6 +132,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import okhttp3.Protocol
 import okhttp3.internal.tls.OkHostnameVerifier
+import java.util.concurrent.TimeUnit
 
 /** Provides download engine bindings: database, HTTP client, download manager, queue manager. */
 val downloaderModule = module {
@@ -449,9 +450,7 @@ val updaterModule = module {
             githubApi = GithubApi(
                 owner = SharedConstants.projectGithubOwner,
                 repo = SharedConstants.projectGithubRepo,
-                client = OkHttpClient
-                    .Builder()
-                    .build()
+                client = get<OkHttpClient>().newBuilder().build()
             )
         )
     }
@@ -635,6 +634,11 @@ val appModule = module {
                 maxRequests = Int.MAX_VALUE
                 maxRequestsPerHost = Int.MAX_VALUE
             })
+            .connectionPool(okhttp3.ConnectionPool(
+                maxIdleConnections = 5,
+                keepAliveDuration = 30,
+                timeUnit = TimeUnit.SECONDS
+            ))
             .sslSocketFactory(
                 appSSLFactoryProvider.createSSLSocketFactory(),
                 appSSLFactoryProvider.trustManager,
@@ -645,6 +649,12 @@ val appModule = module {
     single {
         KeepAwakeManager(
             DesktopUtils.keepAwakeService(),
+            get(),
+            get(),
+        )
+    }
+    single {
+        MemoryManager(
             get(),
             get(),
         )
