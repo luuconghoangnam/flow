@@ -87,3 +87,8 @@ val createReleaseFolderForCi by tasks.registering {
 }
 
 // ======= end of GitHub action stuff
+
+tasks.register("printVersion") {
+    doLast { print(getAppVersionString()) }
+}
+
