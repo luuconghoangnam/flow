@@ -16,12 +16,14 @@ type Server struct {
 	engine     *DownloadEngine
 	storage    *Storage
 	config     *Config
+	overlay    *Overlay
+	ipc        *IPCState
 	integration *http.Server
-	ipc        *http.Server
+	ipcServer  *http.Server
 }
 
-func NewServer(engine *DownloadEngine, storage *Storage, cfg *Config) *Server {
-	return &Server{engine: engine, storage: storage, config: cfg}
+func NewServer(engine *DownloadEngine, storage *Storage, cfg *Config, overlay *Overlay, ipcState *IPCState) *Server {
+	return &Server{engine: engine, storage: storage, config: cfg, overlay: overlay, ipc: ipcState}
 }
 
 // StartIntegration starts the browser extension HTTP server.
@@ -63,6 +65,11 @@ func (s *Server) StartIPC() error {
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/config", s.handleUpdateConfig)
 
+	// IPC lifecycle (UI connects/disconnects)
+	mux.HandleFunc("POST /api/ui/connect", s.handleUIConnect)
+	mux.HandleFunc("POST /api/ui/disconnect", s.handleUIDisconnect)
+	mux.HandleFunc("GET /api/ui/pending", s.handleUIPending)
+
 	// Lifecycle
 	mux.HandleFunc("POST /api/shutdown", s.handleShutdown)
 
@@ -71,8 +78,8 @@ func (s *Server) StartIPC() error {
 	if err != nil {
 		return fmt.Errorf("ipc server: %w", err)
 	}
-	s.ipc = &http.Server{Handler: mux}
-	go s.ipc.Serve(listener)
+	s.ipcServer = &http.Server{Handler: mux}
+	go s.ipcServer.Serve(listener)
 	return nil
 }
 
@@ -80,8 +87,8 @@ func (s *Server) Stop() {
 	if s.integration != nil {
 		s.integration.Close()
 	}
-	if s.ipc != nil {
-		s.ipc.Close()
+	if s.ipcServer != nil {
+		s.ipcServer.Close()
 	}
 }
 
@@ -115,29 +122,52 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ids []int64
-	for _, item := range req.Items {
-		id, err := s.engine.Add(item)
-		if err != nil {
-			writeJSON(w, CommandResponse{OK: false, Error: err.Error()})
+	if len(req.Items) == 0 {
+		writeJSON(w, CommandResponse{OK: false, Error: "no items"})
+		return
+	}
+
+	// If silent mode, add directly without UI
+	if req.Options.SilentAdd {
+		var ids []int64
+		for _, item := range req.Items {
+			id, err := s.engine.Add(item)
+			if err != nil {
+				writeJSON(w, CommandResponse{OK: false, Error: err.Error()})
+				return
+			}
+			ids = append(ids, id)
+			if !req.Options.SilentStart {
+				s.engine.Resume(id)
+			}
+		}
+		writeJSON(w, AddDownloadResponse{IDs: ids})
+		return
+	}
+
+	// Non-silent: check if Flow.exe UI is connected
+	item := req.Items[0]
+	filename := item.Name
+	if filename == "" {
+		filename = filenameFromURL(item.Link)
+	}
+
+	// Sprint 3: If UI is connected, forward to it
+	if s.ipc.IsConnected() {
+		itemCopy := item
+		if s.ipc.ForwardToUI(&itemCopy) {
+			writeJSON(w, CommandResponse{OK: true})
 			return
 		}
-		ids = append(ids, id)
-		// Auto-start if not silent
-		if !req.Options.SilentAdd {
-			s.engine.Resume(id)
-		}
 	}
 
-	// Launch UI to show the add-download overlay with the download info
-	if !req.Options.SilentAdd {
-		// Pass download URL to UI so it opens the add-download dialog directly
-		if len(req.Items) > 0 {
-			go LaunchUIWithDownload(req.Items[0].Link)
-		}
+	// UI not connected or forward failed — show overlay
+	if s.overlay != nil {
+		go s.overlay.Show(item.Link, filename)
 	}
 
-	writeJSON(w, AddDownloadResponse{IDs: ids})
+	// Respond immediately to extension — overlay handles the rest
+	writeJSON(w, CommandResponse{OK: true})
 }
 
 func (s *Server) handleGetDownloads(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +232,35 @@ func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
 		p, _ := os.FindProcess(os.Getpid())
 		p.Signal(syscall.SIGTERM)
 	}()
+}
+
+// --- IPC Handlers (UI ↔ Service) ---
+
+func (s *Server) handleUIConnect(w http.ResponseWriter, r *http.Request) {
+	s.ipc.SetConnected(true)
+	writeJSON(w, CommandResponse{OK: true})
+}
+
+func (s *Server) handleUIDisconnect(w http.ResponseWriter, r *http.Request) {
+	s.ipc.SetConnected(false)
+	writeJSON(w, CommandResponse{OK: true})
+}
+
+// handleUIPending returns any pending download items forwarded from the extension.
+// The UI polls this endpoint to receive new downloads when it's connected.
+func (s *Server) handleUIPending(w http.ResponseWriter, r *http.Request) {
+	var items []*NewDownloadItem
+	// Non-blocking drain of pending channel
+	for {
+		select {
+		case item := <-s.ipc.PendingDownloads():
+			items = append(items, item)
+		default:
+			goto done
+		}
+	}
+done:
+	writeJSON(w, items)
 }
 
 // --- Helpers ---

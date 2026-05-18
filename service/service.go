@@ -6,6 +6,8 @@ type Service struct {
 	storage *Storage
 	engine  *DownloadEngine
 	server  *Server
+	overlay *Overlay
+	ipc     *IPCState
 }
 
 // NewService creates and initializes the service.
@@ -30,13 +32,17 @@ func NewService(cfg *Config) (*Service, error) {
 		return nil, err
 	}
 
-	server := NewServer(engine, storage, cfg)
+	overlay := NewOverlay(engine, cfg)
+	ipcState := NewIPCState()
+	server := NewServer(engine, storage, cfg, overlay, ipcState)
 
 	return &Service{
 		config:  cfg,
 		storage: storage,
 		engine:  engine,
 		server:  server,
+		overlay: overlay,
+		ipc:     ipcState,
 	}, nil
 }
 

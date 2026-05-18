@@ -8,8 +8,8 @@ import java.io.File
  *
  * Hybrid approach:
  * - When UI starts: launch service if not already running
- * - When UI exits to tray: service keeps running (handles extension requests)
- * - When user clicks "Exit": stop service too
+ * - When UI exits: service keeps running (handles extension requests via overlay)
+ * - When user clicks "Exit" in tray: service stops too
  *
  * The service binary (flow-service.exe) is expected to be in the same
  * directory as the main app executable.
@@ -47,6 +47,11 @@ object ServiceProcessManager {
      * The service handles browser extension requests on port 15151.
      */
     fun ensureRunning() {
+        // If service is already reachable (started by auto-start), don't start another
+        if (isServiceReachable()) {
+            println("[ServiceProcessManager] Service already running (external)")
+            return
+        }
         if (isRunning()) return
 
         val binary = findServiceBinary()
@@ -63,37 +68,37 @@ object ServiceProcessManager {
                 "--ipc-port", "15152",
             )
             pb.redirectErrorStream(true)
-            // Don't inherit IO - service runs silently
             pb.redirectOutput(ProcessBuilder.Redirect.DISCARD)
             serviceProcess = pb.start()
             println("[ServiceProcessManager] Started service (PID: ${serviceProcess?.pid()})")
+            // Give service time to start
+            Thread.sleep(500)
         } catch (e: Exception) {
             System.err.println("[ServiceProcessManager] Failed to start service: ${e.message}")
         }
     }
 
-    /** Checks if the service process is still alive. */
+    /** Checks if the service process (started by us) is still alive. */
     fun isRunning(): Boolean {
         return serviceProcess?.isAlive == true
     }
 
     /** Stops the service process gracefully. */
     fun stop() {
+        disconnectIPC()
         serviceProcess?.let { proc ->
             if (proc.isAlive) {
-                // Try graceful shutdown via IPC first
                 try {
                     val url = java.net.URI("http://127.0.0.1:15152/api/shutdown")
                     val conn = url.toURL().openConnection() as java.net.HttpURLConnection
                     conn.requestMethod = "POST"
                     conn.connectTimeout = 2000
                     conn.readTimeout = 2000
-                    conn.responseCode // trigger request
+                    conn.responseCode
                     conn.disconnect()
-                    // Wait up to 3 seconds for graceful exit
                     proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
                 } catch (_: Exception) {
-                    // Graceful failed, force kill
+                    // Graceful failed
                 }
                 if (proc.isAlive) {
                     proc.destroyForcibly()
@@ -102,5 +107,62 @@ object ServiceProcessManager {
             }
         }
         serviceProcess = null
+    }
+
+    /**
+     * Notifies the Go service that the UI is connected.
+     * Extension requests will be forwarded to the UI via IPC instead of showing the overlay.
+     */
+    fun connectIPC() {
+        try {
+            val url = java.net.URI("http://127.0.0.1:15152/api/ui/connect")
+            val conn = url.toURL().openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
+            conn.responseCode
+            conn.disconnect()
+            println("[ServiceProcessManager] Connected to service IPC")
+        } catch (e: Exception) {
+            println("[ServiceProcessManager] Failed to connect IPC: ${e.message}")
+        }
+    }
+
+    /**
+     * Notifies the Go service that the UI is disconnecting.
+     * Extension requests will use the overlay dialog again.
+     */
+    fun disconnectIPC() {
+        try {
+            val url = java.net.URI("http://127.0.0.1:15152/api/ui/disconnect")
+            val conn = url.toURL().openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
+            conn.responseCode
+            conn.disconnect()
+            println("[ServiceProcessManager] Disconnected from service IPC")
+        } catch (_: Exception) {
+            // Service might already be gone
+        }
+    }
+
+    /**
+     * Checks if the Go service is already running (independent of this process).
+     * Useful to detect if service was started by auto-start or another instance.
+     */
+    fun isServiceReachable(): Boolean {
+        return try {
+            val url = java.net.URI("http://127.0.0.1:15152/api/status")
+            val conn = url.toURL().openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 1000
+            conn.readTimeout = 1000
+            val reachable = conn.responseCode == 200
+            conn.disconnect()
+            reachable
+        } catch (_: Exception) {
+            false
+        }
     }
 }

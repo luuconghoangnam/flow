@@ -1,0 +1,46 @@
+{
+  "RT_GROUP_ICON": {
+    "APP": {
+      "0000": [
+        "icon.png"
+      ]
+    }
+  },
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": {
+        "identity": {
+          "name": "FlowSpeed.FlowService",
+          "version": "1.0.0.0"
+        },
+        "description": "Flow Download Manager Service",
+        "minimum-os": "win7",
+        "execution-level": "asInvoker",
+        "dpi-awareness": "system",
+        "use-common-controls": true
+      }
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "1.0.0.0",
+          "product_version": "1.0.0.0"
+        },
+        "info": {
+          "0409": {
+            "CompanyName": "FlowSpeed",
+            "FileDescription": "Flow Download Manager Service",
+            "FileVersion": "1.0.0.0",
+            "InternalName": "flow-service",
+            "LegalCopyright": "Copyright (c) 2025 Luu Cong Hoang Nam",
+            "OriginalFilename": "flow-service.exe",
+            "ProductName": "Flow Download Manager",
+            "ProductVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  }
+}

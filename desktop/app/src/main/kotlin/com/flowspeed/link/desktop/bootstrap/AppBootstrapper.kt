@@ -18,6 +18,7 @@ import com.flowspeed.link.desktop.utils.singleInstance.MutableSingleInstanceServ
 import com.flowspeed.link.integration.Integration
 import com.flowspeed.link.shared.util.DownloadSystem
 import com.flowspeed.link.shared.util.appinfo.PreviousVersion
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -50,6 +51,7 @@ class AppBootstrapper : AutoCloseable, KoinComponent {
     private val keepAwakeManager: KeepAwakeManager by inject()
     private val memoryManager: MemoryManager by inject()
     private val customRenderApi: CustomRenderApi by inject()
+    private val scope: CoroutineScope by inject()
 
     /**
      * Runs the full boot sequence and starts the UI.
@@ -61,16 +63,31 @@ class AppBootstrapper : AutoCloseable, KoinComponent {
         globalAppExceptionHandler: GlobalAppExceptionHandler,
     ) {
         try {
-            // Stop Go service if it was running (UI takes over integration port)
-            ServiceProcessManager.stop()
+            // Ensure Go service is running (it handles extension requests + tray icon)
+            ServiceProcessManager.ensureRunning()
+
+            // Register shutdown hook to disconnect IPC when UI exits
+            Runtime.getRuntime().addShutdownHook(Thread {
+                ServiceProcessManager.disconnectIPC()
+            })
 
             runBlocking {
                 Di.boot()
                 bootSubsystems()
                 SingleInstanceServerInitializer.boot(singleInstanceServerHandler)
+                // Notify service that UI is connected (extension requests will be forwarded here)
+                ServiceProcessManager.connectIPC()
             }
+
+            // Start polling for pending downloads from the Go service
+            val ipcPoller = com.flowspeed.link.desktop.integration.ServiceIPCPoller()
+            ipcPoller.start(scope)
+
             // Ui.boot blocks the main thread (either via latch or Compose application loop)
             Ui.boot(appArguments, globalAppExceptionHandler)
+
+            // UI exited — stop poller
+            ipcPoller.stop()
         } catch (e: Exception) {
             globalAppExceptionHandler.onProcessIsUseless()
             throw e

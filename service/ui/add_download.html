@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Download</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="dialog">
+    <div class="dialog-header">
+      <span class="icon">📥</span>
+      <h3>Add Download</h3>
+    </div>
+
+    <div class="field">
+      <label>URL</label>
+      <input id="url" class="url-display" readonly value="" title="">
+    </div>
+
+    <div class="file-info" id="fileInfo" style="display:none;">
+      <span id="fileSize"></span>
+      <span id="fileType"></span>
+    </div>
+
+    <div class="field">
+      <label>Filename</label>
+      <input id="name" value="" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label>Save to</label>
+      <div class="field-row">
+        <input id="folder" value="" readonly>
+        <button class="btn-browse" onclick="doBrowse()" title="Choose folder">📁</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="doCancel()">Cancel</button>
+      <button class="btn btn-primary" id="btnDownload" onclick="doDownload()">Download</button>
+    </div>
+  </div>
+
+  <script>
+    // Bridge functions are bound by Go via webview.Bind()
+    // Available: window.flowDownload(url, name, folder), window.flowBrowse(), window.flowCancel()
+
+    function doDownload() {
+      const url = document.getElementById('url').value;
+      const name = document.getElementById('name').value;
+      const folder = document.getElementById('folder').value;
+      if (!url || !name) return;
+      document.getElementById('btnDownload').disabled = true;
+      document.getElementById('btnDownload').textContent = 'Starting...';
+      window.flowDownload(url, name, folder);
+    }
+
+    function doBrowse() {
+      window.flowBrowse().then(function(path) {
+        if (path && path.length > 0) {
+          document.getElementById('folder').value = path;
+        }
+      });
+    }
+
+    function doCancel() {
+      window.flowCancel();
+    }
+
+    // Called from Go to populate fields
+    function setDownloadInfo(url, name, folder, size) {
+      document.getElementById('url').value = url;
+      document.getElementById('url').title = url;
+      document.getElementById('name').value = name;
+      document.getElementById('folder').value = folder;
+      if (size && size > 0) {
+        document.getElementById('fileInfo').style.display = 'flex';
+        document.getElementById('fileSize').textContent = '📦 ' + formatSize(size);
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') doCancel();
+      if (e.key === 'Enter' && !e.shiftKey) doDownload();
+    });
+  </script>
+</body>
+</html>
