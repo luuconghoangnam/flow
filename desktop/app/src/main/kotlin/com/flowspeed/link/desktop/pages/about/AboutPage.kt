@@ -34,7 +34,6 @@ import com.flowspeed.lib.util.compose.resources.myStringResource
 @Composable
 fun AboutPage(
     onRequestShowOpenSourceLibraries: () -> Unit,
-    onRequestShowTranslators: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -80,12 +79,6 @@ fun AboutPage(
                 title = Res.string.powered_by_open_source_software.asStringSource(),
                 description = Res.string.view_the_open_source_licenses.asStringSource(),
                 onClick = { onRequestShowOpenSourceLibraries() }
-            )
-            AboutItem(
-                icon = MyIcons.language,
-                title = Res.string.localized_by_translators.asStringSource(),
-                description = Res.string.meet_the_translators.asStringSource(),
-                onClick = { onRequestShowTranslators() }
             )
         }
 

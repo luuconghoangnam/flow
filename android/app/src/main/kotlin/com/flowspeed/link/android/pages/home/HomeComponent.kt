@@ -19,7 +19,6 @@ import com.flowspeed.link.shared.action.createOpenAboutPage
 import com.flowspeed.link.shared.action.createOpenBatchDownloadAction
 import com.flowspeed.link.shared.action.createOpenOpenSourceThirdPartyLibrariesPage
 import com.flowspeed.link.shared.action.createOpenSettingsAction
-import com.flowspeed.link.shared.action.createOpenTranslatorsPageAction
 import com.flowspeed.link.shared.action.createPerHostSettingsPage
 import com.flowspeed.link.shared.action.createStartQueueGroupAction
 import com.flowspeed.link.shared.action.createStopAllAction
@@ -365,7 +364,6 @@ class HomeComponent(
             MyIcons.question,
         ) {
             +createOpenOpenSourceThirdPartyLibrariesPage(openSourceLibrariesPageManager = openSourceLibrariesPageManager)
-            +createOpenTranslatorsPageAction(opeTranslatorsPageManager = translatorsPageManager)
             separator()
             +createCheckForUpdateAction(updateComponent)
             +createOpenAboutPage(aboutPageManager)

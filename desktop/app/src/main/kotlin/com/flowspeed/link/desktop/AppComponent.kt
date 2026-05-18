@@ -65,7 +65,6 @@ import com.flowspeed.link.shared.pagemanager.OpenSourceLibrariesPageManager
 import com.flowspeed.link.shared.pagemanager.PerHostSettingsPageManager
 import com.flowspeed.link.shared.pagemanager.QueuePageManager
 import com.flowspeed.link.shared.pagemanager.SettingsPageManager
-import com.flowspeed.link.shared.pagemanager.TranslatorsPageManager
 import com.flowspeed.link.shared.pages.updater.UpdateComponent
 import com.flowspeed.link.shared.storage.ExtraDownloadSettingsStorage
 import com.flowspeed.link.shared.util.BaseComponent
@@ -135,7 +134,6 @@ class AppComponent(
     EnterNewURLDialogManager,
     SettingsPageManager,
     OpenSourceLibrariesPageManager,
-    TranslatorsPageManager,
     AboutPageManager,
     BatchDownloadPageManager,
     ExitApplicationRequestManager,
@@ -991,14 +989,6 @@ class AppComponent(
         showOpenSourceLibraries.update { false }
     }
 
-    override fun openTranslatorsPage() {
-        showTranslators.update { true }
-    }
-
-    override fun closeTranslatorsPage() {
-        showTranslators.update { false }
-    }
-
     override fun openQueues(
         openQueueId: Long?,
     ) {
@@ -1217,7 +1207,6 @@ class AppComponent(
 
     val showAboutPage = MutableStateFlow(false)
     val showOpenSourceLibraries = MutableStateFlow(false)
-    val showTranslators = MutableStateFlow(false)
     val theme = appRepository.theme
     val uiScale = appRepository.uiScale
 }

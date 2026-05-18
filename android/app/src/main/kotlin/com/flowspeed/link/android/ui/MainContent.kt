@@ -21,7 +21,6 @@ import com.flowspeed.link.android.pages.checksum.FileChecksumPage
 import com.flowspeed.link.android.pages.home.HomePage
 import com.flowspeed.link.android.pages.settings.SettingsPage
 import com.flowspeed.link.android.pages.credits.thirdpartylibraries.ThirdPartyLibrariesPage
-import com.flowspeed.link.android.pages.credits.translators.TranslatorsPage
 import com.flowspeed.link.android.pages.editdownload.EditDownloadSheet
 import com.flowspeed.link.android.pages.newqueue.NewQueueSheet
 import com.flowspeed.link.android.pages.onboarding.initialsetup.InitialSetupPage
@@ -91,22 +90,11 @@ fun MainContent(
                         onRequestShowOpenSourceLibraries = {
                             mainComponent.openOpenSourceLibrariesPage()
                         },
-                        onRequestShowTranslators = {
-                            mainComponent.openTranslatorsPage()
-                        }
                     )
                 }
 
                 Screen.OpenSourceThirdPartyLibraries -> {
                     ThirdPartyLibrariesPage()
-                }
-
-                Screen.Translators -> {
-                    TranslatorsPage(
-                        onBack = {
-                            mainComponent.closeTranslatorsPage()
-                        }
-                    )
                 }
 
                 is Screen.PerHostSettings -> {
