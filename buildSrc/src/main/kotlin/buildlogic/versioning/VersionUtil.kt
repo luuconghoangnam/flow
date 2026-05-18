@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 Luu Cong Hoang Nam
+ * Licensed under the Apache License, Version 2.0
+ * https://github.com/luuconghoangnam/flowspeed.link
+ */
 package buildlogic.versioning
 
 import io.github.z4kn4fein.semver.Version
