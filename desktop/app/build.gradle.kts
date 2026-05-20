@@ -107,15 +107,21 @@ compose {
             jvmArgs(
                 // Return unused memory to OS aggressively
                 "-XX:+UseG1GC",
-                "-XX:MaxHeapFreeRatio=30",
-                "-XX:MinHeapFreeRatio=10",
-                "-XX:G1PeriodicGCInterval=10000",
-                // Start with small heap, grow only when needed
-                "-Xms32m",
+                "-XX:MaxHeapFreeRatio=20",
+                "-XX:MinHeapFreeRatio=5",
+                "-XX:G1PeriodicGCInterval=5000",
+                // Tight heap limits - force GC pressure to keep memory low
+                "-Xms16m",
+                "-Xmx192m",
                 // Deduplicate strings to save memory
                 "-XX:+UseStringDeduplication",
                 // Smaller heap regions = more granular memory management
-                "-XX:G1HeapRegionSize=1m",
+                "-XX:G1HeapRegionSize=512k",
+                // Reduce metaspace and code cache
+                "-XX:MaxMetaspaceSize=96m",
+                "-XX:ReservedCodeCacheSize=48m",
+                // Reduce thread stack size (default 1MB per thread)
+                "-Xss512k",
             )
             nativeDistributions {
                 modules(
