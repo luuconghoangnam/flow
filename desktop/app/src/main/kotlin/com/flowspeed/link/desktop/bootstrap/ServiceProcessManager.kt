@@ -24,6 +24,13 @@ object ServiceProcessManager {
         if (appDir != null) {
             val binary = File(appDir, getServiceBinaryName())
             if (binary.exists()) return binary
+            
+            // Try in parent of app directory (for packaged distributable layout)
+            val parentOfAppDir = File(appDir).parentFile
+            if (parentOfAppDir != null) {
+                val parentBinary = File(parentOfAppDir, getServiceBinaryName())
+                if (parentBinary.exists()) return parentBinary
+            }
         }
         // Try in current working directory
         val cwd = File(getServiceBinaryName())

@@ -129,6 +129,7 @@ compose {
                     "java.instrument",
                     "jdk.unsupported",
                     "jdk.accessibility",
+                    "java.net.http",
                 )
                 targetFormats(Msi, Deb)
                 if (Platform.getCurrentPlatform() == Platform.Desktop.Linux) {
