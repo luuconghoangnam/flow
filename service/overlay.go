@@ -17,17 +17,19 @@ var uiFS embed.FS
 // Overlay manages the WebView add-download dialog.
 // Only one overlay can be open at a time.
 type Overlay struct {
-	mu     sync.Mutex
-	active bool
-	wv     webview.WebView
-	engine *DownloadEngine
-	config *Config
+	mu      sync.Mutex
+	active  bool
+	wv      webview.WebView
+	engine  *DownloadEngine
+	storage *Storage
+	config  *Config
 }
 
-func NewOverlay(engine *DownloadEngine, cfg *Config) *Overlay {
+func NewOverlay(engine *DownloadEngine, storage *Storage, cfg *Config) *Overlay {
 	return &Overlay{
-		engine: engine,
-		config: cfg,
+		engine:  engine,
+		storage: storage,
+		config:  cfg,
 	}
 }
 
@@ -77,9 +79,17 @@ func (o *Overlay) run(url, filename string) {
 	wv.SetSize(500, 320, webview.HintNone)
 
 	// Bind Go functions to JS
-	wv.Bind("flowDownload", func(dlURL, name, folder string) {
-		o.startDownload(dlURL, name, folder)
+	wv.Bind("flowDownload", func(dlURL, name, folder string, categoryID float64, queueID float64, startNow bool) {
+		o.startDownload(dlURL, name, folder, int64(categoryID), int64(queueID), startNow)
 		wv.Terminate()
+	})
+
+	wv.Bind("flowGetCategories", func() []*Category {
+		return o.storage.GetCategories()
+	})
+
+	wv.Bind("flowGetQueues", func() []*Queue {
+		return o.storage.GetQueues()
 	})
 
 	wv.Bind("flowBrowse", func() string {
@@ -120,11 +130,11 @@ func (o *Overlay) Close() {
 	o.mu.Unlock()
 }
 
-func (o *Overlay) startDownload(url, name, folder string) {
+func (o *Overlay) startDownload(url, name, folder string, categoryID int64, queueID int64, startNow bool) {
 	item := NewDownloadItem{
-		Type: "http",
-		Link: url,
-		Name: name,
+		Type:   "http",
+		Link:   url,
+		Name:   name,
 		Folder: folder,
 	}
 	id, err := o.engine.Add(item)
@@ -132,7 +142,15 @@ func (o *Overlay) startDownload(url, name, folder string) {
 		fmt.Fprintf(os.Stderr, "overlay: failed to add download: %v\n", err)
 		return
 	}
-	o.engine.Resume(id)
+	if categoryID != 0 {
+		o.storage.AddDownloadToCategory(categoryID, id)
+	}
+	if queueID != 0 {
+		o.storage.AddDownloadToQueue(queueID, id)
+	}
+	if startNow {
+		o.engine.Resume(id)
+	}
 }
 
 func (o *Overlay) browseFolder() string {

@@ -117,6 +117,72 @@ func (s *Storage) SaveConfig(cfg *Config) error {
 	return atomicWrite(cfg.ConfigFile(), data)
 }
 
+// --- Categories ---
+
+func (s *Storage) GetCategories() []*Category {
+	path := filepath.Join(s.config.DataDir, "config", "download_db", "categories", "categories.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var categories []*Category
+	if err := json.Unmarshal(data, &categories); err != nil {
+		return nil
+	}
+	return categories
+}
+
+func (s *Storage) AddDownloadToCategory(categoryID int64, downloadID int64) error {
+	categories := s.GetCategories()
+	var updated bool
+	for _, c := range categories {
+		if c.ID == categoryID {
+			found := false
+			for _, itemID := range c.Items {
+				if itemID == downloadID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				c.Items = append(c.Items, downloadID)
+				updated = true
+			}
+			break
+		}
+	}
+	if updated {
+		path := filepath.Join(s.config.DataDir, "config", "download_db", "categories", "categories.json")
+		data, err := json.MarshalIndent(categories, "", "  ")
+		if err != nil {
+			return err
+		}
+		return atomicWrite(path, data)
+	}
+	return nil
+}
+
+func (s *Storage) AddDownloadToQueue(queueID int64, downloadID int64) error {
+	queues := s.GetQueues()
+	var targetQueue *Queue
+	for _, q := range queues {
+		if q.ID == queueID {
+			targetQueue = q
+			break
+		}
+	}
+	if targetQueue != nil {
+		for _, itemID := range targetQueue.Items {
+			if itemID == downloadID {
+				return nil
+			}
+		}
+		targetQueue.Items = append(targetQueue.Items, downloadID)
+		return s.SaveQueue(targetQueue)
+	}
+	return fmt.Errorf("queue not found")
+}
+
 // --- Helpers ---
 
 // atomicWrite writes data to a temp file then renames (atomic on most filesystems).

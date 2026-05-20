@@ -32,7 +32,7 @@ func NewService(cfg *Config) (*Service, error) {
 		return nil, err
 	}
 
-	overlay := NewOverlay(engine, cfg)
+	overlay := NewOverlay(engine, storage, cfg)
 	ipcState := NewIPCState()
 	server := NewServer(engine, storage, cfg, overlay, ipcState)
 

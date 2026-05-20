@@ -76,3 +76,12 @@ type CommandResponse struct {
 type AddDownloadResponse struct {
 	IDs []int64 `json:"ids"`
 }
+
+type Category struct {
+	ID                int64    `json:"id"`
+	Name              string   `json:"name"`
+	Path              string   `json:"path"`
+	UsePath           bool     `json:"usePath"`
+	AcceptedFileTypes []string `json:"acceptedFileTypes"`
+	Items             []int64  `json:"items"`
+}

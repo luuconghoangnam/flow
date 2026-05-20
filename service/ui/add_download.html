@@ -39,6 +39,23 @@
       </div>
     </div>
 
+    <div class="field-row category-queue-row">
+      <div class="field half-width">
+        <label class="check-label">
+          <input type="checkbox" id="useCategory" onchange="toggleCategory()"> Use Category
+        </label>
+        <select id="category" disabled onchange="onCategoryChange()">
+          <option value="0">Loading...</option>
+        </select>
+      </div>
+      <div class="field half-width">
+        <label>Queue</label>
+        <select id="queue" onchange="onQueueChange()">
+          <option value="0">None (Download immediately)</option>
+        </select>
+      </div>
+    </div>
+
     <div class="actions">
       <button class="btn btn-secondary" onclick="doCancel()">Cancel</button>
       <button class="btn btn-primary" id="btnDownload" onclick="doDownload()">Download</button>
@@ -46,29 +63,112 @@
   </div>
 
   <script>
-    // Bridge functions are bound by Go via webview.Bind()
-    // Available: window.flowDownload(url, name, folder), window.flowBrowse(), window.flowCancel()
+    let categories = [];
 
     function doDownload() {
       const url = document.getElementById('url').value;
       const name = document.getElementById('name').value;
       const folder = document.getElementById('folder').value;
+
+      const useCat = document.getElementById('useCategory').checked;
+      const catSelect = document.getElementById('category');
+      let categoryId = 0;
+      if (useCat && catSelect.value) {
+        categoryId = parseInt(catSelect.value, 10);
+      }
+
+      const qSelect = document.getElementById('queue');
+      let queueId = 0;
+      if (qSelect.value) {
+        queueId = parseInt(qSelect.value, 10);
+      }
+
+      const startNow = (queueId === 0);
+
       if (!url || !name) return;
       document.getElementById('btnDownload').disabled = true;
-      document.getElementById('btnDownload').textContent = 'Starting...';
-      window.flowDownload(url, name, folder);
+      document.getElementById('btnDownload').textContent = 'Processing...';
+      
+      if (window.flowDownload) {
+        window.flowDownload(url, name, folder, categoryId, queueId, startNow);
+      }
     }
 
     function doBrowse() {
-      window.flowBrowse().then(function(path) {
-        if (path && path.length > 0) {
-          document.getElementById('folder').value = path;
-        }
-      });
+      if (window.flowBrowse) {
+        window.flowBrowse().then(function(path) {
+          if (path && path.length > 0) {
+            document.getElementById('folder').value = path;
+          }
+        });
+      }
     }
 
     function doCancel() {
-      window.flowCancel();
+      if (window.flowCancel) window.flowCancel();
+    }
+
+    function loadCategoriesAndQueues() {
+      if (window.flowGetCategories) {
+        window.flowGetCategories().then(cats => {
+          categories = cats || [];
+          const catSelect = document.getElementById('category');
+          catSelect.innerHTML = '';
+          if (categories.length === 0) {
+             const opt = document.createElement('option');
+             opt.value = "0";
+             opt.textContent = "No categories";
+             catSelect.appendChild(opt);
+          } else {
+             categories.forEach(c => {
+               const opt = document.createElement('option');
+               opt.value = c.id;
+               opt.textContent = c.name;
+               catSelect.appendChild(opt);
+             });
+          }
+        }).catch(e => console.error("categories error", e));
+      }
+
+      if (window.flowGetQueues) {
+        window.flowGetQueues().then(queues => {
+          const qSelect = document.getElementById('queue');
+          qSelect.innerHTML = '<option value="0">None (Download immediately)</option>';
+          if (queues) {
+             queues.forEach(q => {
+               const opt = document.createElement('option');
+               opt.value = q.id;
+               opt.textContent = q.name;
+               qSelect.appendChild(opt);
+             });
+          }
+        }).catch(e => console.error("queues error", e));
+      }
+    }
+
+    function toggleCategory() {
+      const checked = document.getElementById('useCategory').checked;
+      document.getElementById('category').disabled = !checked;
+      if (checked) onCategoryChange();
+    }
+
+    function onCategoryChange() {
+      const catSelect = document.getElementById('category');
+      const id = parseInt(catSelect.value, 10);
+      const cat = categories.find(c => c.id === id);
+      if (cat && cat.usePath && cat.path) {
+         document.getElementById('folder').value = cat.path;
+      }
+    }
+
+    function onQueueChange() {
+      const qSelect = document.getElementById('queue');
+      const btn = document.getElementById('btnDownload');
+      if (qSelect.value === "0") {
+         btn.textContent = "Download";
+      } else {
+         btn.textContent = "Add to Queue";
+      }
     }
 
     // Called from Go to populate fields
@@ -81,6 +181,7 @@
         document.getElementById('fileInfo').style.display = 'flex';
         document.getElementById('fileSize').textContent = '📦 ' + formatSize(size);
       }
+      loadCategoriesAndQueues();
     }
 
     function formatSize(bytes) {
