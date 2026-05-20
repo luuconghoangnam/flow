@@ -107,15 +107,10 @@ val downloaderModule = module {
     }.bind(DownloadManagerMinimalControl::class)
     single { ManualDownloadQueue(get(), get()) }
     single<IDownloadMonitor> {
-        if (com.flowspeed.link.desktop.bootstrap.ServiceProcessManager.isServiceReachable()) {
-            val remoteSys = get<com.flowspeed.link.desktop.ipc.RemoteDownloadSystem>()
-            com.flowspeed.link.desktop.ipc.RemoteDownloadMonitor(remoteSys, get())
-        } else {
-            DownloadMonitor(
-                downloadManager = get(),
-                manualDownloadQueue = get(),
-                downloadItemStateFactory = inject(),
-            )
-        }
+        DownloadMonitor(
+            downloadManager = get(),
+            manualDownloadQueue = get(),
+            downloadItemStateFactory = inject(),
+        )
     }
 }

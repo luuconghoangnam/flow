@@ -21,7 +21,6 @@ const DOWNLOAD_EXTENSIONS = new Set([
 ]);
 
 let isEnabled = true;
-const selfDownloads = new Set();
 
 chrome.storage.local.get(['enabled', 'port'], (result) => {
   isEnabled = result.enabled !== false;
@@ -30,68 +29,34 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.enabled !== undefined) isEnabled = changes.enabled.newValue;
 });
 
-async function getSettings() {
-  const result = await chrome.storage.local.get(['enabled', 'port']);
-  return {
-    enabled: result.enabled !== false,
-    port: result.port || DEFAULT_PORT
-  };
-}
-
 /**
  * ONLY METHOD: onDeterminingFilename fires BEFORE save dialog.
  * Returning true tells Chrome we're handling this download.
  * onCreated is NOT used — it causes duplicate dialogs.
  */
 chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
+  if (!isEnabled) return false;
+
   const url = downloadItem.url;
-  const finalUrl = downloadItem.finalUrl;
+  if (!url || url.startsWith('blob:') || url.startsWith('data:')) return false;
 
-  // Skip if it is our own download retry to prevent infinite loop
-  if (selfDownloads.has(url) || (finalUrl && selfDownloads.has(finalUrl))) {
-    selfDownloads.delete(url);
-    if (finalUrl) selfDownloads.delete(finalUrl);
-    suggest();
-    return;
-  }
+  const filename = downloadItem.filename || getFilenameFromUrl(url);
+  if (!shouldIntercept(url, filename, downloadItem.fileSize || 0)) return false;
 
-  getSettings().then((settings) => {
-    if (!settings.enabled) {
-      suggest();
-      return;
-    }
-
-    if (!url || url.startsWith('blob:') || url.startsWith('data:')) {
-      suggest();
-      return;
-    }
-
-    const filename = downloadItem.filename || getFilenameFromUrl(url);
-    if (!shouldIntercept(url, filename, downloadItem.fileSize || 0)) {
-      suggest();
-      return;
-    }
-
-    // Cancel immediately — prevents save dialog
-    chrome.downloads.cancel(downloadItem.id, () => {
-      chrome.downloads.erase({ id: downloadItem.id });
-    });
-
-    // Send to Flow app
-    sendToFlow(url, filename).then(success => {
-      if (!success) {
-        showNotification('Flow app is not running', 'Open Flow and try again.');
-        selfDownloads.add(url);
-        chrome.downloads.download({ url }, (downloadId) => {
-          if (chrome.runtime.lastError) {
-            selfDownloads.delete(url);
-          }
-        });
-      }
-    });
+  // Cancel immediately — prevents save dialog
+  chrome.downloads.cancel(downloadItem.id, () => {
+    chrome.downloads.erase({ id: downloadItem.id });
   });
 
-  return true; // signals Chrome we handled it asynchronously
+  // Send to Flow app
+  sendToFlow(url, filename).then(success => {
+    if (!success) {
+      showNotification('Flow app is not running', 'Open Flow and try again.');
+      chrome.downloads.download({ url });
+    }
+  });
+
+  return true; // signals Chrome we handled it
 });
 
 /**

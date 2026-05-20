@@ -18,7 +18,6 @@ rootProject.name = "Flow"
 include("android:app")
 include("desktop:app")
 include("desktop:app-utils")
-include("desktop:service")
 include("desktop:shared")
 include("desktop:mac-utils")
 include("downloader:core")

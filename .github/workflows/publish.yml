@@ -78,22 +78,6 @@ jobs:
         if: startsWith(matrix.os, 'macos-')
         run: brew install create-dmg
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache-dependency-path: service/go.sum
-
-      - name: Build Go service
-        shell: bash
-        run: |
-          cd service
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            CGO_ENABLED=0 go build -ldflags="-s -w -H windowsgui" -o flow-service.exe .
-          else
-            go build -ldflags="-s -w" -o flow-service .
-          fi
-
       - name: Build packages
         shell: bash
         run: ./gradlew createReleaseFolderForCi

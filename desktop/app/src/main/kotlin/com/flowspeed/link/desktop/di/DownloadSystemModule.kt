@@ -22,10 +22,6 @@ import com.flowspeed.link.shared.util.onqueuecompletion.OnQueueEventActionRunner
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
-import com.flowspeed.link.desktop.ipc.IpcClient
-import com.flowspeed.link.desktop.ipc.RemoteDownloadSystem
-import com.flowspeed.link.desktop.bootstrap.ServiceProcessManager
-
 /**
  * High-level download system DI module.
  *
@@ -34,12 +30,6 @@ import com.flowspeed.link.desktop.bootstrap.ServiceProcessManager
  */
 val downloadSystemModule = module {
     single {
-        IpcClient(get(), get())
-    }
-    single {
-        RemoteDownloadSystem(get(), get())
-    }
-    single {
         val definedPaths = get<DefinedPaths>()
         get<DownloadFoldersRegistry>().registerAndGet(definedPaths.categoriesDir)
         CategoryFileStorage(
@@ -47,6 +37,15 @@ val downloadSystemModule = module {
             fileSaver = get()
         )
     }.bind<CategoryStorage>()
+    single {
+        FileIconProviderUsingCategoryIcons(get(), get(), get(), get())
+    }.bind<FileIconProvider>()
+    single {
+        DefaultCategories(
+            icons = get(),
+            getDefaultDownloadFolder = { get<AppSettingsStorage>().defaultDownloadFolder.value }
+        )
+    }
     single { DownloadManagerCategoryItemProvider(get()) }.bind<ICategoryItemProvider>()
     single {
         CategoryManager(
@@ -57,28 +56,7 @@ val downloadSystemModule = module {
         )
     }
     single {
-        val remoteDelegate = if (ServiceProcessManager.isServiceReachable()) {
-            val remoteSys = get<RemoteDownloadSystem>()
-            remoteSys.startPolling()
-            remoteSys
-        } else {
-            null
-        }
-        DownloadSystem(
-            downloadManager = get(),
-            queueManager = get(),
-            manualDownloadQueue = get(),
-            categoryManager = get(),
-            downloadMonitor = get(),
-            onDownloadCompletionActionRunner = get(),
-            onQueueEventActionRunner = get(),
-            scope = get(),
-            downloadListDB = get(),
-            extraQueueSettingsStorage = get(),
-            extraDownloadSettingsStorage = get(),
-            foldersRegistry = get(),
-            remoteDelegate = remoteDelegate
-        )
+        DownloadSystem(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
     }
     single {
         val definedPaths = get<DefinedPaths>()
@@ -106,14 +84,4 @@ val downloadSystemModule = module {
             onQueueCompletionActionProvider = get(),
         )
     }
-    // DefaultCategories and FileIconProvider moved to uiModule (they depend on IMyIcons/Compose)
-    single {
-        DefaultCategories(
-            icons = get(),
-            getDefaultDownloadFolder = { get<AppSettingsStorage>().defaultDownloadFolder.value }
-        )
-    }
-    single {
-        FileIconProviderUsingCategoryIcons(get(), get(), get(), get())
-    }.bind<FileIconProvider>()
 }

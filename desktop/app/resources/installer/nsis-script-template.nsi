@@ -101,7 +101,6 @@ FunctionEnd
     RmDir /r "${INSTALL_DIR}\app"
     RmDir /r "${INSTALL_DIR}\runtime"
     Delete "${INSTALL_DIR}\${MAIN_BINARY_NAME}.exe"
-    Delete "${INSTALL_DIR}\flow-service.exe"
     Delete "${INSTALL_DIR}\${MAIN_BINARY_NAME}.ico"
     Delete "${INSTALL_DIR}\uninstall.exe"
     RmDir "${INSTALL_DIR}"
@@ -139,12 +138,6 @@ FunctionEnd
         Sleep 500
         BringToFront ; when we sleep it seems that window goes down
         DetailPrint "Current app stopped successfully"
-    ${Endif}
-    ; Also stop the background service
-    ExecWait 'taskkill /F /IM "flow-service.exe"' $0
-    ${If} $0 == "0"
-        Sleep 300
-        DetailPrint "Background service stopped"
     ${Endif}
 !macroend
 
@@ -207,9 +200,6 @@ Section "${APP_DISPLAY_NAME}"
     ; Registry keys for app installation path and version
     WriteRegStr SHCTX "${REG_APP_KEY}" "InstallPath" "${INSTALL_DIR}"
     WriteRegStr SHCTX "${REG_APP_KEY}" "Version" "${APP_VERSION}"
-
-    ; Register background service for auto-start at login
-    WriteRegStr SHCTX "${REG_RUN_KEY}" "${APP_NAME}" "$\"${INSTALL_DIR}\flow-service.exe$\" --background"
 SectionEnd
 
 Section "Start Menu"
