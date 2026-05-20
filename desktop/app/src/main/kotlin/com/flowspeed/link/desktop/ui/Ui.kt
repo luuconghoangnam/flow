@@ -117,6 +117,15 @@ object Ui : KoinComponent {
             }
         }
 
+        // Wake up UI when an Add Download dialog is requested via browser integration
+        scope.launch {
+            appComponent.openedAddDownloadDialogs.collect { dialogs ->
+                if (dialogs.isNotEmpty() && !composeUiRequested.value) {
+                    composeUiRequested.value = true
+                }
+            }
+        }
+
         if (appArguments.startSilent) {
             // Background mode: show lightweight AWT tray, no Compose loaded
             showLightweightTray(appComponent)
@@ -170,7 +179,6 @@ object Ui : KoinComponent {
                         // When user closes all windows and system tray is active,
                         // exit Compose to free Skia memory
                         scope.launch {
-                            delay(500) // small delay to avoid flicker
                             composeUiRequested.value = false
                             exitApplication()
                         }
@@ -318,7 +326,22 @@ private fun ApplicationScope.SystemTray(
     onAllWindowsClosed: () -> Unit,
 ) {
     val useSystemTray by component.useSystemTray.collectAsState()
-    val hasHomeWindow = component.showHomeSlot.collectAsState().value.child != null
+    
+    val showHomeSlot by component.showHomeSlot.collectAsState()
+    val showSettingSlot by component.showSettingSlot.collectAsState()
+    val showQueuesSlot by component.showQueuesSlot.collectAsState()
+    val batchDownloadSlot by component.batchDownloadSlot.collectAsState()
+    val editDownloadSlot by component.editDownloadSlot.collectAsState()
+    val openedAddDownloadDialogs by component.openedAddDownloadDialogs.collectAsState()
+    val openedDownloadDialogs by component.openedDownloadDialogs.collectAsState()
+
+    val hasAnyWindow = showHomeSlot.child != null ||
+            showSettingSlot.child != null ||
+            showQueuesSlot.child != null ||
+            batchDownloadSlot.child != null ||
+            editDownloadSlot.child != null ||
+            openedAddDownloadDialogs.isNotEmpty() ||
+            openedDownloadDialogs.isNotEmpty()
 
     if (useSystemTray) {
         LaunchedEffect(Unit) { PlatformDockToggler.hide() }
@@ -336,10 +359,11 @@ private fun ApplicationScope.SystemTray(
             menu = menu,
         )
 
-        // When home window is closed and system tray is enabled,
+        // When all windows are closed and system tray is enabled,
         // signal to dispose Compose and switch to lightweight tray
-        LaunchedEffect(hasHomeWindow) {
-            if (!hasHomeWindow) {
+        LaunchedEffect(hasAnyWindow) {
+            if (!hasAnyWindow) {
+                delay(500) // small delay to allow new windows (like progress dialog) to open or cancel if one does
                 onAllWindowsClosed()
             }
         }

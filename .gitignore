@@ -13,3 +13,9 @@ local.properties
 
 # Ownership registry (private)
 .ownership
+
+# Local JDKs and archives
+jdk17/
+jdk21/
+jdk17.zip
+jdk21.zip
