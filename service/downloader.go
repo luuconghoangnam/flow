@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -273,12 +274,18 @@ func (e *DownloadEngine) singlePartDownload(ctx context.Context, item *DownloadI
 	}
 	defer f.Close()
 
+	writer := bufio.NewWriterSize(f, 256*1024)
+	defer writer.Flush()
+
 	var downloaded int64
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, 256*1024)
 	for {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
-			f.Write(buf[:n])
+			_, writeErr := writer.Write(buf[:n])
+			if writeErr != nil {
+				return writeErr
+			}
 			downloaded += int64(n)
 			atomic.StoreInt64(&item.Downloaded, downloaded)
 		}
@@ -354,12 +361,21 @@ func (e *DownloadEngine) downloadPart(ctx context.Context, item *DownloadItem, o
 	}
 	defer f.Close()
 
-	f.Seek(from, io.SeekStart)
-	buf := make([]byte, 32*1024)
+	if _, err := f.Seek(from, io.SeekStart); err != nil {
+		return err
+	}
+
+	writer := bufio.NewWriterSize(f, 256*1024)
+	defer writer.Flush()
+
+	buf := make([]byte, 256*1024)
 	for {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
-			f.WriteAt(buf[:n], from)
+			_, writeErr := writer.Write(buf[:n])
+			if writeErr != nil {
+				return writeErr
+			}
 			from += int64(n)
 			atomic.AddInt64(&item.Downloaded, int64(n))
 		}

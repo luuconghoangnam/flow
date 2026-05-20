@@ -22,6 +22,10 @@ import com.flowspeed.link.shared.util.onqueuecompletion.OnQueueEventActionRunner
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
+import com.flowspeed.link.desktop.ipc.IpcClient
+import com.flowspeed.link.desktop.ipc.RemoteDownloadSystem
+import com.flowspeed.link.desktop.bootstrap.ServiceProcessManager
+
 /**
  * High-level download system DI module.
  *
@@ -29,6 +33,12 @@ import org.koin.dsl.module
  * file icon provider, extra settings storage, and event action runners.
  */
 val downloadSystemModule = module {
+    single {
+        IpcClient("http://127.0.0.1:15152", get())
+    }
+    single {
+        RemoteDownloadSystem(get(), get())
+    }
     single {
         val definedPaths = get<DefinedPaths>()
         get<DownloadFoldersRegistry>().registerAndGet(definedPaths.categoriesDir)
@@ -47,7 +57,28 @@ val downloadSystemModule = module {
         )
     }
     single {
-        DownloadSystem(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get())
+        val remoteDelegate = if (ServiceProcessManager.isServiceReachable()) {
+            val remoteSys = get<RemoteDownloadSystem>()
+            remoteSys.startPolling()
+            remoteSys
+        } else {
+            null
+        }
+        DownloadSystem(
+            downloadManager = get(),
+            queueManager = get(),
+            manualDownloadQueue = get(),
+            categoryManager = get(),
+            downloadMonitor = get(),
+            onDownloadCompletionActionRunner = get(),
+            onQueueEventActionRunner = get(),
+            scope = get(),
+            downloadListDB = get(),
+            extraQueueSettingsStorage = get(),
+            extraDownloadSettingsStorage = get(),
+            foldersRegistry = get(),
+            remoteDelegate = remoteDelegate
+        )
     }
     single {
         val definedPaths = get<DefinedPaths>()

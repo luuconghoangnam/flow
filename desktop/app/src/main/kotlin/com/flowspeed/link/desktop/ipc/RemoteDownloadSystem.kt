@@ -15,10 +15,14 @@ import kotlinx.coroutines.launch
  * Provides StateFlows for download list and progress that are populated
  * by polling the service (will be replaced with SSE in future).
  */
+import com.flowspeed.link.shared.util.IRemoteDownloadDelegate
+import com.flowspeed.lib.downloader.NewDownloadItemProps
+import com.flowspeed.link.shared.util.category.CategorySelectionMode
+
 class RemoteDownloadSystem(
     private val ipcClient: IpcClient,
     private val scope: CoroutineScope,
-) {
+) : IRemoteDownloadDelegate {
     private val _downloads = MutableStateFlow<List<IpcDownloadItem>>(emptyList())
     val downloads: StateFlow<List<IpcDownloadItem>> = _downloads.asStateFlow()
 
@@ -61,6 +65,27 @@ class RemoteDownloadSystem(
 
     // --- Download operations ---
 
+    override suspend fun addDownload(
+        newItemsToAdd: List<NewDownloadItemProps>,
+        queueId: Long?,
+        categorySelectionMode: CategorySelectionMode?,
+    ): List<Long> {
+        val request = IpcAddDownloadRequest(
+            items = newItemsToAdd.map { item ->
+                IpcNewDownloadItem(
+                    link = item.downloadItem.link,
+                    headers = item.downloadItem.headers,
+                    name = item.downloadItem.name,
+                    folder = item.downloadItem.folder,
+                    downloadPage = item.downloadItem.downloadPage,
+                )
+            },
+            queueId = queueId,
+        )
+        val response = ipcClient.addDownload(request)
+        return response?.ids ?: emptyList()
+    }
+
     suspend fun addDownload(
         link: String,
         headers: Map<String, String>? = null,
@@ -83,19 +108,23 @@ class RemoteDownloadSystem(
         return response?.ids ?: emptyList()
     }
 
-    suspend fun pauseDownload(id: Long): Boolean {
+    override suspend fun pauseDownload(id: Long): Boolean {
         return ipcClient.pauseDownload(id)?.ok == true
     }
 
-    suspend fun resumeDownload(id: Long): Boolean {
+    override suspend fun resumeDownload(id: Long): Boolean {
         return ipcClient.resumeDownload(id)?.ok == true
+    }
+
+    override suspend fun removeDownload(id: Long, alsoRemoveFile: Boolean) {
+        ipcClient.deleteDownload(id)
     }
 
     suspend fun deleteDownload(id: Long): Boolean {
         return ipcClient.deleteDownload(id)?.ok == true
     }
 
-    suspend fun resetDownload(id: Long): Boolean {
+    override suspend fun resetDownload(id: Long): Boolean {
         return ipcClient.resetDownload(id)?.ok == true
     }
 
@@ -105,11 +134,19 @@ class RemoteDownloadSystem(
         return ipcClient.createQueue(name)?.ok == true
     }
 
-    suspend fun startQueue(id: Long): Boolean {
+    override suspend fun startQueue(queueId: Long) {
+        ipcClient.startQueue(queueId)
+    }
+
+    suspend fun startQueueOld(id: Long): Boolean {
         return ipcClient.startQueue(id)?.ok == true
     }
 
-    suspend fun stopQueue(id: Long): Boolean {
+    override suspend fun stopQueue(queueId: Long) {
+        ipcClient.stopQueue(queueId)
+    }
+
+    suspend fun stopQueueOld(id: Long): Boolean {
         return ipcClient.stopQueue(id)?.ok == true
     }
 
