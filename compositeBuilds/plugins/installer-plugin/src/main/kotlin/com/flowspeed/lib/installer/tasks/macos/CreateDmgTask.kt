@@ -116,8 +116,11 @@ abstract class CreateDmgTask : DefaultTask() {
         // Use launchctl to run in the user's GUI session.
         // This is required because create-dmg uses AppleScript to manipulate Finder,
         // which only works inside an active user session with GUI access.
+        val isCi = System.getenv("GITHUB_ACTIONS") == "true"
         val fullCommand = buildString {
-            append("launchctl asuser $(id -u) ")
+            if (!isCi) {
+                append("launchctl asuser $(id -u) ")
+            }
             append("${executable.absolutePath.asQuoted()} ")
             append("--volname ${context["app_name"]} ")
             append("--background ${context["background_image"]} ")
