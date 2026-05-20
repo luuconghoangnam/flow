@@ -61,22 +61,6 @@ func (l *FileLock) Release() {
 	}
 }
 
-// GetRunningPort reads the IPC port from an existing lock file.
-func GetRunningPort(dataDir string) (int, error) {
-	lockPath := filepath.Join(dataDir, "service.lock")
-	data, err := os.ReadFile(lockPath)
-	if err != nil {
-		return 0, err
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "ipc_port=") {
-			port, _ := strconv.Atoi(strings.TrimPrefix(line, "ipc_port="))
-			return port, nil
-		}
-	}
-	return 0, fmt.Errorf("port not found in lock file")
-}
-
 func isStale(lockPath string) bool {
 	data, err := os.ReadFile(lockPath)
 	if err != nil {

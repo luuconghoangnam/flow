@@ -18,17 +18,9 @@ func showFolderDialog() string {
 		return strings.TrimSpace(string(path))
 	}
 	// macOS: use osascript
-	script := `tell application "System Events" to choose folder with prompt "Choose Download Folder"`
+	script := `tell application "System Events" to POSIX path of (choose folder with prompt "Choose Download Folder")`
 	if path, err := exec.Command("osascript", "-e", script).Output(); err == nil {
-		result := strings.TrimSpace(string(path))
-		// Convert "alias Macintosh HD:Users:..." to POSIX path
-		if strings.HasPrefix(result, "alias ") {
-			script2 := `tell application "System Events" to POSIX path of (choose folder with prompt "Choose Download Folder")`
-			if path2, err := exec.Command("osascript", "-e", script2).Output(); err == nil {
-				return strings.TrimSpace(string(path2))
-			}
-		}
-		return result
+		return strings.TrimSpace(string(path))
 	}
 	return ""
 }

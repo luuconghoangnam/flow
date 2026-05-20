@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
 // Storage handles JSON file persistence for downloads, queues, and config.
@@ -116,26 +115,6 @@ func (s *Storage) SaveConfig(cfg *Config) error {
 		return err
 	}
 	return atomicWrite(cfg.ConfigFile(), data)
-}
-
-// --- Last ID ---
-
-func (s *Storage) GetLastID() int64 {
-	dir := s.config.DownloadsDir()
-	entries, _ := os.ReadDir(dir)
-	var maxID int64
-	for _, entry := range entries {
-		name := entry.Name()
-		if filepath.Ext(name) != ".json" {
-			continue
-		}
-		idStr := name[:len(name)-5]
-		id, _ := strconv.ParseInt(idStr, 10, 64)
-		if id > maxID {
-			maxID = id
-		}
-	}
-	return maxID
 }
 
 // --- Helpers ---

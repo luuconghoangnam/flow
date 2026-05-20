@@ -234,6 +234,10 @@ func (e *DownloadEngine) probe(item *DownloadItem) (int64, bool, error) {
 	}
 	resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		return 0, false, fmt.Errorf("server returned status: %s", resp.Status)
+	}
+
 	if resp.StatusCode == 206 {
 		// Supports range
 		size := resp.ContentLength
@@ -258,6 +262,10 @@ func (e *DownloadEngine) singlePartDownload(ctx context.Context, item *DownloadI
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned status: %s", resp.Status)
+	}
 
 	f, err := os.Create(outPath)
 	if err != nil {
@@ -335,6 +343,10 @@ func (e *DownloadEngine) downloadPart(ctx context.Context, item *DownloadItem, o
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusPartialContent {
+		return fmt.Errorf("server returned status: %s instead of 206 Partial Content", resp.Status)
+	}
 
 	f, err := os.OpenFile(outPath, os.O_WRONLY, 0644)
 	if err != nil {

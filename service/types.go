@@ -31,21 +31,6 @@ type DownloadItem struct {
 	Error         string         `json:"error,omitempty"`
 }
 
-// PartState tracks progress of a single download part.
-type PartState struct {
-	From    int64 `json:"from"`
-	To      int64 `json:"to"`
-	Current int64 `json:"current"`
-}
-
-func (p *PartState) IsCompleted() bool {
-	return p.To > 0 && p.Current >= p.To
-}
-
-func (p *PartState) Downloaded() int64 {
-	return p.Current - p.From
-}
-
 // Queue represents a download queue.
 type Queue struct {
 	ID       int64   `json:"id"`

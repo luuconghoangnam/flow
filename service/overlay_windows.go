@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // showFolderDialog opens a folder picker on Windows.
@@ -14,7 +15,9 @@ import (
 func showFolderDialog() string {
 	// Use PowerShell to show a folder browser dialog — simple and reliable
 	script := `Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; $f.Description = 'Choose Download Folder'; $f.RootFolder = 'MyComputer'; if ($f.ShowDialog() -eq 'OK') { $f.SelectedPath }`
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
