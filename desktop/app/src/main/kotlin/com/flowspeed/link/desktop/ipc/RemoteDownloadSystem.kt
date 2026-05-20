@@ -74,7 +74,7 @@ class RemoteDownloadSystem(
             items = newItemsToAdd.map { item ->
                 IpcNewDownloadItem(
                     link = item.downloadItem.link,
-                    headers = item.downloadItem.headers,
+                    headers = (item.downloadItem as? com.flowspeed.lib.downloader.downloaditem.http.IHttpBasedDownloadCredentials)?.headers,
                     name = item.downloadItem.name,
                     folder = item.downloadItem.folder,
                     downloadPage = item.downloadItem.downloadPage,

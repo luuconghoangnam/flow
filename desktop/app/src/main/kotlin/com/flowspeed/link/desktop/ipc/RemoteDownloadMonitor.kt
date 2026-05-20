@@ -25,7 +25,7 @@ class RemoteDownloadMonitor(
                     }
                     val fakePart = UiRangedPart(
                         id = 0,
-                        status = PartDownloadStatus.Downloading,
+                        status = PartDownloadStatus.ReceivingData,
                         howMuchProceed = item.downloadedSize,
                         percent = null,
                         length = item.contentLength,

@@ -34,7 +34,7 @@ import com.flowspeed.link.desktop.bootstrap.ServiceProcessManager
  */
 val downloadSystemModule = module {
     single {
-        IpcClient("http://127.0.0.1:15152", get())
+        IpcClient(get(), get())
     }
     single {
         RemoteDownloadSystem(get(), get())

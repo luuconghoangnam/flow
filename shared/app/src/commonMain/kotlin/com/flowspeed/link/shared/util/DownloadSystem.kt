@@ -471,7 +471,6 @@ class MockDownloadItem(
     override var speedLimit: Long = 0,
     override var fileChecksum: String? = null,
 ) : IDownloadItem {
-    override var headers: Map<String, String>? = null
     override fun copy(
         id: arrow.core.Option<Long>,
         folder: arrow.core.Option<String>,
@@ -488,6 +487,12 @@ class MockDownloadItem(
         fileChecksum: arrow.core.Option<String?>,
     ): IDownloadItem = this
 
+    override fun copy(
+        link: arrow.core.Option<String>,
+        downloadPage: arrow.core.Option<String?>,
+    ): com.flowspeed.lib.downloader.downloaditem.IDownloadCredentials = this
+
     override fun validateItem() {}
+    override fun validateCredentials() {}
     override fun withCredentials(credentials: com.flowspeed.lib.downloader.downloaditem.IDownloadCredentials): IDownloadItem = this
 }

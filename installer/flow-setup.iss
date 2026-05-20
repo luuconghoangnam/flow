@@ -27,5 +27,12 @@ Name: "{userstartup}\Flow"; Filename: "{app}\Flow.exe"; Parameters: "--backgroun
 [Run]
 Filename: "{app}\Flow.exe"; Description: "Launch Flow"; Flags: nowait postinstall skipifsilent
 
+[UninstallRun]
+Filename: "taskkill"; Parameters: "/f /im Flow.exe"; Flags: runhidden; RunOnceId: "StopFlowUI"
+Filename: "taskkill"; Parameters: "/f /im flow-service.exe"; Flags: runhidden; RunOnceId: "StopFlowService"
+
 [UninstallDelete]
-Type: filesandordirs; Name: "{userappdata}\.flow"
+Type: filesandordirs; Name: "{userprofile}\.flow"
+Type: filesandordirs; Name: "{userappdata}\Flow"
+Type: files; Name: "{userstartup}\FlowService.vbs"
+
