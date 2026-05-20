@@ -21,6 +21,8 @@ const DOWNLOAD_EXTENSIONS = new Set([
 ]);
 
 let isEnabled = true;
+const urlsToSkipInterception = new Set();
+
 
 chrome.storage.local.get(['enabled', 'port'], (result) => {
   isEnabled = result.enabled !== false;
@@ -40,6 +42,12 @@ chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
   const url = downloadItem.url;
   if (!url || url.startsWith('blob:') || url.startsWith('data:')) return false;
 
+  // Prevent infinite loops if we are falling back to browser download
+  if (urlsToSkipInterception.has(url)) {
+    urlsToSkipInterception.delete(url);
+    return false;
+  }
+
   const filename = downloadItem.filename || getFilenameFromUrl(url);
   if (!shouldIntercept(url, filename, downloadItem.fileSize || 0)) return false;
 
@@ -52,10 +60,13 @@ chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
   sendToFlow(url, filename).then(success => {
     if (!success) {
       showNotification('Flow app is not running', 'Open Flow and try again.');
+      urlsToSkipInterception.add(url);
       chrome.downloads.download({ url });
     }
   });
 
+  // Resolve Chrome's suggest callback immediately to prevent Chrome from hanging/waiting
+  suggest();
   return true; // signals Chrome we handled it
 });
 
@@ -94,7 +105,13 @@ async function sendToFlow(url, filename) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        items: [{ type: 'http', link: url, headers: {}, downloadPage: '' }],
+        items: [{
+          type: 'http',
+          link: url,
+          headers: {},
+          downloadPage: '',
+          suggestedName: filename
+        }],
         options: { silentAdd: false, silentStart: false },
       }),
     });

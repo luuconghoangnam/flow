@@ -1,6 +1,7 @@
 package com.flowspeed.lib.util.desktop
 
 import com.flowspeed.lib.util.desktop.activator.mac.MacAppActivator
+import com.flowspeed.lib.util.desktop.activator.win.WindowsAppActivator
 import com.flowspeed.lib.util.platform.Platform
 
 interface PlatformAppActivator {
@@ -17,5 +18,6 @@ class EmptyAppActivator : PlatformAppActivator {
 
 private fun getPlatformAppActivatorForCurrentOs() = when (Platform.getCurrentPlatform()) {
     Platform.Desktop.MacOS -> MacAppActivator()
+    Platform.Desktop.Windows -> WindowsAppActivator()
     else -> EmptyAppActivator()
 }

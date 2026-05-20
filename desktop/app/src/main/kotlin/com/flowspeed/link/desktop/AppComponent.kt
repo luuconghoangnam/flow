@@ -374,10 +374,15 @@ class AppComponent(
                         },
                         categoryDialogManager = this,
                         onRequestDownload = { item, categoryId ->
-                            startNewDownload(
-                                item = item,
-                                categoryId = categoryId,
-                            )
+                            scope.launch {
+                                val id = startNewDownload(
+                                    item = item,
+                                    categoryId = categoryId,
+                                ).await()
+                                if (appSettings.showDownloadProgressDialog.value) {
+                                    openDownloadDialog(id)
+                                }
+                            }
                         },
                         openExistingDownload = {
                             openDownloadDialog(it)
