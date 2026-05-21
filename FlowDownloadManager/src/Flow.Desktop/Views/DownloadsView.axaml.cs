@@ -1,11 +1,13 @@
 using System;
 using System.IO;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
 using Flow.Desktop.Controls;
+using Flow.Desktop.Services;
 using Flow.Desktop.ViewModels;
 using System.Threading.Tasks;
 
@@ -95,6 +97,8 @@ public partial class DownloadsView : UserControl
 
                 long id = await Services.AppBootstrapper.Instance.DownloadManager.AddDownloadAsync(props);
                 await Services.AppBootstrapper.Instance.DownloadManager.ResumeAsync(id);
+                // Open the IDM-style progress window immediately
+                DownloadWindowManager.Instance.ShowProgressWindow(id);
                 ShowToast("DOWNLOAD ADDED", item.Name, ToastType.Success);
             }
             catch (Exception ex)
@@ -149,6 +153,8 @@ public partial class DownloadsView : UserControl
 
                     long id = await Services.AppBootstrapper.Instance.DownloadManager.AddDownloadAsync(props);
                     await Services.AppBootstrapper.Instance.DownloadManager.ResumeAsync(id);
+                    // Open progress window for each batch item
+                    DownloadWindowManager.Instance.ShowProgressWindow(id);
                     successCount++;
                 }
 
@@ -280,6 +286,32 @@ public partial class DownloadsView : UserControl
                     await _vm.DeleteDownloadWithOptionAsync(item, alsoRemoveFile);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// DETAILS button / context menu: opens the Download Progress Window for this item.
+    /// </summary>
+    private void OnShowDetailsClick(object? sender, RoutedEventArgs e)
+    {
+        long? id = null;
+        if (sender is Control ctrl && ctrl.DataContext is Flow.Monitor.IDownloadItemState item)
+            id = item.Id;
+        else if (DataContext is DownloadsViewModel vm2 && vm2.SelectedDownload != null)
+            id = vm2.SelectedDownload.Id;
+
+        if (id.HasValue)
+            DownloadWindowManager.Instance.ShowProgressWindow(id.Value);
+    }
+
+    /// <summary>
+    /// Double-click on any list item opens its Download Progress Window (IDM style).
+    /// </summary>
+    private void OnListItemDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is DownloadsViewModel vm && vm.SelectedDownload != null)
+        {
+            DownloadWindowManager.Instance.ShowProgressWindow(vm.SelectedDownload.Id);
         }
     }
 }

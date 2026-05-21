@@ -115,6 +115,9 @@ public class AppBootstrapper
         // DownloadMonitor starts automatically in its constructor via StartLifecycleAsync()
         await DownloadManager.BootAsync();
 
+        // Wire up the per-download floating progress windows (IDM style)
+        DownloadWindowManager.Instance.Initialize(DownloadManager);
+
         // Run Integration Server on default port 15151
         try
         {

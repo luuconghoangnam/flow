@@ -138,7 +138,8 @@
                  SelectedItem="{Binding SelectedDownload}"
                  Background="Transparent" 
                  BorderThickness="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 DoubleTapped="OnListItemDoubleTapped">
             <ListBox.Styles>
                 <Style Selector="ListBoxItem">
                     <Setter Property="Background" Value="#101010" />
@@ -262,9 +263,7 @@
                                 <Separator/>
                                 <MenuItem Header="EDIT" Click="OnEditClick"/>
                                 <MenuItem Header="CHECKSUM" Click="OnChecksumClick"/>
-                                <MenuItem Header="DETAILED SEGMENTS" 
-                                          Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).ShowDetailsCommand}" 
-                                          CommandParameter="{Binding}"/>
+                                <MenuItem Header="DETAILED SEGMENTS" Click="OnShowDetailsClick"/>
                                 <Separator/>
                                 <MenuItem Header="DELETE" Click="OnDeleteClick"/>
                             </ContextMenu>
@@ -353,36 +352,16 @@
                                         Height="26" FontSize="11" Padding="8,0"/>
                             </StackPanel>
 
-                            <Button Grid.Column="1" Classes="cyber" Content="DETAILED SEGMENTS" 
-                                    Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).ShowDetailsCommand}" 
-                                    CommandParameter="{Binding}"
-                                    HorizontalAlignment="Right"
-                                    Height="26" FontSize="11" Padding="8,0"/>
+                        <Button Grid.Column="1" Classes="cyber" Content="DETAILS" 
+                                Click="OnShowDetailsClick"
+                                HorizontalAlignment="Right"
+                                Height="26" FontSize="11" Padding="8,0"/>
                         </Grid>
 
                     </Grid>
                 </DataTemplate>
             </ListBox.DataTemplates>
         </ListBox>
-
-        <!-- DRAWER DETAIL SIDE PANEL -->
-        <Border Grid.Row="1" Grid.Column="1"
-                ZIndex="10"
-                Width="360"
-                HorizontalAlignment="Right"
-                Background="#141414"
-                BorderBrush="#2A2A2A"
-                BorderThickness="1,0,0,0"
-                IsVisible="{Binding IsDetailOpen}">
-            <Grid RowDefinitions="Auto,*" Margin="16">
-                <Grid Grid.Row="0" Margin="0,0,0,12">
-                    <TextBlock Text="SEGMENT INSPECTION" FontFamily="JetBrains Mono" FontSize="14" FontWeight="Bold" Foreground="#E64A00" VerticalAlignment="Center"/>
-                    <Button Classes="cyber" Content="X" Command="{Binding CloseDetailsCommand}" HorizontalAlignment="Right" Padding="6,2" FontSize="11"/>
-                </Grid>
-
-                <views:DownloadDetailOverlay Grid.Row="1" DataContext="{Binding DetailItem}" />
-            </Grid>
-        </Border>
 
     </Grid>
 </UserControl>
