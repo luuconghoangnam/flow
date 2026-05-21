@@ -1,126 +1,148 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Flow.Desktop.Views.BatchDownloadDialog"
-             Width="500" Background="Transparent">
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrls="using:Flow.Desktop.Controls"
+        x:Class="Flow.Desktop.Views.BatchDownloadDialog"
+        Title="ADD BATCH SEQUENCE"
+        Width="500" Height="480"
+        CanResize="False"
+        Background="#0A0A0A"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/icon.ico"
+        RequestedThemeVariant="Dark">
 
-    <StackPanel Spacing="16" Margin="8,16,8,8">
-        
-        <!-- TARGET URI INPUT WITH WILDCARD -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="WILDCARD URL TEMPLATE // USE '*' FOR SEQUENCE" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <TextBox Name="UrlTemplateTextBox" 
-                     Classes="cyber" 
-                     Watermark="https://example.com/episodes/ep_*.mp4"
-                     Height="36" 
-                     Padding="12,8"
-                     TextWrapping="NoWrap"
-                     TextChanged="OnInputsChanged"/>
-        </StackPanel>
+    <Grid>
+        <!-- Background Grid -->
+        <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
 
-        <!-- RANGE CONFIGURATION -->
-        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
-            <!-- Start Index -->
-            <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,8,0">
-                <TextBlock Text="START INDEX" 
-                           FontFamily="JetBrains Mono" 
-                           FontSize="11" 
-                           Foreground="#888888" 
-                           FontWeight="Bold"/>
-                <TextBox Name="StartIndexTextBox" 
-                         Classes="cyber" 
-                         Text="1"
-                         Height="36" 
-                         Padding="12,8"
-                         TextChanged="OnInputsChanged"/>
+        <DockPanel Margin="20">
+            <!-- Dialog Actions -->
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
+                <Button Classes="cyber" Content="ABORT" Click="OnCancelClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
+                <ctrls:CyberBorder ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
+                    <Button Name="InjectButton" Classes="cyber-primary" Content="INJECT BATCH" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="36" Width="140" HorizontalContentAlignment="Center"/>
+                </ctrls:CyberBorder>
             </StackPanel>
 
-            <!-- End Index -->
-            <StackPanel Grid.Column="1" Spacing="6" Margin="0,0,8,0">
-                <TextBlock Text="END INDEX" 
-                           FontFamily="JetBrains Mono" 
-                           FontSize="11" 
-                           Foreground="#888888" 
-                           FontWeight="Bold"/>
-                <TextBox Name="EndIndexTextBox" 
-                         Classes="cyber" 
-                         Text="10"
-                         Height="36" 
-                         Padding="12,8"
-                         TextChanged="OnInputsChanged"/>
-            </StackPanel>
+            <!-- Main Content -->
+            <StackPanel Spacing="16">
+                <!-- TARGET URI INPUT WITH WILDCARD -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="WILDCARD URL TEMPLATE // USE '*' FOR SEQUENCE" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBox Name="UrlTemplateTextBox" 
+                             Classes="cyber" 
+                             Watermark="https://example.com/episodes/ep_*.mp4"
+                             Height="36" 
+                             Padding="12,8"
+                             TextWrapping="NoWrap"
+                             TextChanged="OnInputsChanged"/>
+                </StackPanel>
 
-            <!-- Wildcard Padding -->
-            <StackPanel Grid.Column="2" Spacing="6">
-                <TextBlock Text="PADDING LENGTH" 
-                           FontFamily="JetBrains Mono" 
-                           FontSize="11" 
-                           Foreground="#888888" 
-                           FontWeight="Bold"/>
-                <ComboBox Name="PaddingComboBox"
-                          Height="36"
-                          CornerRadius="0"
-                          HorizontalAlignment="Stretch"
-                          SelectionChanged="OnPaddingChanged">
-                    <ComboBoxItem Content="AUTO (e.g. 01, 02)"/>
-                    <ComboBoxItem Content="RAW (e.g. 1, 2)"/>
-                    <ComboBoxItem Content="FIXED (e.g. 001, 002)"/>
-                </ComboBox>
-            </StackPanel>
-        </Grid>
+                <!-- RANGE CONFIGURATION -->
+                <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
+                    <!-- Start Index -->
+                    <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,8,0">
+                        <TextBlock Text="START INDEX" 
+                                   FontFamily="JetBrains Mono" 
+                                   FontSize="11" 
+                                   Foreground="#888888" 
+                                   FontWeight="Bold"/>
+                        <TextBox Name="StartIndexTextBox" 
+                                 Classes="cyber" 
+                                 Text="1"
+                                 Height="36" 
+                                 Padding="12,8"
+                                 TextChanged="OnInputsChanged"/>
+                    </StackPanel>
 
-        <!-- SAVE LOCATION INPUT -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
-                <TextBox Grid.Column="0" 
-                         Name="FolderTextBox" 
-                         Classes="cyber" 
-                         Watermark="D:\Downloads"
-                         Height="36" 
-                         Padding="12,8"
-                         Margin="0,0,8,0"/>
-                <Button Grid.Column="1" 
-                        Classes="cyber" 
-                        Content="BROWSE" 
-                        Click="OnBrowseClick"
-                        Height="36" 
-                        Padding="16,0"/>
-            </Grid>
-        </StackPanel>
+                    <!-- End Index -->
+                    <StackPanel Grid.Column="1" Spacing="6" Margin="0,0,8,0">
+                        <TextBlock Text="END INDEX" 
+                                   FontFamily="JetBrains Mono" 
+                                   FontSize="11" 
+                                   Foreground="#888888" 
+                                   FontWeight="Bold"/>
+                        <TextBox Name="EndIndexTextBox" 
+                                 Classes="cyber" 
+                                 Text="10"
+                                 Height="36" 
+                                 Padding="12,8"
+                                 TextChanged="OnInputsChanged"/>
+                    </StackPanel>
 
-        <!-- GENERATED PREVIEW SECTION -->
-        <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#141414" Padding="12" Margin="0,8,0,0">
-            <StackPanel Spacing="8">
-                <TextBlock Text="GENERATED INJECTION PREVIEW" 
-                           FontFamily="JetBrains Mono" 
-                           FontSize="11" 
-                           Foreground="#E64A00" 
-                           FontWeight="Bold"/>
-                
-                <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
-                    <TextBlock Grid.Column="0" Text="FIRST: " FontFamily="JetBrains Mono" FontSize="11" Foreground="#666666"/>
-                    <TextBlock Grid.Column="1" Name="FirstUrlTextBlock" Text="-" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E5E7EB" TextTrimming="CharacterEllipsis"/>
+                    <!-- Wildcard Padding -->
+                    <StackPanel Grid.Column="2" Spacing="6">
+                        <TextBlock Text="PADDING LENGTH" 
+                                   FontFamily="JetBrains Mono" 
+                                   FontSize="11" 
+                                   Foreground="#888888" 
+                                   FontWeight="Bold"/>
+                        <ComboBox Name="PaddingComboBox"
+                                  Height="36"
+                                  CornerRadius="0"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="OnPaddingChanged">
+                            <ComboBoxItem Content="AUTO (e.g. 01, 02)"/>
+                            <ComboBoxItem Content="RAW (e.g. 1, 2)"/>
+                            <ComboBoxItem Content="FIXED (e.g. 001, 002)"/>
+                        </ComboBox>
+                    </StackPanel>
                 </Grid>
 
-                <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
-                    <TextBlock Grid.Column="0" Text="LAST:  " FontFamily="JetBrains Mono" FontSize="11" Foreground="#666666"/>
-                    <TextBlock Grid.Column="1" Name="LastUrlTextBlock" Text="-" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E5E7EB" TextTrimming="CharacterEllipsis"/>
-                </Grid>
+                <!-- SAVE LOCATION INPUT -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                        <TextBox Grid.Column="0" 
+                                 Name="FolderTextBox" 
+                                 Classes="cyber" 
+                                 Watermark="D:\Downloads"
+                                 Height="36" 
+                                 Padding="12,8"
+                                 Margin="0,0,8,0"/>
+                        <Button Grid.Column="1" 
+                                Classes="cyber" 
+                                Content="BROWSE" 
+                                Click="OnBrowseClick"
+                                Height="36" 
+                                Padding="16,0"
+                                HorizontalContentAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
 
-                <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
-                    <TextBlock Grid.Column="0" Text="TOTAL: " FontFamily="JetBrains Mono" FontSize="11" Foreground="#666666"/>
-                    <TextBlock Grid.Column="1" Name="TotalCountTextBlock" Text="0 items" FontFamily="JetBrains Mono" FontSize="11" Foreground="#22C55E" FontWeight="Bold"/>
-                </Grid>
+                <!-- GENERATED PREVIEW SECTION -->
+                <Border BorderBrush="#3A3A3A" BorderThickness="1" Background="#141414" Padding="12" Margin="0,8,0,0">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="GENERATED INJECTION PREVIEW" 
+                                   FontFamily="JetBrains Mono" 
+                                   FontSize="11" 
+                                   Foreground="#E64A00" 
+                                   FontWeight="Bold"/>
+                        
+                        <Grid ColumnDefinitions="Auto,*" Margin="0,4,0,0">
+                            <TextBlock Grid.Column="0" Text="FIRST: " FontFamily="JetBrains Mono" FontSize="11" Foreground="#666666"/>
+                            <TextBlock Grid.Column="1" Name="FirstUrlTextBlock" Text="-" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E5E7EB" TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                            <TextBlock Grid.Column="0" Text="LAST:  " FontFamily="JetBrains Mono" FontSize="11" Foreground="#666666"/>
+                            <TextBlock Grid.Column="1" Name="LastUrlTextBlock" Text="-" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E5E7EB" TextTrimming="CharacterEllipsis"/>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                            <TextBlock Grid.Column="0" Text="TOTAL: " FontFamily="JetBrains Mono" FontSize="11" Foreground="#666666"/>
+                            <TextBlock Grid.Column="1" Name="TotalCountTextBlock" Text="0 items" FontFamily="JetBrains Mono" FontSize="11" Foreground="#22C55E" FontWeight="Bold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </Border>
-
-    </StackPanel>
-</UserControl>
+        </DockPanel>
+    </Grid>
+</Window>

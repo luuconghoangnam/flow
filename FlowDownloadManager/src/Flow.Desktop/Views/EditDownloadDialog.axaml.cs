@@ -7,7 +7,7 @@ using Flow.Core.Models;
 
 namespace Flow.Desktop.Views;
 
-public partial class EditDownloadDialog : UserControl
+public partial class EditDownloadDialog : Window
 {
     private readonly IDownloadItem _item;
 
@@ -37,19 +37,15 @@ public partial class EditDownloadDialog : UserControl
 
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
-        var window = TopLevel.GetTopLevel(this) as Window;
-        if (window != null)
+        var folders = await this.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
-            var folders = await window.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
-            {
-                Title = "SELECT DESTINATION FOLDER",
-                AllowMultiple = false
-            });
+            Title = "SELECT DESTINATION FOLDER",
+            AllowMultiple = false
+        });
 
-            if (folders != null && folders.Count > 0)
-            {
-                FolderTextBox.Text = folders[0].Path.LocalPath;
-            }
+        if (folders != null && folders.Count > 0)
+        {
+            FolderTextBox.Text = folders[0].Path.LocalPath;
         }
     }
 
@@ -70,8 +66,6 @@ public partial class EditDownloadDialog : UserControl
 
         string checksum = ChecksumTextBox.Text?.Trim() ?? string.Empty;
         _item.FileChecksum = string.IsNullOrWhiteSpace(checksum) ? null : checksum;
-
-        // Note: URL changes are handled in the updater since it might need re-initialization of job.
     }
 
     public string EditedUrl => UrlTextBox.Text?.Trim() ?? string.Empty;
@@ -80,4 +74,14 @@ public partial class EditDownloadDialog : UserControl
     public int? EditedThreadCount => int.TryParse(ThreadCountTextBox.Text, out int tc) && tc > 0 ? tc : null;
     public long EditedSpeedLimit => long.TryParse(SpeedLimitTextBox.Text, out long sl) && sl >= 0 ? sl : 0;
     public string? EditedChecksum => string.IsNullOrWhiteSpace(ChecksumTextBox.Text) ? null : ChecksumTextBox.Text.Trim();
+
+    private void OnOkClick(object? sender, RoutedEventArgs e)
+    {
+        Close(true);
+    }
+
+    private void OnCancelClick(object? sender, RoutedEventArgs e)
+    {
+        Close(false);
+    }
 }

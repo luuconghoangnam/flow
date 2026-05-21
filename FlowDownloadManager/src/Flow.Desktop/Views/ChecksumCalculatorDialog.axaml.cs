@@ -11,7 +11,7 @@ using Avalonia.Threading;
 
 namespace Flow.Desktop.Views;
 
-public partial class ChecksumCalculatorDialog : UserControl
+public partial class ChecksumCalculatorDialog : Window
 {
     private readonly string _filePath;
     private string? _calculatedHash;
@@ -37,14 +37,25 @@ public partial class ChecksumCalculatorDialog : UserControl
         AvaloniaXamlLoader.Load(this);
     }
 
+    private void OnAlgorithmChecked(object? sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_filePath))
+        {
+            Task.Run(CalculateHashAsync);
+        }
+    }
+
     private async Task CalculateHashAsync()
     {
         if (string.IsNullOrEmpty(_filePath) || !File.Exists(_filePath))
         {
             Dispatcher.UIThread.Post(() =>
             {
-                CalculatedHashTextBox.Text = "ERROR: FILE NOT FOUND";
-                CalculatedHashTextBox.Foreground = Brushes.Red;
+                if (CalculatedHashTextBox != null)
+                {
+                    CalculatedHashTextBox.Text = "ERROR: FILE NOT FOUND";
+                    CalculatedHashTextBox.Foreground = Brushes.Red;
+                }
             });
             return;
         }
@@ -52,14 +63,20 @@ public partial class ChecksumCalculatorDialog : UserControl
         string algorithm = "SHA-256";
         Dispatcher.UIThread.Post(() =>
         {
+            if (Md5Radio == null || Sha1Radio == null || Sha256Radio == null) return;
+
             if (Md5Radio.IsChecked == true) algorithm = "MD5";
             else if (Sha1Radio.IsChecked == true) algorithm = "SHA-1";
             else algorithm = "SHA-256";
 
-            CalculatedHashTextBox.Text = $"Calculating {algorithm}...";
-            CalculatedHashTextBox.Foreground = Brushes.Gray;
-            CalculationProgressBar.Value = 0;
-            ProgressPercentTextBlock.Text = "0%";
+            if (CalculatedHashTextBox != null)
+            {
+                CalculatedHashTextBox.Text = $"Calculating {algorithm}...";
+                CalculatedHashTextBox.Foreground = Brushes.Gray;
+            }
+            if (CalculationProgressBar != null) CalculationProgressBar.Value = 0;
+            if (ProgressPercentTextBlock != null) ProgressPercentTextBlock.Text = "0%";
+            if (CopyButton != null) CopyButton.IsEnabled = false;
         });
 
         try
@@ -86,8 +103,8 @@ public partial class ChecksumCalculatorDialog : UserControl
                         lastPercent = percent;
                         Dispatcher.UIThread.Post(() =>
                         {
-                            CalculationProgressBar.Value = percent;
-                            ProgressPercentTextBlock.Text = $"{percent}%";
+                            if (CalculationProgressBar != null) CalculationProgressBar.Value = percent;
+                            if (ProgressPercentTextBlock != null) ProgressPercentTextBlock.Text = $"{percent}%";
                         });
                     }
                 }
@@ -101,9 +118,12 @@ public partial class ChecksumCalculatorDialog : UserControl
 
             Dispatcher.UIThread.Post(() =>
             {
-                CalculatedHashTextBox.Text = hashHex;
-                CalculatedHashTextBox.Foreground = Brush.Parse("#E5E7EB");
-                CopyButton.IsEnabled = true;
+                if (CalculatedHashTextBox != null)
+                {
+                    CalculatedHashTextBox.Text = hashHex;
+                    CalculatedHashTextBox.Foreground = Brush.Parse("#E5E7EB");
+                }
+                if (CopyButton != null) CopyButton.IsEnabled = true;
                 UpdateComparison();
             });
         }
@@ -111,8 +131,11 @@ public partial class ChecksumCalculatorDialog : UserControl
         {
             Dispatcher.UIThread.Post(() =>
             {
-                CalculatedHashTextBox.Text = $"ERROR: {ex.Message}";
-                CalculatedHashTextBox.Foreground = Brushes.Red;
+                if (CalculatedHashTextBox != null)
+                {
+                    CalculatedHashTextBox.Text = $"ERROR: {ex.Message}";
+                    CalculatedHashTextBox.Foreground = Brushes.Red;
+                }
             });
         }
     }
@@ -131,8 +154,7 @@ public partial class ChecksumCalculatorDialog : UserControl
     {
         if (!string.IsNullOrEmpty(_calculatedHash))
         {
-            var topLevel = TopLevel.GetTopLevel(this);
-            topLevel?.Clipboard?.SetTextAsync(_calculatedHash);
+            this.Clipboard?.SetTextAsync(_calculatedHash);
         }
     }
 
@@ -143,6 +165,8 @@ public partial class ChecksumCalculatorDialog : UserControl
 
     private void UpdateComparison()
     {
+        if (ResultBorder == null || ResultIconTextBlock == null || ResultTextBlock == null) return;
+
         if (string.IsNullOrEmpty(_calculatedHash))
         {
             ResultBorder.IsVisible = false;
@@ -177,5 +201,10 @@ public partial class ChecksumCalculatorDialog : UserControl
             ResultTextBlock.Text = "CHECKSUMS MISMATCH";
             ResultTextBlock.Foreground = Brush.Parse("#EF4444");
         }
+    }
+
+    private void OnDismissClick(object? sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }

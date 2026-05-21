@@ -110,6 +110,7 @@ public class AppBootstrapper
 
     public async Task StartAsync()
     {
+        Flow.Shared.Utils.Logger.Info("[Bootstrapper] App starting...");
         // Boot up database items & schedule loops
         // DownloadMonitor starts automatically in its constructor via StartLifecycleAsync()
         await DownloadManager.BootAsync();
@@ -117,16 +118,20 @@ public class AppBootstrapper
         // Run Integration Server on default port 15151
         try
         {
+            Flow.Shared.Utils.Logger.Info("[Bootstrapper] Starting integration server on port 15151...");
             IntegrationServer.Enable(15151);
+            Flow.Shared.Utils.Logger.Info("[Bootstrapper] Integration server enabled on port 15151.");
         }
         catch (Exception ex)
         {
+            Flow.Shared.Utils.Logger.Error("[Bootstrapper] Failed to start integration server", ex);
             Console.WriteLine($"[Bootstrapper] Failed to start integration server: {ex.Message}");
         }
     }
 
     public async Task StopAsync()
     {
+        Flow.Shared.Utils.Logger.Info("[Bootstrapper] App stopping...");
         try
         {
             IntegrationServer.Disable();
@@ -163,8 +168,10 @@ public class DesktopIntegrationHandler : IIntegrationHandler
 
     public async Task AddDownloadAsync(List<IDownloadCredentialsFromIntegration> list, AddDownloadOptionsFromIntegration options)
     {
+        Flow.Shared.Utils.Logger.Info($"[Integration] AddDownloadAsync received {list.Count} items. SilentStart: {options.SilentStart}");
         foreach (var cred in list)
         {
+            Flow.Shared.Utils.Logger.Info($"[Integration] Processing captured link: {cred.Link} (suggested: {cred.SuggestedName})");
             var item = new HttpDownloadItem
             {
                 Link = cred.Link,
@@ -197,9 +204,15 @@ public class DesktopIntegrationHandler : IIntegrationHandler
             );
 
             long id = await _downloadManager.AddDownloadAsync(props);
+            Flow.Shared.Utils.Logger.Info($"[Integration] Item added successfully to DB with ID: {id}, Name: {item.Name}");
             if (options.SilentStart)
             {
+                Flow.Shared.Utils.Logger.Info($"[Integration] Auto-starting download for ID: {id}");
                 await _downloadManager.ResumeAsync(id);
+            }
+            else
+            {
+                Flow.Shared.Utils.Logger.Warning($"[Integration] SilentStart is false, download ID: {id} is placed in queue (Idle). User must click Resume to start.");
             }
         }
     }
@@ -215,6 +228,7 @@ public class DesktopIntegrationHandler : IIntegrationHandler
     public async Task AddDownloadTaskAsync(NewDownloadTask task)
     {
         var cred = task.DownloadSource;
+        Flow.Shared.Utils.Logger.Info($"[Integration] AddDownloadTaskAsync received. Link: {cred.Link}, Name: {task.Name}, Folder: {task.Folder}");
         var item = new HttpDownloadItem
         {
             Link = cred.Link,
@@ -246,6 +260,7 @@ public class DesktopIntegrationHandler : IIntegrationHandler
             DownloadItemContext.Empty
         );
 
-        await _downloadManager.AddDownloadAsync(props);
+        long id = await _downloadManager.AddDownloadAsync(props);
+        Flow.Shared.Utils.Logger.Info($"[Integration] Task item added successfully to DB with ID: {id}, Name: {item.Name}");
     }
 }

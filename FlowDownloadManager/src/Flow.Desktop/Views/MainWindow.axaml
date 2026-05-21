@@ -42,7 +42,7 @@
                 <ui:NavigationViewItem Name="NavDownloads"
                                        Content="ACTIVE QUEUE"
                                        Tag="Downloads"
-                                       IconSource="DownloadLink"
+                                       IconSource="Download"
                                        IsSelected="True" />
 
                 <ui:NavigationViewItem Name="NavSpeed"
@@ -53,9 +53,30 @@
                 <ui:NavigationViewItem Name="NavSettings"
                                        Content="SYSTEM CONFIG"
                                        Tag="Settings"
-                                       IconSource="Setting" />
+                                       IconSource="Settings" />
 
             </ui:NavigationView.MenuItems>
+
+            <ui:NavigationView.PaneFooter>
+                <!-- Dynamic Header info moved to Sidebar Footer to avoid overlapping content -->
+                <StackPanel Spacing="8" Margin="12,20">
+                    <Border BorderBrush="#E64A00" BorderThickness="1" Background="#260D00" Padding="8,6" CornerRadius="0" HorizontalAlignment="Stretch">
+                        <TextBlock Text="INTEGRATION ACTIVE: PORT 15151"
+                                   FontFamily="JetBrains Mono, monospace"
+                                   FontSize="9"
+                                   Foreground="#FF8547"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="FLOW.SYS v1.0.0 // ONLINE"
+                               FontFamily="JetBrains Mono, monospace"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="#4B4B4B"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </ui:NavigationView.PaneFooter>
 
             <!-- Content area driven by CurrentPage from ViewModel -->
             <ui:NavigationView.Content>
@@ -63,26 +84,6 @@
             </ui:NavigationView.Content>
 
         </ui:NavigationView>
-
-        <!-- Dynamic Header info top right -->
-        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="24,14" Height="32"
-                IsHitTestVisible="False">
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <Border BorderBrush="#E64A00" BorderThickness="1" Background="#260D00" Padding="8,4" CornerRadius="0">
-                    <TextBlock Text="INTEGRATION ACTIVE: PORT 15151"
-                               FontFamily="JetBrains Mono, monospace"
-                               FontSize="10"
-                               Foreground="#FF8547"
-                               VerticalAlignment="Center"/>
-                </Border>
-                <TextBlock Text="FLOW.SYS v1.0.0"
-                           FontFamily="JetBrains Mono, monospace"
-                           FontSize="12"
-                           FontWeight="Bold"
-                           Foreground="#4B4B4B"
-                           VerticalAlignment="Center"/>
-            </StackPanel>
-        </Border>
 
         <ctrls:ToastContainer x:Name="ToastHost"/>
     </Grid>

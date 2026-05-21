@@ -5,14 +5,11 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using FluentAvalonia.UI.Controls;
 
 namespace Flow.Desktop.Views;
 
-public partial class BatchDownloadDialog : UserControl
+public partial class BatchDownloadDialog : Window
 {
-    private ContentDialog? _parentDialog;
-
     public BatchDownloadDialog()
     {
         InitializeComponent();
@@ -29,27 +26,17 @@ public partial class BatchDownloadDialog : UserControl
         AvaloniaXamlLoader.Load(this);
     }
 
-    public void SetParentDialog(ContentDialog parent)
-    {
-        _parentDialog = parent;
-        UpdatePreview();
-    }
-
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
-        var window = TopLevel.GetTopLevel(this) as Window;
-        if (window != null)
+        var folders = await this.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
-            var folders = await window.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
-            {
-                Title = "SELECT DESTINATION FOLDER",
-                AllowMultiple = false
-            });
+            Title = "SELECT DESTINATION FOLDER",
+            AllowMultiple = false
+        });
 
-            if (folders != null && folders.Count > 0)
-            {
-                FolderTextBox.Text = folders[0].Path.LocalPath;
-            }
+        if (folders != null && folders.Count > 0)
+        {
+            FolderTextBox.Text = folders[0].Path.LocalPath;
         }
     }
 
@@ -67,7 +54,7 @@ public partial class BatchDownloadDialog : UserControl
 
     private void UpdatePreview()
     {
-        if (FirstUrlTextBlock == null || LastUrlTextBlock == null || TotalCountTextBlock == null)
+        if (FirstUrlTextBlock == null || LastUrlTextBlock == null || TotalCountTextBlock == null || InjectButton == null)
             return;
 
         GeneratedLinks.Clear();
@@ -146,9 +133,16 @@ public partial class BatchDownloadDialog : UserControl
             TotalCountTextBlock.Foreground = Avalonia.Media.Brushes.Red;
         }
 
-        if (_parentDialog != null)
-        {
-            _parentDialog.IsPrimaryButtonEnabled = isValid && GeneratedLinks.Any();
-        }
+        InjectButton.IsEnabled = isValid && GeneratedLinks.Any();
+    }
+
+    private void OnOkClick(object? sender, RoutedEventArgs e)
+    {
+        Close(true);
+    }
+
+    private void OnCancelClick(object? sender, RoutedEventArgs e)
+    {
+        Close(false);
     }
 }

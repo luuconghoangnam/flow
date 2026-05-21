@@ -1,62 +1,84 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Flow.Desktop.Views.AddDownloadDialog"
-             Width="500" Background="Transparent">
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrls="using:Flow.Desktop.Controls"
+        x:Class="Flow.Desktop.Views.AddDownloadDialog"
+        Title="ADD NEW DOWNLOAD INSTANCE"
+        Width="500" Height="300"
+        CanResize="False"
+        Background="#0A0A0A"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/icon.ico"
+        RequestedThemeVariant="Dark">
 
-    <StackPanel Spacing="16" Margin="8,16,8,8">
-        
-        <!-- TARGET URI INPUT -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="TARGET LOCATION URL // HTTP/HTTPS" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <TextBox Name="UrlTextBox" 
-                     Classes="cyber" 
-                     Watermark="https://example.com/target-payload.bin"
-                     Height="36" 
-                     Padding="12,8"
-                     TextWrapping="NoWrap"/>
-        </StackPanel>
+    <Grid>
+        <!-- Background Grid -->
+        <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
 
-        <!-- FILENAME INPUT -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="PREFERED FILENAME // OPTIONAL" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <TextBox Name="NameTextBox" 
-                     Classes="cyber" 
-                     Watermark="payload.bin"
-                     Height="36" 
-                     Padding="12,8"/>
-        </StackPanel>
+        <DockPanel Margin="20">
+            <!-- Dialog Actions -->
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
+                <Button Classes="cyber" Content="ABORT" Click="OnCancelClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
+                <ctrls:CyberBorder ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
+                    <Button Classes="cyber-primary" Content="INJECT LINK" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="36" Width="130" HorizontalContentAlignment="Center"/>
+                </ctrls:CyberBorder>
+            </StackPanel>
 
-        <!-- SAVE LOCATION INPUT -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
-                <TextBox Grid.Column="0" 
-                         Name="FolderTextBox" 
-                         Classes="cyber" 
-                         Watermark="D:\Downloads"
-                         Height="36" 
-                         Padding="12,8"
-                         Margin="0,0,8,0"/>
-                <Button Grid.Column="1" 
-                        Classes="cyber" 
-                        Content="BROWSE" 
-                        Click="OnBrowseClick"
-                        Height="36" 
-                        Padding="16,0"/>
-            </Grid>
-        </StackPanel>
+            <!-- Main Content -->
+            <StackPanel Spacing="16">
+                <!-- TARGET URI INPUT -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="TARGET LOCATION URL // HTTP/HTTPS" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBox Name="UrlTextBox" 
+                             Classes="cyber" 
+                             Watermark="https://example.com/target-payload.bin"
+                             Height="36" 
+                             Padding="12,8"
+                             TextWrapping="NoWrap"/>
+                </StackPanel>
 
-    </StackPanel>
-</UserControl>
+                <!-- FILENAME INPUT -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="PREFERED FILENAME // OPTIONAL" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBox Name="NameTextBox" 
+                             Classes="cyber" 
+                             Watermark="payload.bin"
+                             Height="36" 
+                             Padding="12,8"/>
+                </StackPanel>
+
+                <!-- SAVE LOCATION INPUT -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                        <TextBox Grid.Column="0" 
+                                 Name="FolderTextBox" 
+                                 Classes="cyber" 
+                                 Watermark="D:\Downloads"
+                                 Height="36" 
+                                 Padding="12,8"
+                                 Margin="0,0,8,0"/>
+                        <Button Grid.Column="1" 
+                                Classes="cyber" 
+                                Content="BROWSE" 
+                                Click="OnBrowseClick"
+                                Height="36" 
+                                Padding="16,0"
+                                HorizontalContentAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

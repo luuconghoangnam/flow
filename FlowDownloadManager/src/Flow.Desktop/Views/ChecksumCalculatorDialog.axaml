@@ -1,127 +1,146 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Flow.Desktop.Views.ChecksumCalculatorDialog"
-             Width="500" Background="Transparent">
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrls="using:Flow.Desktop.Controls"
+        x:Class="Flow.Desktop.Views.ChecksumCalculatorDialog"
+        Title="FILE CHECKSUM CALCULATOR"
+        Width="500" Height="450"
+        CanResize="False"
+        Background="#0A0A0A"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/icon.ico"
+        RequestedThemeVariant="Dark">
 
-    <StackPanel Spacing="16" Margin="8,16,8,8">
-        
-        <!-- TARGET FILE INFO -->
-        <StackPanel Spacing="4">
-            <TextBlock Text="TARGET FILE" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <TextBlock Name="FileNameTextBlock" 
-                       Text="file.bin"
-                       FontFamily="JetBrains Mono" 
-                       FontSize="13" 
-                       FontWeight="Bold" 
-                       Foreground="#E5E7EB"
-                       TextWrapping="Wrap"/>
-            <TextBlock Name="FilePathTextBlock" 
-                       Text="C:\Downloads\file.bin"
-                       FontFamily="JetBrains Mono" 
-                       FontSize="10" 
-                       Foreground="#555555"
-                       TextWrapping="Wrap"/>
-        </StackPanel>
+    <Grid>
+        <!-- Background Grid -->
+        <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
 
-        <!-- ALGORITHM SELECTION -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="HASHING ALGORITHM" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <StackPanel Orientation="Horizontal" Spacing="20">
-                <RadioButton Name="Md5Radio" Content="MD5" IsChecked="True" FontFamily="JetBrains Mono" Foreground="#E5E7EB"/>
-                <RadioButton Name="Sha1Radio" Content="SHA-1" FontFamily="JetBrains Mono" Foreground="#E5E7EB"/>
-                <RadioButton Name="Sha256Radio" Content="SHA-256" FontFamily="JetBrains Mono" Foreground="#E5E7EB"/>
+        <DockPanel Margin="20">
+            <!-- Dialog Actions -->
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
+                <Button Classes="cyber" Content="DISMISS" Click="OnDismissClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
             </StackPanel>
-        </StackPanel>
 
-        <!-- PROGRESS BAR -->
-        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto" Margin="0,4,0,0">
-            <ProgressBar Grid.Column="0" 
-                         Name="CalculationProgressBar" 
-                         Minimum="0" 
-                         Maximum="100" 
-                         Value="0"
-                         Background="#1A1A1A" 
-                         Foreground="#E64A00" 
-                         Height="4" 
-                         CornerRadius="0"
-                         VerticalAlignment="Center"
-                         Margin="0,0,16,0"/>
-            <TextBlock Grid.Column="1" 
-                       Name="ProgressPercentTextBlock" 
-                       Text="0%" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="12" 
-                       Foreground="#E5E7EB" 
-                       VerticalAlignment="Center"/>
-        </Grid>
+            <!-- Main Content -->
+            <StackPanel Spacing="16">
+                <!-- TARGET FILE INFO -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="TARGET FILE" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBlock Name="FileNameTextBlock" 
+                               Text="file.bin"
+                               FontFamily="JetBrains Mono" 
+                               FontSize="13" 
+                               FontWeight="Bold" 
+                               Foreground="#E5E7EB"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Name="FilePathTextBlock" 
+                               Text="C:\Downloads\file.bin"
+                               FontFamily="JetBrains Mono" 
+                               FontSize="10" 
+                               Foreground="#555555"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
 
-        <!-- CALCULATED HASH -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="CALCULATED HASH" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBox Grid.Column="0" 
-                         Name="CalculatedHashTextBox" 
-                         Classes="cyber" 
-                         IsReadOnly="True"
-                         Watermark="Click calculate to generate hash..."
-                         Height="36" 
-                         Padding="12,8"
-                         Margin="0,0,8,0"/>
-                <Button Grid.Column="1" 
-                        Name="CopyButton"
-                        Classes="cyber" 
-                        Content="COPY" 
-                        Click="OnCopyClick"
-                        IsEnabled="False"
-                        Height="36" 
-                        Padding="16,0"/>
-            </Grid>
-        </StackPanel>
+                <!-- ALGORITHM SELECTION -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="HASHING ALGORITHM" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="20">
+                        <RadioButton Name="Md5Radio" Content="MD5" IsChecked="True" FontFamily="JetBrains Mono" Foreground="#E5E7EB" Checked="OnAlgorithmChecked"/>
+                        <RadioButton Name="Sha1Radio" Content="SHA-1" FontFamily="JetBrains Mono" Foreground="#E5E7EB" Checked="OnAlgorithmChecked"/>
+                        <RadioButton Name="Sha256Radio" Content="SHA-256" FontFamily="JetBrains Mono" Foreground="#E5E7EB" Checked="OnAlgorithmChecked"/>
+                    </StackPanel>
+                </StackPanel>
 
-        <!-- COMPARE FIELD -->
-        <StackPanel Spacing="6">
-            <TextBlock Text="COMPARE CHECKSUM // EXPECTED VALUE" 
-                       FontFamily="JetBrains Mono" 
-                       FontSize="11" 
-                       Foreground="#888888" 
-                       FontWeight="Bold"/>
-            <TextBox Name="CompareTextBox" 
-                     Classes="cyber" 
-                     Watermark="Paste expected checksum here..."
-                     Height="36" 
-                     Padding="12,8"
-                     TextChanged="OnCompareTextChanged"/>
-        </StackPanel>
+                <!-- PROGRESS BAR -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto" Margin="0,4,0,0">
+                    <ProgressBar Grid.Column="0" 
+                                 Name="CalculationProgressBar" 
+                                 Minimum="0" 
+                                 Maximum="100" 
+                                 Value="0"
+                                 Background="#1A1A1A" 
+                                 Foreground="#E64A00" 
+                                 Height="4" 
+                                 CornerRadius="0"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,16,0"/>
+                    <TextBlock Grid.Column="1" 
+                               Name="ProgressPercentTextBlock" 
+                               Text="0%" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="12" 
+                               Foreground="#E5E7EB" 
+                               VerticalAlignment="Center"/>
+                </Grid>
 
-        <!-- VERIFICATION RESULT -->
-        <Border Name="ResultBorder" BorderThickness="1" Padding="12,8" IsVisible="False">
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <TextBlock Name="ResultIconTextBlock" 
-                           Text="✓" 
-                           FontFamily="JetBrains Mono" 
-                           FontSize="12" 
-                           FontWeight="Bold" 
-                           VerticalAlignment="Center"/>
-                <TextBlock Name="ResultTextBlock" 
-                           Text="CHECKSUMS MATCH" 
-                           FontFamily="JetBrains Mono" 
-                           FontSize="11" 
-                           FontWeight="Bold"
-                           VerticalAlignment="Center"/>
+                <!-- CALCULATED HASH -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="CALCULATED HASH" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0" 
+                                 Name="CalculatedHashTextBox" 
+                                 Classes="cyber" 
+                                 IsReadOnly="True"
+                                 Watermark="Click calculate to generate hash..."
+                                 Height="36" 
+                                 Padding="12,8"
+                                 Margin="0,0,8,0"/>
+                        <Button Grid.Column="1" 
+                                Name="CopyButton"
+                                Classes="cyber" 
+                                Content="COPY" 
+                                Click="OnCopyClick"
+                                IsEnabled="False"
+                                Height="36" 
+                                Padding="16,0"
+                                HorizontalContentAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- COMPARE FIELD -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="COMPARE CHECKSUM // EXPECTED VALUE" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBox Name="CompareTextBox" 
+                             Classes="cyber" 
+                             Watermark="Paste expected checksum here..."
+                             Height="36" 
+                             Padding="12,8"
+                             TextChanged="OnCompareTextChanged"/>
+                </StackPanel>
+
+                <!-- VERIFICATION RESULT -->
+                <Border Name="ResultBorder" BorderThickness="1" Padding="12,8" IsVisible="False">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Name="ResultIconTextBlock" 
+                                   Text="✓" 
+                                   FontFamily="JetBrains Mono" 
+                                   FontSize="12" 
+                                   FontWeight="Bold" 
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Name="ResultTextBlock" 
+                                   Text="CHECKSUMS MATCH" 
+                                   FontFamily="JetBrains Mono" 
+                                   FontSize="11" 
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </Border>
-
-    </StackPanel>
-</UserControl>
+        </DockPanel>
+    </Grid>
+</Window>

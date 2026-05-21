@@ -63,6 +63,11 @@
         <Style Selector="Button.cyber-primary:pointerover">
             <Setter Property="Background" Value="#FF621A" />
         </Style>
+        <Style Selector="CheckBox.cyber">
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
         
     </Application.Styles>
 

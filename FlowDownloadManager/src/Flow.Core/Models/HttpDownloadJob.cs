@@ -157,6 +157,7 @@ public class HttpDownloadJob : DownloadJob
     {
         try
         {
+            Flow.Shared.Utils.Logger.Info($"[Job {Id}] Resuming download: Link={DownloadItem.Link}");
             await BootAsync();
             
             bool allDone = false;
@@ -167,6 +168,7 @@ public class HttpDownloadJob : DownloadJob
             
             if (allDone)
             {
+                Flow.Shared.Utils.Logger.Info($"[Job {Id}] Download already finished. Completing job.");
                 OnDownloadFinished();
                 return;
             }
@@ -193,9 +195,11 @@ public class HttpDownloadJob : DownloadJob
 
             await SaveStateAsync();
             OnDownloadResumed();
+            Flow.Shared.Utils.Logger.Info($"[Job {Id}] Download started successfully. Status={DownloadItem.Status}");
         }
         catch (Exception e)
         {
+            Flow.Shared.Utils.Logger.Error($"[Job {Id}] Error in ResumeWithNewScopeAsync", e);
             if (IsNormalCancellation(e) || (e is DownloadValidationException valEx && valEx.IsCritical))
             {
                 await PauseAsync(e);
@@ -685,13 +689,18 @@ public class HttpDownloadJob : DownloadJob
 
     private async Task FetchDownloadInfoAndValidateAsync(CancellationToken cancellationToken)
     {
+        Flow.Shared.Utils.Logger.Info($"[Job {Id}] Fetching server info for URL: {DownloadItem.Link} ...");
         var response = await _client.TestAsync((HttpDownloadItem)DownloadItem);
+        
+        Flow.Shared.Utils.Logger.Info($"[Job {Id}] Server response received: StatusCode={(int)response.StatusCode} ({response.StatusCode}), ContentLength={response.TotalLength}, ResumeSupport={response.ResumeSupport}, ETag={response.Etag}, IsWebPage={response.IsWebPage}");
+        
         response.ExpectSuccess();
 
         if (_supportsConcurrent.HasValue)
         {
             if (_supportsConcurrent.Value && !response.ResumeSupport)
             {
+                Flow.Shared.Utils.Logger.Warning($"[Job {Id}] Server resume support changed from true to false! Throwing exception.");
                 throw new ServerResumeSupportChangeException();
             }
         }
@@ -708,6 +717,7 @@ public class HttpDownloadJob : DownloadJob
         {
             if (IsDownloadItemIsAWebpage())
             {
+                Flow.Shared.Utils.Logger.Info($"[Job {Id}] Target is a webpage (.html/.htm). Disabling concurrent connections.");
                 _strictDownload = false;
                 _supportsConcurrent = false;
                 DownloadItem.ContentLength = IDownloadItem.LengthUnknown;
@@ -715,6 +725,7 @@ public class HttpDownloadJob : DownloadJob
             }
             else
             {
+                Flow.Shared.Utils.Logger.Error($"[Job {Id}] Got a web page response (HTML) but download target name is not a webpage ({DownloadItem.Name}). Might require authentication.");
                 throw new FileChangedException.GotAWebPage();
             }
         }
@@ -727,17 +738,20 @@ public class HttpDownloadJob : DownloadJob
         {
             DownloadItem.ContentLength = totalLength ?? -1;
             ((HttpDownloadItem)DownloadItem).ServerETag = newServerETag;
+            Flow.Shared.Utils.Logger.Info($"[Job {Id}] Updated ContentLength={DownloadItem.ContentLength}, ETag={newServerETag}");
         }
         else
         {
             if (totalLength.HasValue && totalLength.Value != DownloadItem.ContentLength)
             {
+                Flow.Shared.Utils.Logger.Error($"[Job {Id}] File size mismatch: Expected={DownloadItem.ContentLength}, Actual={totalLength.Value}");
                 throw new FileChangedException.LengthChangedException(DownloadItem.ContentLength, totalLength.Value);
             }
             if (oldServerETag != null && newServerETag != null)
             {
                 if (oldServerETag != newServerETag)
                 {
+                    Flow.Shared.Utils.Logger.Error($"[Job {Id}] File ETag mismatch: Expected={oldServerETag}, Actual={newServerETag}");
                     throw new FileChangedException.ETagChangedException(oldServerETag, newServerETag);
                 }
             }

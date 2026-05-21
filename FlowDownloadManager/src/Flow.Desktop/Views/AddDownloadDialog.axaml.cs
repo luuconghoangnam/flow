@@ -1,12 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using System.IO;
-using System.Linq;
+using System;
 
 namespace Flow.Desktop.Views;
 
-public partial class AddDownloadDialog : UserControl
+public partial class AddDownloadDialog : Window
 {
     public AddDownloadDialog()
     {
@@ -23,19 +22,25 @@ public partial class AddDownloadDialog : UserControl
 
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
-        var window = TopLevel.GetTopLevel(this) as Window;
-        if (window != null)
+        var folders = await this.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
-            var folders = await window.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
-            {
-                Title = "SELECT DESTINATION FOLDER",
-                AllowMultiple = false
-            });
+            Title = "SELECT DESTINATION FOLDER",
+            AllowMultiple = false
+        });
 
-            if (folders != null && folders.Count > 0)
-            {
-                FolderTextBox.Text = folders[0].Path.LocalPath;
-            }
+        if (folders != null && folders.Count > 0)
+        {
+            FolderTextBox.Text = folders[0].Path.LocalPath;
         }
+    }
+
+    private void OnOkClick(object? sender, RoutedEventArgs e)
+    {
+        Close(true);
+    }
+
+    private void OnCancelClick(object? sender, RoutedEventArgs e)
+    {
+        Close(false);
     }
 }

@@ -53,25 +53,18 @@ public partial class DownloadsView : UserControl
 
     private async void OnAddDownloadClick(object? sender, RoutedEventArgs e)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "ADD NEW DOWNLOAD INSTANCE",
-            PrimaryButtonText = "INJECT LINK",
-            CloseButtonText = "ABORT",
-            DefaultButton = ContentDialogButton.Primary
-        };
+        var parentWindow = this.VisualRoot as Window;
+        if (parentWindow == null) return;
 
-        var dialogView = new AddDownloadDialog();
-        dialog.Content = dialogView;
-
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+        var dialog = new AddDownloadDialog();
+        var result = await dialog.ShowDialog<bool>(parentWindow);
+        if (result)
         {
             try
             {
-                string url = dialogView.UrlTextBox.Text ?? string.Empty;
-                string name = dialogView.NameTextBox.Text ?? string.Empty;
-                string folder = dialogView.FolderTextBox.Text ?? string.Empty;
+                string url = dialog.UrlTextBox.Text ?? string.Empty;
+                string name = dialog.NameTextBox.Text ?? string.Empty;
+                string folder = dialog.FolderTextBox.Text ?? string.Empty;
 
                 if (string.IsNullOrWhiteSpace(url))
                 {
@@ -113,25 +106,17 @@ public partial class DownloadsView : UserControl
 
     private async void OnAddBatchClick(object? sender, RoutedEventArgs e)
     {
-        var dialog = new ContentDialog
-        {
-            Title = "ADD BATCH SEQUENCE",
-            PrimaryButtonText = "INJECT BATCH",
-            CloseButtonText = "ABORT",
-            DefaultButton = ContentDialogButton.Primary
-        };
+        var parentWindow = this.VisualRoot as Window;
+        if (parentWindow == null) return;
 
-        var dialogView = new BatchDownloadDialog();
-        dialogView.SetParentDialog(dialog);
-        dialog.Content = dialogView;
-
-        var result = await dialog.ShowAsync();
-        if (result == ContentDialogResult.Primary)
+        var dialog = new BatchDownloadDialog();
+        var result = await dialog.ShowDialog<bool>(parentWindow);
+        if (result)
         {
             try
             {
-                var links = dialogView.GeneratedLinks;
-                string folder = dialogView.FolderTextBox.Text ?? string.Empty;
+                var links = dialog.GeneratedLinks;
+                string folder = dialog.FolderTextBox.Text ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(folder))
                 {
                     folder = Services.AppBootstrapper.Instance.DefaultDownloadFolder;
@@ -196,7 +181,7 @@ public partial class DownloadsView : UserControl
 
     private async void OnEditClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.DataContext is Flow.Monitor.IDownloadItemState itemState)
+        if (sender is Control control && control.DataContext is Flow.Monitor.IDownloadItemState itemState)
         {
             var manager = Services.AppBootstrapper.Instance.DownloadManager;
             var item = await manager.DlListDb.GetByIdAsync(itemState.Id);
@@ -206,30 +191,23 @@ public partial class DownloadsView : UserControl
                 return;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = "EDIT DOWNLOAD PROPERTIES",
-                PrimaryButtonText = "SAVE CHANGES",
-                CloseButtonText = "ABORT",
-                DefaultButton = ContentDialogButton.Primary
-            };
+            var parentWindow = this.VisualRoot as Window;
+            if (parentWindow == null) return;
 
-            var dialogView = new EditDownloadDialog(item);
-            dialog.Content = dialogView;
-
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            var dialog = new EditDownloadDialog(item);
+            var result = await dialog.ShowDialog<bool>(parentWindow);
+            if (result)
             {
                 try
                 {
-                    dialogView.SaveChanges();
+                    dialog.SaveChanges();
                     
                     // Save to database/memory via manager
                     await manager.UpdateDownloadItemAsync(item.Id, null, updater =>
                     {
                         updater.Folder = item.Folder;
                         updater.Name = item.Name;
-                        updater.Link = dialogView.EditedUrl; // In case the link was changed
+                        updater.Link = dialog.EditedUrl; // In case the link was changed
                         updater.PreferredConnectionCount = item.PreferredConnectionCount;
                         updater.SpeedLimit = item.SpeedLimit;
                         updater.FileChecksum = item.FileChecksum;
@@ -252,7 +230,7 @@ public partial class DownloadsView : UserControl
 
     private async void OnChecksumClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.DataContext is Flow.Monitor.IDownloadItemState itemState)
+        if (sender is Control control && control.DataContext is Flow.Monitor.IDownloadItemState itemState)
         {
             string fullPath = itemState.GetFullPath();
             if (!File.Exists(fullPath))
@@ -261,23 +239,17 @@ public partial class DownloadsView : UserControl
                 return;
             }
 
-            var dialog = new ContentDialog
-            {
-                Title = "FILE CHECKSUM CALCULATOR",
-                CloseButtonText = "DISMISS",
-                DefaultButton = ContentDialogButton.Close
-            };
+            var parentWindow = this.VisualRoot as Window;
+            if (parentWindow == null) return;
 
-            var dialogView = new ChecksumCalculatorDialog(itemState.Name, fullPath);
-            dialog.Content = dialogView;
-
-            await dialog.ShowAsync();
+            var dialog = new ChecksumCalculatorDialog(itemState.Name, fullPath);
+            await dialog.ShowDialog(parentWindow);
         }
     }
 
     private void OnOpenFolderClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.DataContext is Flow.Monitor.IDownloadItemState itemState)
+        if (sender is Control control && control.DataContext is Flow.Monitor.IDownloadItemState itemState)
         {
             string fullPath = itemState.GetFullPath();
             if (File.Exists(fullPath))
@@ -293,23 +265,16 @@ public partial class DownloadsView : UserControl
 
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.DataContext is Flow.Monitor.IDownloadItemState item)
+        if (sender is Control control && control.DataContext is Flow.Monitor.IDownloadItemState item)
         {
-            var dialog = new ContentDialog
-            {
-                Title = "DELETE TRANSACTION",
-                PrimaryButtonText = "CONFIRM DELETE",
-                CloseButtonText = "ABORT",
-                DefaultButton = ContentDialogButton.Close
-            };
+            var parentWindow = this.VisualRoot as Window;
+            if (parentWindow == null) return;
 
-            var dialogView = new DeleteConfirmationDialog(item.Name);
-            dialog.Content = dialogView;
-
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            var dialog = new DeleteConfirmationDialog(item.Name);
+            var result = await dialog.ShowDialog<bool>(parentWindow);
+            if (result)
             {
-                bool alsoRemoveFile = dialogView.DeleteFileCheckBox.IsChecked == true;
+                bool alsoRemoveFile = dialog.DeleteFileCheckBox.IsChecked == true;
                 if (_vm != null)
                 {
                     await _vm.DeleteDownloadWithOptionAsync(item, alsoRemoveFile);
