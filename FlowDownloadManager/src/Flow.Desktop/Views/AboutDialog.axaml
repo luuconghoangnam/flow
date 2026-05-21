@@ -16,7 +16,7 @@
         <DockPanel Margin="24">
             <Border DockPanel.Dock="Bottom" BorderBrush="#2A2A2A" BorderThickness="0,1,0,0" Padding="0,16,0,0">
                 <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0" Text="Powered by Open Source Software" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E64A00" VerticalAlignment="Center" TextDecorations="Underline">
+                    <TextBlock Grid.Column="0" Name="OpenSourceLink" Text="Powered by Open Source Software" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E64A00" VerticalAlignment="Center" TextDecorations="Underline" Cursor="Hand">
                         <TextBlock.Background>
                             <SolidColorBrush Color="Transparent"/>
                         </TextBlock.Background>

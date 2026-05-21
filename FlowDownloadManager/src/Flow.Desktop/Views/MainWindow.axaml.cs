@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -50,6 +51,10 @@ public partial class MainWindow : Window
         vm.ExitRequested += OnExitRequested;
         vm.AboutRequested += OnAbout;
         vm.StopAllRequested += OnStopAll;
+        vm.DeleteAllFinishedRequested += OnDeleteAllFinished;
+        vm.DeleteAllUnfinishedRequested += OnDeleteAllUnfinished;
+        vm.DeleteAllMissingRequested += OnDeleteAllMissing;
+        vm.DeleteEntireListRequested += OnDeleteEntireList;
         vm.OpenFileRequested += OnOpenFile;
         vm.OpenFolderRequested += OnOpenFolder;
         vm.EditDownloadRequested += OnEditDownload;
@@ -67,6 +72,10 @@ public partial class MainWindow : Window
         vm.ExitRequested -= OnExitRequested;
         vm.AboutRequested -= OnAbout;
         vm.StopAllRequested -= OnStopAll;
+        vm.DeleteAllFinishedRequested -= OnDeleteAllFinished;
+        vm.DeleteAllUnfinishedRequested -= OnDeleteAllUnfinished;
+        vm.DeleteAllMissingRequested -= OnDeleteAllMissing;
+        vm.DeleteEntireListRequested -= OnDeleteEntireList;
         vm.OpenFileRequested -= OnOpenFile;
         vm.OpenFolderRequested -= OnOpenFolder;
         vm.EditDownloadRequested -= OnEditDownload;
@@ -194,6 +203,71 @@ public partial class MainWindow : Window
         {
             ShowToast("Pause Failed", ex.Message, ToastType.Error);
         }
+    }
+
+    private async void OnDeleteAllFinished()
+    {
+        var monitor = AppBootstrapper.Instance.DownloadMonitor;
+        var finished = monitor.DownloadList.Where(d => d is CompletedDownloadItemState).ToList();
+        await BulkDelete(finished, "All finished downloads");
+    }
+
+    private async void OnDeleteAllUnfinished()
+    {
+        var monitor = AppBootstrapper.Instance.DownloadMonitor;
+        var unfinished = monitor.DownloadList.Where(d => d is IProcessingDownloadItemState).ToList();
+        await BulkDelete(unfinished, "All unfinished downloads");
+    }
+
+    private async void OnDeleteAllMissing()
+    {
+        var monitor = AppBootstrapper.Instance.DownloadMonitor;
+        var missing = monitor.DownloadList.Where(d =>
+        {
+            string path = d.GetFullPath();
+            return !System.IO.File.Exists(path) || new System.IO.FileInfo(path).Length == 0;
+        }).ToList();
+        await BulkDelete(missing, "All missing files");
+    }
+
+    private async void OnDeleteEntireList()
+    {
+        var monitor = AppBootstrapper.Instance.DownloadMonitor;
+        var all = monitor.DownloadList.ToList();
+        await BulkDelete(all, "Entire download list");
+    }
+
+    private async Task BulkDelete(List<IDownloadItemState> items, string label)
+    {
+        if (items.Count == 0)
+        {
+            ShowToast("Nothing to delete", $"No items found for: {label}", ToastType.Info);
+            return;
+        }
+
+        var confirm = new MessageDialog(
+            "Confirm Bulk Delete",
+            $"Delete {items.Count} item(s)? ({label})",
+            MessageDialogType.Warning,
+            showCancel: true
+        );
+        var result = await confirm.ShowDialog<bool>(this);
+        if (!result) return;
+
+        int deleted = 0;
+        var manager = AppBootstrapper.Instance.DownloadManager;
+        foreach (var item in items)
+        {
+            try
+            {
+                await manager.DeleteDownloadAsync(item.Id, _ => false);
+                deleted++;
+            }
+            catch { }
+        }
+
+        ShowToast("Bulk Delete Complete", $"Deleted {deleted} of {items.Count} items", ToastType.Success);
+        _vm?.Downloads.RefreshList();
     }
 
     private void OnOpenFile()

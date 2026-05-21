@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
@@ -55,45 +56,55 @@ public partial class App : Application
         }
     }
 
-    /// <summary>
-    /// Bridges the integration server to the AddDownloadDialog on the UI thread.
-    /// When the browser extension sends a download request, a pre-filled dialog
-    /// appears for the user to review/modify before adding.
-    /// </summary>
     private void WireIntegrationToDialog()
     {
         AppBootstrapper.Instance.OnIntegrationDownloadRequested += async (_, args) =>
         {
-            var desktop = ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-            var mainWindow = desktop?.MainWindow;
-            if (mainWindow == null) return;
-
-            foreach (var cred in args.Items)
+            try
             {
-                var dialog = new AddDownloadDialog
-                {
-                    UrlTextBox = { Text = cred.Link }
-                };
-                if (!string.IsNullOrEmpty(cred.SuggestedName))
-                    dialog.NameTextBox.Text = cred.SuggestedName;
-                if (!string.IsNullOrEmpty(cred.DownloadPage))
-                    dialog.UrlTextBox.Watermark = cred.DownloadPage;
+                var desktop = ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+                var mainWindow = desktop?.MainWindow;
+                if (mainWindow == null) return;
 
-                var result = await dialog.ShowDialog<bool>(mainWindow);
-                if (result)
+                // Ensure main window is visible before showing modal dialogs
+                if (!mainWindow.IsVisible)
                 {
-                    await AppBootstrapper.Instance.IntegrationHandler.AddDownloadsDirectly(
-                        new List<IDownloadCredentialsFromIntegration>
-                        {
-                            new HttpDownloadCredentialsFromIntegration
-                            {
-                                Link = dialog.UrlTextBox.Text ?? cred.Link,
-                                SuggestedName = dialog.NameTextBox.Text,
-                            }
-                        },
-                        autoStart: true
-                    );
+                    mainWindow.Show();
+                    mainWindow.WindowState = Avalonia.Controls.WindowState.Normal;
+                    mainWindow.Activate();
                 }
+
+                foreach (var cred in args.Items)
+                {
+                    var dialog = new AddDownloadDialog
+                    {
+                        UrlTextBox = { Text = cred.Link }
+                    };
+                    if (!string.IsNullOrEmpty(cred.SuggestedName))
+                        dialog.NameTextBox.Text = cred.SuggestedName;
+                    if (!string.IsNullOrEmpty(cred.DownloadPage))
+                        dialog.UrlTextBox.Watermark = cred.DownloadPage;
+
+                    var result = await dialog.ShowDialog<bool>(mainWindow);
+                    if (result)
+                    {
+                        await AppBootstrapper.Instance.IntegrationHandler.AddDownloadsDirectly(
+                            new List<IDownloadCredentialsFromIntegration>
+                            {
+                                new HttpDownloadCredentialsFromIntegration
+                                {
+                                    Link = dialog.UrlTextBox.Text ?? cred.Link,
+                                    SuggestedName = dialog.NameTextBox.Text,
+                                }
+                            },
+                            autoStart: true
+                        );
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Integration] Error showing download dialog: {ex}");
             }
         };
     }

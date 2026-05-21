@@ -57,6 +57,14 @@
                 </MenuItem>
                 <MenuItem Header="_Tasks">
                     <MenuItem Header="Stop _All" InputGesture="Ctrl+Shift+S" Command="{Binding StopAllCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="_Delete">
+                        <MenuItem Header="All _Finished" Command="{Binding DeleteAllFinishedCommand}"/>
+                        <MenuItem Header="All _Unfinished" Command="{Binding DeleteAllUnfinishedCommand}"/>
+                        <MenuItem Header="All Missing _Files" Command="{Binding DeleteAllMissingCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="_Entire List" Command="{Binding DeleteEntireListCommand}"/>
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="_Tools">
                     <MenuItem Header="_Settings" InputGesture="Ctrl+Alt+S" Command="{Binding NavigateToSettingsCommand}"/>

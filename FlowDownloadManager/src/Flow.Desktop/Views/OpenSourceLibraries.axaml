@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:Flow.Desktop.Views"
+        x:Class="Flow.Desktop.Views.OpenSourceLibraries"
+        x:DataType="local:OpenSourceLibraries"
+        Title="Third-Party Libraries"
+        Width="650" Height="400"
+        CanResize="False"
+        Background="#0A0A0A"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/icon.ico"
+        RequestedThemeVariant="Dark">
+
+    <Grid>
+        <DockPanel Margin="16">
+            <Border DockPanel.Dock="Bottom" BorderBrush="#2A2A2A" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Button Grid.Column="1" Classes="cyber" Content="Close" Click="OnCloseClick" Height="34" Width="100" HorizontalContentAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <DockPanel>
+                <Border DockPanel.Dock="Top" BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="0,0,0,12" Margin="0,0,0,8">
+                    <TextBlock Text="Third-Party Libraries" FontFamily="JetBrains Mono" FontSize="14" FontWeight="Bold" Foreground="#E64A00"/>
+                </Border>
+
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding Libraries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:LibraryInfo">
+                                <Border BorderBrush="#2A2A2A" BorderThickness="1" Background="#101010" Padding="12,8" Margin="0,0,0,4">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="{Binding DisplayName}" FontFamily="JetBrains Mono" FontSize="12" FontWeight="Bold" Foreground="#E5E7EB" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding ArtifactId}" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding License}" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -19,6 +19,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public event Action? ExitRequested;
     public event Action? AboutRequested;
     public event Action? StopAllRequested;
+    public event Action? DeleteAllFinishedRequested;
+    public event Action? DeleteAllUnfinishedRequested;
+    public event Action? DeleteAllMissingRequested;
+    public event Action? DeleteEntireListRequested;
     public event Action? OpenFileRequested;
     public event Action? OpenFolderRequested;
     public event Action? EditDownloadRequested;
@@ -63,6 +67,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [RelayCommand]
     private void StopAll() => StopAllRequested?.Invoke();
+
+    [RelayCommand]
+    private void DeleteAllFinished() => DeleteAllFinishedRequested?.Invoke();
+
+    [RelayCommand]
+    private void DeleteAllUnfinished() => DeleteAllUnfinishedRequested?.Invoke();
+
+    [RelayCommand]
+    private void DeleteAllMissing() => DeleteAllMissingRequested?.Invoke();
+
+    [RelayCommand]
+    private void DeleteEntireList() => DeleteEntireListRequested?.Invoke();
 
     [RelayCommand]
     private void OpenFile() => OpenFileRequested?.Invoke();
