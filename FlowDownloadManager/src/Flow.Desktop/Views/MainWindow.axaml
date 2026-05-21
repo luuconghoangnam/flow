@@ -9,8 +9,8 @@
         x:Class="Flow.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Background="#0A0A0A"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="FLOW DOWNLOAD MANAGER // C# EDITION"
+        Icon="/Assets/icon.ico"
+        Title="Flow"
         Width="1000" Height="500"
         MinWidth="400" MinHeight="400"
         WindowStartupLocation="CenterScreen">
