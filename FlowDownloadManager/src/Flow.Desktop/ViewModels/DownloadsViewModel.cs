@@ -34,6 +34,18 @@ public partial class DownloadsViewModel : ViewModelBase
     [ObservableProperty]
     private ObservableCollection<IUiPart> _detailParts = new();
 
+    [ObservableProperty]
+    private string _selectedStatusFilter = "ALL";
+
+    [ObservableProperty]
+    private string _selectedTypeFilter = "ALL";
+
+    public ObservableCollection<string> StatusFilters { get; } = new() { "ALL", "FINISHED", "UNFINISHED" };
+    public ObservableCollection<string> TypeFilters { get; } = new() { "ALL", "Compressed", "Programs", "Videos", "Music", "Pictures", "Documents" };
+
+    partial void OnSelectedStatusFilterChanged(string value) => RefreshList();
+    partial void OnSelectedTypeFilterChanged(string value) => RefreshList();
+
     private readonly IDownloadMonitor _monitor;
     private readonly Core.DownloadManager _manager;
 
@@ -58,14 +70,37 @@ public partial class DownloadsViewModel : ViewModelBase
         Dispatcher.UIThread.Post(UpdateActiveItems);
     }
 
-    private void RefreshList()
+    public void RefreshList()
     {
         var currentSelectedId = SelectedDownload?.Id;
         
-        var list = _monitor.DownloadList.OrderByDescending(d => d.DateAdded).ToList();
+        var list = _monitor.DownloadList.AsEnumerable();
+
+        // Filter by Status
+        if (SelectedStatusFilter == "FINISHED")
+        {
+            list = list.Where(d => d is CompletedDownloadItemState);
+        }
+        else if (SelectedStatusFilter == "UNFINISHED")
+        {
+            list = list.Where(d => d is IProcessingDownloadItemState);
+        }
+
+        // Filter by Type
+        if (SelectedTypeFilter != "ALL" && !string.IsNullOrEmpty(SelectedTypeFilter))
+        {
+            var defaultCats = DefaultCategories.GetDefaultCategories();
+            var category = defaultCats.FirstOrDefault(c => c.Name.Equals(SelectedTypeFilter, StringComparison.OrdinalIgnoreCase));
+            if (category != null)
+            {
+                list = list.Where(d => category.AcceptFileName(d.Name));
+            }
+        }
+
+        var sortedList = list.OrderByDescending(d => d.DateAdded).ToList();
         
         Downloads.Clear();
-        foreach (var item in list)
+        foreach (var item in sortedList)
         {
             Downloads.Add(item);
         }
@@ -206,6 +241,29 @@ public partial class DownloadsViewModel : ViewModelBase
             try
             {
                 await _manager.DeleteDownloadAsync(target.Id, _ => true);
+                if (SelectedDownload?.Id == target.Id)
+                {
+                    SelectedDownload = null;
+                    IsDetailOpen = false;
+                }
+
+                OperationNotified?.Invoke("DOWNLOAD DELETED", target.Name, true);
+            }
+            catch (Exception ex)
+            {
+                OperationNotified?.Invoke("DELETE FAILED", ex.Message, false);
+            }
+        }
+    }
+
+    public async Task DeleteDownloadWithOptionAsync(IDownloadItemState? item, bool alsoDeleteFile)
+    {
+        var target = item ?? SelectedDownload;
+        if (target != null)
+        {
+            try
+            {
+                await _manager.DeleteDownloadAsync(target.Id, _ => alsoDeleteFile);
                 if (SelectedDownload?.Id == target.Id)
                 {
                     SelectedDownload = null;

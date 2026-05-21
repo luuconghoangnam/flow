@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Flow.Desktop.Views.DeleteConfirmationDialog"
+             Width="450" Background="Transparent">
+
+    <StackPanel Spacing="16" Margin="8,16,8,8">
+        
+        <!-- WARNING HEADER -->
+        <Border BorderBrush="#EAB308" BorderThickness="1" Background="#261F00" Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="⚠ WARNING" 
+                           FontFamily="JetBrains Mono" 
+                           FontSize="12" 
+                           FontWeight="Bold" 
+                           Foreground="#EAB308"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="ACTION CANNOT BE UNDONE" 
+                           FontFamily="JetBrains Mono" 
+                           FontSize="11" 
+                           Foreground="#EAB308"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- DESCRIPTION -->
+        <StackPanel Spacing="6">
+            <TextBlock Text="CONFIRM REMOVAL OF THE FOLLOWING TARGET TRANSACTION:" 
+                       FontFamily="JetBrains Mono" 
+                       FontSize="11" 
+                       Foreground="#888888" 
+                       FontWeight="Bold"
+                       TextWrapping="Wrap"/>
+            <TextBlock Name="FileNameTextBlock" 
+                       Text="filename.bin"
+                       FontFamily="JetBrains Mono" 
+                       FontSize="14" 
+                       FontWeight="Bold" 
+                       Foreground="#E64A00"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- CHECKBOX TO DELETE FILE ON DISK -->
+        <CheckBox Name="DeleteFileCheckBox" 
+                  Classes="cyber"
+                  IsChecked="False"
+                  Content="DELETE FILE FROM PHYSICAL DISK"
+                  FontFamily="JetBrains Mono"
+                  FontSize="12"
+                  Foreground="#E5E7EB"
+                  Margin="0,8,0,0">
+            <CheckBox.Styles>
+                <Style Selector="CheckBox.cyber">
+                    <Setter Property="CornerRadius" Value="0" />
+                </Style>
+            </CheckBox.Styles>
+        </CheckBox>
+
+    </StackPanel>
+</UserControl>

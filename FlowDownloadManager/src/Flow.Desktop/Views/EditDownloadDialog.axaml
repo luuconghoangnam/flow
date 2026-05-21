@@ -1,0 +1,108 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Flow.Desktop.Views.EditDownloadDialog"
+             Width="500" Background="Transparent">
+
+    <ScrollViewer MaxHeight="450">
+        <StackPanel Spacing="16" Margin="8,16,8,8">
+            
+            <!-- TARGET URI INPUT -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="TARGET LOCATION URL // HTTP/HTTPS" 
+                           FontFamily="JetBrains Mono" 
+                           FontSize="11" 
+                           Foreground="#888888" 
+                           FontWeight="Bold"/>
+                <TextBox Name="UrlTextBox" 
+                         Classes="cyber" 
+                         Watermark="https://example.com/target-payload.bin"
+                         Height="36" 
+                         Padding="12,8"
+                         TextWrapping="NoWrap"/>
+            </StackPanel>
+
+            <!-- FILENAME INPUT -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="FILENAME" 
+                           FontFamily="JetBrains Mono" 
+                           FontSize="11" 
+                           Foreground="#888888" 
+                           FontWeight="Bold"/>
+                <TextBox Name="NameTextBox" 
+                         Classes="cyber" 
+                         Watermark="payload.bin"
+                         Height="36" 
+                         Padding="12,8"/>
+            </StackPanel>
+
+            <!-- SAVE LOCATION INPUT -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
+                           FontFamily="JetBrains Mono" 
+                           FontSize="11" 
+                           Foreground="#888888" 
+                           FontWeight="Bold"/>
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                    <TextBox Grid.Column="0" 
+                             Name="FolderTextBox" 
+                             Classes="cyber" 
+                             Watermark="D:\Downloads"
+                             Height="36" 
+                             Padding="12,8"
+                             Margin="0,0,8,0"/>
+                    <Button Grid.Column="1" 
+                            Classes="cyber" 
+                            Content="BROWSE" 
+                            Click="OnBrowseClick"
+                            Height="36" 
+                            Padding="16,0"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- THREAD COUNT & SPEED LIMIT -->
+            <Grid ColumnDefinitions="*,*">
+                <!-- Thread Count -->
+                <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,8,0">
+                    <TextBlock Text="THREAD COUNT // 0=GLOBAL" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBox Name="ThreadCountTextBox" 
+                             Classes="cyber" 
+                             Watermark="0"
+                             Height="36" 
+                             Padding="12,8"/>
+                </StackPanel>
+                <!-- Speed Limit -->
+                <StackPanel Grid.Column="1" Spacing="6" Margin="8,0,0,0">
+                    <TextBlock Text="SPEED LIMIT // 0=UNLIMITED" 
+                               FontFamily="JetBrains Mono" 
+                               FontSize="11" 
+                               Foreground="#888888" 
+                               FontWeight="Bold"/>
+                    <TextBox Name="SpeedLimitTextBox" 
+                             Classes="cyber" 
+                             Watermark="0"
+                             Height="36" 
+                             Padding="12,8"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- EXPECTED CHECKSUM -->
+            <StackPanel Spacing="6">
+                <TextBlock Text="EXPECTED CHECKSUM // (e.g. sha256:abc...)" 
+                           FontFamily="JetBrains Mono" 
+                           FontSize="11" 
+                           Foreground="#888888" 
+                           FontWeight="Bold"/>
+                <TextBox Name="ChecksumTextBox" 
+                         Classes="cyber" 
+                         Watermark="algorithm:hashvalue"
+                         Height="36" 
+                         Padding="12,8"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
