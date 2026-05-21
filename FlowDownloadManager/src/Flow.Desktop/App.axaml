@@ -1,15 +1,84 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sty="using:FluentAvalonia.Styling"
              x:Class="Flow.Desktop.App"
-             xmlns:local="using:Flow.Desktop"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
 
-    <Application.DataTemplates>
-        <local:ViewLocator/>
-    </Application.DataTemplates>
-  
     <Application.Styles>
         <FluentTheme />
+        <sty:FluentAvaloniaTheme />
+        
+        <!-- Cyber Monospaced Labels/Inputs style -->
+        <Style Selector="TextBlock.cyber">
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+        </Style>
+        <Style Selector="TextBox.cyber">
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Background" Value="#1E1E1E" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="TextBox.cyber:focus">
+            <Setter Property="BorderBrush" Value="#E64A00" />
+        </Style>
+        
+        <!-- Cyber Buttons with no corner radius and bright orange accents -->
+        <Style Selector="Button.cyber">
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Background" Value="#1E1E1E" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#E5E7EB" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.08" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.cyber:pointerover">
+            <Setter Property="Background" Value="#E64A00" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E64A00" />
+        </Style>
+        <Style Selector="Button.cyber:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.95)" />
+        </Style>
+        
+        <Style Selector="Button.cyber-primary">
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Background" Value="#E64A00" />
+            <Setter Property="BorderBrush" Value="#E64A00" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="Button.cyber-primary:pointerover">
+            <Setter Property="Background" Value="#FF621A" />
+        </Style>
+        
     </Application.Styles>
+
+    <Application.Resources>
+        <!-- Cyber Colors Palette -->
+        <Color x:Key="CyberBgColor">#0A0A0A</Color>
+        <Color x:Key="CyberSurfaceColor">#1E1E1E</Color>
+        <Color x:Key="CyberBorderColor">#3A3A3A</Color>
+        
+        <Color x:Key="CyberPrimaryColor">#E64A00</Color>
+        <Color x:Key="CyberSuccessColor">#22C55E</Color>
+        <Color x:Key="CyberWarningColor">#EAB308</Color>
+        
+        <Color x:Key="CyberDirectColor">#22C55E</Color>
+        <Color x:Key="CyberStunColor">#3B82F6</Color>
+        <Color x:Key="CyberTurnColor">#FF6B35</Color>
+
+        <SolidColorBrush x:Key="CyberBgBrush" Color="{StaticResource CyberBgColor}" />
+        <SolidColorBrush x:Key="CyberSurfaceBrush" Color="{StaticResource CyberSurfaceColor}" />
+        <SolidColorBrush x:Key="CyberBorderBrush" Color="{StaticResource CyberBorderColor}" />
+        <SolidColorBrush x:Key="CyberPrimaryBrush" Color="{StaticResource CyberPrimaryColor}" />
+        <SolidColorBrush x:Key="CyberSuccessBrush" Color="{StaticResource CyberSuccessColor}" />
+        
+    </Application.Resources>
 </Application>
