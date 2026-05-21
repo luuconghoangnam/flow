@@ -1,8 +1,6 @@
 using System;
-using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -41,6 +39,12 @@ public partial class ToastViewModel : ObservableObject
     [ObservableProperty]
     private IBrush _borderColor = Brushes.Gray;
 
+    [ObservableProperty]
+    private double _offsetX = 36;
+
+    [ObservableProperty]
+    private double _toastOpacity = 0;
+
     public event EventHandler? CloseRequested;
 
     public ToastViewModel(string title, string? message, ToastType type)
@@ -77,5 +81,17 @@ public partial class ToastViewModel : ObservableObject
     private void Close()
     {
         CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void BeginShow()
+    {
+        OffsetX = 0;
+        ToastOpacity = 1;
+    }
+
+    public void BeginHide()
+    {
+        OffsetX = 36;
+        ToastOpacity = 0;
     }
 }

@@ -14,6 +14,8 @@ namespace Flow.Desktop.ViewModels;
 
 public partial class DownloadsViewModel : ViewModelBase
 {
+    public event Action<string, string?, bool>? OperationNotified;
+
     [ObservableProperty]
     private ObservableCollection<IDownloadItemState> _downloads = new();
 
@@ -147,7 +149,15 @@ public partial class DownloadsViewModel : ViewModelBase
         var target = item ?? SelectedDownload;
         if (target != null)
         {
-            await _manager.PauseAsync(target.Id);
+            try
+            {
+                await _manager.PauseAsync(target.Id);
+                OperationNotified?.Invoke("DOWNLOAD PAUSED", target.Name, true);
+            }
+            catch (Exception ex)
+            {
+                OperationNotified?.Invoke("PAUSE FAILED", ex.Message, false);
+            }
         }
     }
 
@@ -157,7 +167,15 @@ public partial class DownloadsViewModel : ViewModelBase
         var target = item ?? SelectedDownload;
         if (target != null)
         {
-            await _manager.ResumeAsync(target.Id);
+            try
+            {
+                await _manager.ResumeAsync(target.Id);
+                OperationNotified?.Invoke("DOWNLOAD RESUMED", target.Name, true);
+            }
+            catch (Exception ex)
+            {
+                OperationNotified?.Invoke("RESUME FAILED", ex.Message, false);
+            }
         }
     }
 
@@ -167,7 +185,15 @@ public partial class DownloadsViewModel : ViewModelBase
         var target = item ?? SelectedDownload;
         if (target != null)
         {
-            await _manager.ResetAsync(target.Id);
+            try
+            {
+                await _manager.ResetAsync(target.Id);
+                OperationNotified?.Invoke("DOWNLOAD RESET", target.Name, true);
+            }
+            catch (Exception ex)
+            {
+                OperationNotified?.Invoke("RESET FAILED", ex.Message, false);
+            }
         }
     }
 
@@ -177,11 +203,20 @@ public partial class DownloadsViewModel : ViewModelBase
         var target = item ?? SelectedDownload;
         if (target != null)
         {
-            await _manager.DeleteDownloadAsync(target.Id, _ => true);
-            if (SelectedDownload?.Id == target.Id)
+            try
             {
-                SelectedDownload = null;
-                IsDetailOpen = false;
+                await _manager.DeleteDownloadAsync(target.Id, _ => true);
+                if (SelectedDownload?.Id == target.Id)
+                {
+                    SelectedDownload = null;
+                    IsDetailOpen = false;
+                }
+
+                OperationNotified?.Invoke("DOWNLOAD DELETED", target.Name, true);
+            }
+            catch (Exception ex)
+            {
+                OperationNotified?.Invoke("DELETE FAILED", ex.Message, false);
             }
         }
     }

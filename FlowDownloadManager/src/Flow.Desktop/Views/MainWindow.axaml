@@ -82,5 +82,7 @@
                            VerticalAlignment="Center"/>
             </StackPanel>
         </Border>
+
+        <ctrls:ToastContainer x:Name="ToastHost"/>
     </Grid>
 </Window>

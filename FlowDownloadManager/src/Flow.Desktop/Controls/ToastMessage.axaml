@@ -11,9 +11,17 @@
             Background="#1E1E1E"
             BorderBrush="{Binding BorderColor}"
             BorderThickness="1"
+            Opacity="{Binding ToastOpacity}"
+            RenderTransform="translate({Binding OffsetX},0)"
             Padding="16,12"
             MinWidth="280"
             MaxWidth="400">
+        <Border.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" />
+            </Transitions>
+        </Border.Transitions>
         
         <Grid ColumnDefinitions="Auto,*,Auto">
             

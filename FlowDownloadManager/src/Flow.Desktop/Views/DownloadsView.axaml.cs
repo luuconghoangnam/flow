@@ -2,7 +2,9 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
+using Flow.Desktop.Controls;
 using Flow.Desktop.ViewModels;
 using System.Threading.Tasks;
 
@@ -10,9 +12,37 @@ namespace Flow.Desktop.Views;
 
 public partial class DownloadsView : UserControl
 {
+    private DownloadsViewModel? _vm;
+
     public DownloadsView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_vm != null)
+        {
+            _vm.OperationNotified -= OnOperationNotified;
+        }
+
+        _vm = DataContext as DownloadsViewModel;
+        if (_vm != null)
+        {
+            _vm.OperationNotified += OnOperationNotified;
+        }
+    }
+
+    private void OnOperationNotified(string title, string? message, bool success)
+    {
+        ShowToast(title, message, success ? ToastType.Success : ToastType.Error);
+    }
+
+    private void ShowToast(string title, string? message, ToastType type)
+    {
+        var window = this.FindAncestorOfType<MainWindow>();
+        window?.ShowToast(title, message, type);
     }
 
     private void InitializeComponent()
@@ -36,12 +66,18 @@ public partial class DownloadsView : UserControl
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            string url = dialogView.UrlTextBox.Text ?? string.Empty;
-            string name = dialogView.NameTextBox.Text ?? string.Empty;
-            string folder = dialogView.FolderTextBox.Text ?? string.Empty;
-
-            if (!string.IsNullOrWhiteSpace(url))
+            try
             {
+                string url = dialogView.UrlTextBox.Text ?? string.Empty;
+                string name = dialogView.NameTextBox.Text ?? string.Empty;
+                string folder = dialogView.FolderTextBox.Text ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    ShowToast("INVALID URL", "Download link is required", ToastType.Error);
+                    return;
+                }
+
                 var item = new Core.Models.HttpDownloadItem
                 {
                     Link = url,
@@ -65,17 +101,30 @@ public partial class DownloadsView : UserControl
 
                 long id = await Services.AppBootstrapper.Instance.DownloadManager.AddDownloadAsync(props);
                 await Services.AppBootstrapper.Instance.DownloadManager.ResumeAsync(id);
+                ShowToast("DOWNLOAD ADDED", item.Name, ToastType.Success);
+            }
+            catch (Exception ex)
+            {
+                ShowToast("ADD FAILED", ex.Message, ToastType.Error);
             }
         }
     }
 
     private async void OnPauseAllClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is DownloadsViewModel vm)
+        if (DataContext is DownloadsViewModel)
         {
-            await Services.AppBootstrapper.Instance.DownloadManager.StopAllAsync(
-                new Core.Models.DownloadItemContext(new[] { new Core.Models.StoppedBy(Core.Models.UserActor.Instance) })
-            );
+            try
+            {
+                await Services.AppBootstrapper.Instance.DownloadManager.StopAllAsync(
+                    new Core.Models.DownloadItemContext(new[] { new Core.Models.StoppedBy(Core.Models.UserActor.Instance) })
+                );
+                ShowToast("ALL DOWNLOADS PAUSED", null, ToastType.Info);
+            }
+            catch (Exception ex)
+            {
+                ShowToast("PAUSE FAILED", ex.Message, ToastType.Error);
+            }
         }
     }
 }

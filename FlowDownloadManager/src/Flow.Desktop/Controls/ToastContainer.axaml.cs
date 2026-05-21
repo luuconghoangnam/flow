@@ -21,7 +21,11 @@ public partial class ToastContainer : UserControl
         var toast = new ToastViewModel(title, message, type);
         toast.CloseRequested += OnCloseRequested;
 
-        await Dispatcher.UIThread.InvokeAsync(() => Toasts.Insert(0, toast));
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            Toasts.Insert(0, toast);
+            toast.BeginShow();
+        });
 
         _ = AutoDismissAsync(toast, durationMs);
     }
@@ -29,6 +33,8 @@ public partial class ToastContainer : UserControl
     private async Task AutoDismissAsync(ToastViewModel toast, int durationMs)
     {
         await Task.Delay(durationMs);
+        await Dispatcher.UIThread.InvokeAsync(() => toast.BeginHide());
+        await Task.Delay(240);
         await Dispatcher.UIThread.InvokeAsync(() => RemoveToast(toast));
     }
 
@@ -36,8 +42,15 @@ public partial class ToastContainer : UserControl
     {
         if (sender is ToastViewModel toast)
         {
-            RemoveToast(toast);
+            _ = CloseWithAnimationAsync(toast);
         }
+    }
+
+    private async Task CloseWithAnimationAsync(ToastViewModel toast)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() => toast.BeginHide());
+        await Task.Delay(240);
+        await Dispatcher.UIThread.InvokeAsync(() => RemoveToast(toast));
     }
 
     private void RemoveToast(ToastViewModel toast)
