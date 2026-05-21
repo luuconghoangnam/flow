@@ -16,7 +16,7 @@ internal class Program
         var handler = new ConsoleLoggerIntegrationHandler();
         var integration = new Integration(handler, debugMode: true);
 
-        int port = 23075; // Default diagnostic port
+        int port = 15151; // Default diagnostic port
         if (args.Length > 0 && int.TryParse(args[0], out int customPort))
         {
             port = customPort;

@@ -114,10 +114,10 @@ public class AppBootstrapper
         // DownloadMonitor starts automatically in its constructor via StartLifecycleAsync()
         await DownloadManager.BootAsync();
 
-        // Run Integration Server on default port 23075
+        // Run Integration Server on default port 15151
         try
         {
-            IntegrationServer.Enable(23075);
+            IntegrationServer.Enable(15151);
         }
         catch (Exception ex)
         {
