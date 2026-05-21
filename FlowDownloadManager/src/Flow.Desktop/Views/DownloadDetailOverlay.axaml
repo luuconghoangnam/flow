@@ -1,0 +1,158 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:monitor="clr-namespace:Flow.Monitor;assembly=Flow.Monitor"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+             x:Class="Flow.Desktop.Views.DownloadDetailOverlay"
+             x:DataType="monitor:IProcessingDownloadItemState">
+    
+    <UserControl.Styles>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontFamily" Value="JetBrains Mono"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#6B7280"/>
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontFamily" Value="JetBrains Mono"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#E5E7EB"/>
+        </Style>
+        <Style Selector="TextBlock.header">
+            <Setter Property="FontFamily" Value="JetBrains Mono"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#E64A00"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="#1E1E1E" 
+            BorderBrush="#3A3A3A" 
+            BorderThickness="1"
+            Padding="16">
+        <ScrollViewer>
+            <StackPanel Spacing="16">
+                
+                <!-- File Info Section -->
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="header" Text="FILE INFO"/>
+                    
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="label" Text="Name"/>
+                        <TextBlock Classes="value" Text="{Binding Name}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="label" Text="Location"/>
+                        <TextBlock Classes="value" Text="{Binding SaveLocation}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="label" Text="Size"/>
+                            <TextBlock Classes="value" Text="{Binding ContentLength}"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="label" Text="Status"/>
+                            <TextBlock Classes="value" Text="{Binding Status}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Progress Section -->
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="header" Text="PROGRESS"/>
+                    
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="label" Text="Percent"/>
+                            <TextBlock Classes="value" Text="{Binding Percent, StringFormat='{}{0}%'}"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                            <TextBlock Classes="label" Text="Speed"/>
+                            <TextBlock Classes="value" Text="{Binding Speed}"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4" Margin="0,8,0,0">
+                            <TextBlock Classes="label" Text="Remaining Time"/>
+                            <TextBlock Classes="value" Text="{Binding RemainingTime}"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" Margin="0,8,0,0">
+                            <TextBlock Classes="label" Text="Is Waiting"/>
+                            <TextBlock Classes="value" Text="{Binding IsWaiting}"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Thread Segments Section -->
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="header" Text="THREAD SEGMENTS"/>
+                    
+                    <TextBlock Classes="label" 
+                               Text="{Binding Parts.Count, StringFormat='Total Parts: {0}'}"
+                               Margin="0,0,0,8"/>
+                    
+                    <!-- Thread Segment Grid Visualizer -->
+                    <ItemsControl x:Name="PartsGrid" ItemsSource="{Binding Parts}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="monitor:IUiPart">
+                                <Border Width="24" 
+                                        Height="24" 
+                                        Margin="2"
+                                        BorderThickness="1"
+                                        BorderBrush="#3A3A3A"
+                                        ToolTip.Tip="{Binding Status}">
+                                    <Border.Background>
+                                        <SolidColorBrush>
+                                            <SolidColorBrush.Color>
+                                                <MultiBinding Converter="{StaticResource PartStatusToColorConverter}">
+                                                    <Binding Path="Status"/>
+                                                </MultiBinding>
+                                            </SolidColorBrush.Color>
+                                        </SolidColorBrush>
+                                    </Border.Background>
+                                    
+                                    <TextBlock Text="{Binding Percent, StringFormat='{}{0}'}"
+                                               FontFamily="JetBrains Mono"
+                                               FontSize="8"
+                                               Foreground="#0A0A0A"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    
+                    <!-- Legend -->
+                    <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Border Width="16" Height="16" Background="#22C55E" BorderBrush="#3A3A3A" BorderThickness="1"/>
+                            <TextBlock Classes="label" Text="Done" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Border Width="16" Height="16" Background="#E64A00" BorderBrush="#3A3A3A" BorderThickness="1"/>
+                            <TextBlock Classes="label" Text="Active" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Border Width="16" Height="16" Background="#3A3A3A" BorderBrush="#3A3A3A" BorderThickness="1"/>
+                            <TextBlock Classes="label" Text="Idle" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="using:Flow.Desktop.Controls"
+             mc:Ignorable="d" d:DesignWidth="320" d:DesignHeight="80"
+             x:Class="Flow.Desktop.Controls.ToastMessage"
+             x:DataType="controls:ToastViewModel">
+    
+    <Border x:Name="RootBorder"
+            Background="#1E1E1E"
+            BorderBrush="{Binding BorderColor}"
+            BorderThickness="1"
+            Padding="16,12"
+            MinWidth="280"
+            MaxWidth="400">
+        
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            
+            <!-- Icon -->
+            <Border Grid.Column="0"
+                    Width="24"
+                    Height="24"
+                    Background="{Binding IconColor}"
+                    Margin="0,0,12,0">
+                <TextBlock Text="{Binding Icon}"
+                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                           FontSize="14"
+                           Foreground="#FFFFFF"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
+            
+            <!-- Message Content -->
+            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Title}"
+                           FontFamily="JetBrains Mono"
+                           FontSize="13"
+                           FontWeight="Bold"
+                           Foreground="#E5E7EB"
+                           TextWrapping="Wrap"/>
+                
+                <TextBlock Text="{Binding Message}"
+                           FontFamily="JetBrains Mono"
+                           FontSize="11"
+                           Foreground="#9CA3AF"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+            
+            <!-- Close Button -->
+            <Button Grid.Column="2"
+                    Width="24"
+                    Height="24"
+                    Padding="0"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Margin="12,0,0,0"
+                    Command="{Binding CloseCommand}"
+                    VerticalAlignment="Top">
+                <TextBlock Text="&#xE711;"
+                           FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                           FontSize="12"
+                           Foreground="#6B7280"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Button>
+            
+        </Grid>
+    </Border>
+</UserControl>

@@ -1,6 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:views="using:Flow.Desktop.Views"
              x:Class="Flow.Desktop.App"
              RequestedThemeVariant="Dark">
 
@@ -79,6 +80,9 @@
         <SolidColorBrush x:Key="CyberBorderBrush" Color="{StaticResource CyberBorderColor}" />
         <SolidColorBrush x:Key="CyberPrimaryBrush" Color="{StaticResource CyberPrimaryColor}" />
         <SolidColorBrush x:Key="CyberSuccessBrush" Color="{StaticResource CyberSuccessColor}" />
+        
+        <!-- Converters -->
+        <views:PartStatusToColorConverter x:Key="PartStatusToColorConverter"/>
         
     </Application.Resources>
 </Application>
