@@ -99,7 +99,7 @@ public partial class DownloadProgressViewModel : ViewModelBase, IDisposable
             HasPercent = true;
             SpeedText = "—";
             TimeLeftText = "Done";
-            StatusText = "COMPLETED";
+            StatusText = "Completed";
             ResumeSupportText = "—";
             CanResume = false;
             CanPause = false;
@@ -166,15 +166,15 @@ public partial class DownloadProgressViewModel : ViewModelBase, IDisposable
 
     private static string FormatStatus(DownloadJobStatus status) => status.State switch
     {
-        DownloadJobState.Downloading => "DOWNLOADING",
-        DownloadJobState.Resuming => "CONNECTING…",
-        DownloadJobState.PreparingFile => $"PREPARING FILE {status.Percent}%",
-        DownloadJobState.Retrying => $"RETRYING ({status.TimeUntilRetry / 1000}s)…",
-        DownloadJobState.Idle => "IDLE",
-        DownloadJobState.Canceled when status.Error is OperationCanceledException => "PAUSED",
-        DownloadJobState.Canceled => $"ERROR: {status.Error?.Message ?? "Unknown"}",
-        DownloadJobState.Finished => "COMPLETED",
-        _ => "UNKNOWN"
+        DownloadJobState.Downloading => "Downloading",
+        DownloadJobState.Resuming => "Connecting…",
+        DownloadJobState.PreparingFile => $"Preparing file {status.Percent}%",
+        DownloadJobState.Retrying => $"Retrying ({status.TimeUntilRetry / 1000}s)…",
+        DownloadJobState.Idle => "Idle",
+        DownloadJobState.Canceled when status.Error is OperationCanceledException => "Paused",
+        DownloadJobState.Canceled => $"Error: {status.Error?.Message ?? "Unknown"}",
+        DownloadJobState.Finished => "Completed",
+        _ => "Unknown"
     };
 
     // ─── Commands ──────────────────────────────────────────────────────────

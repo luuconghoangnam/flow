@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrls="using:Flow.Desktop.Controls"
+        x:Class="Flow.Desktop.Views.AboutDialog"
+        Title="About Flow"
+        Width="480" Height="280"
+        CanResize="False"
+        Background="#0A0A0A"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/icon.ico"
+        RequestedThemeVariant="Dark">
+
+    <Grid>
+        <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
+
+        <DockPanel Margin="24">
+            <Border DockPanel.Dock="Bottom" BorderBrush="#2A2A2A" BorderThickness="0,1,0,0" Padding="0,16,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="Powered by Open Source Software" FontFamily="JetBrains Mono" FontSize="11" Foreground="#E64A00" VerticalAlignment="Center" TextDecorations="Underline">
+                        <TextBlock.Background>
+                            <SolidColorBrush Color="Transparent"/>
+                        </TextBlock.Background>
+                    </TextBlock>
+                    <Button Grid.Column="1" Classes="cyber" Content="Close" Click="OnCloseClick" Height="34" Width="100" HorizontalContentAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <StackPanel VerticalAlignment="Center" Spacing="16">
+                <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+                    <Border Grid.Column="0" Width="64" Height="64" BorderBrush="#E64A00" BorderThickness="2" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <TextBlock Text="F" FontFamily="JetBrains Mono" FontSize="32" FontWeight="Bold" Foreground="#E64A00" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                        <TextBlock Text="Flow" FontFamily="JetBrains Mono" FontSize="22" FontWeight="Bold" Foreground="#E5E7EB"/>
+                        <TextBlock Text="Version 1.0.0" FontFamily="JetBrains Mono" FontSize="12" Foreground="#888888"/>
+                        <TextBlock Text="Download manager with browser integration" FontFamily="JetBrains Mono" FontSize="11" Foreground="#555555"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

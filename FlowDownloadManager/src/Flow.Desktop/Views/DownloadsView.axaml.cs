@@ -70,7 +70,7 @@ public partial class DownloadsView : UserControl
 
                 if (string.IsNullOrWhiteSpace(url))
                 {
-                    ShowToast("INVALID URL", "Download link is required", ToastType.Error);
+                    ShowToast("Invalid URL", "Download link is required", ToastType.Error);
                     return;
                 }
 
@@ -99,11 +99,11 @@ public partial class DownloadsView : UserControl
                 await Services.AppBootstrapper.Instance.DownloadManager.ResumeAsync(id);
                 // Open the IDM-style progress window immediately
                 DownloadWindowManager.Instance.ShowProgressWindow(id);
-                ShowToast("DOWNLOAD ADDED", item.Name, ToastType.Success);
+                ShowToast("Download Added", item.Name, ToastType.Success);
             }
             catch (Exception ex)
             {
-                ShowToast("ADD FAILED", ex.Message, ToastType.Error);
+                ShowToast("Add Failed", ex.Message, ToastType.Error);
             }
         }
     }
@@ -158,11 +158,11 @@ public partial class DownloadsView : UserControl
                     successCount++;
                 }
 
-                ShowToast("BATCH INJECTED", $"Successfully queued {successCount} jobs", ToastType.Success);
+                ShowToast("Batch Added", $"Successfully queued {successCount} jobs", ToastType.Success);
             }
             catch (Exception ex)
             {
-                ShowToast("BATCH ADD FAILED", ex.Message, ToastType.Error);
+                ShowToast("Batch Failed", ex.Message, ToastType.Error);
             }
         }
     }
@@ -176,11 +176,11 @@ public partial class DownloadsView : UserControl
                 await Services.AppBootstrapper.Instance.DownloadManager.StopAllAsync(
                     new Core.Models.DownloadItemContext(new[] { new Core.Models.StoppedBy(Core.Models.UserActor.Instance) })
                 );
-                ShowToast("ALL DOWNLOADS PAUSED", null, ToastType.Info);
+                ShowToast("All Downloads Paused", null, ToastType.Info);
             }
             catch (Exception ex)
             {
-                ShowToast("PAUSE FAILED", ex.Message, ToastType.Error);
+                ShowToast("Pause Failed", ex.Message, ToastType.Error);
             }
         }
     }
@@ -193,7 +193,7 @@ public partial class DownloadsView : UserControl
             var item = await manager.DlListDb.GetByIdAsync(itemState.Id);
             if (item == null)
             {
-                ShowToast("EDIT FAILED", "Download transaction not found in database", ToastType.Error);
+                ShowToast("Edit Failed", "Download transaction not found in database", ToastType.Error);
                 return;
             }
 
@@ -219,7 +219,7 @@ public partial class DownloadsView : UserControl
                         updater.FileChecksum = item.FileChecksum;
                     });
 
-                    ShowToast("PROPERTIES SAVED", $"Updated config for {item.Name}", ToastType.Success);
+                    ShowToast("Properties Saved", $"Updated config for {item.Name}", ToastType.Success);
                     
                     if (_vm != null)
                     {
@@ -228,7 +228,7 @@ public partial class DownloadsView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    ShowToast("SAVE FAILED", ex.Message, ToastType.Error);
+                    ShowToast("Save Failed", ex.Message, ToastType.Error);
                 }
             }
         }
@@ -241,7 +241,7 @@ public partial class DownloadsView : UserControl
             string fullPath = itemState.GetFullPath();
             if (!File.Exists(fullPath))
             {
-                ShowToast("CHECKSUM FAILED", "Physical file not found on disk. Ensure download is finished.", ToastType.Error);
+                ShowToast("Checksum Failed", "File not found on disk. Ensure download is finished.", ToastType.Error);
                 return;
             }
 
@@ -250,6 +250,39 @@ public partial class DownloadsView : UserControl
 
             var dialog = new ChecksumCalculatorDialog(itemState.Name, fullPath);
             await dialog.ShowDialog(parentWindow);
+        }
+    }
+
+    private async void OnOpenFileClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control control && control.DataContext is Flow.Monitor.IDownloadItemState itemState)
+        {
+            string fullPath = itemState.GetFullPath();
+            if (System.IO.File.Exists(fullPath))
+            {
+                Flow.Shared.Utils.FileUtils.OpenFile(fullPath);
+            }
+            else
+            {
+                var window = this.VisualRoot as Window;
+                if (window != null)
+                {
+                    var msg = new MessageDialog("File Not Found", "The downloaded file does not exist on disk.", MessageDialogType.Warning);
+                    await msg.ShowDialog(window);
+                }
+            }
+        }
+    }
+
+    private async void OnCopyLinkClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control control && control.DataContext is Flow.Monitor.IDownloadItemState itemState)
+        {
+            if (!string.IsNullOrEmpty(itemState.DownloadLink) && this.VisualRoot is Window w && w.Clipboard != null)
+            {
+                await w.Clipboard.SetTextAsync(itemState.DownloadLink);
+                ShowToast("Link Copied", itemState.DownloadLink, ToastType.Success);
+            }
         }
     }
 

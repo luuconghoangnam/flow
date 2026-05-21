@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrls="using:Flow.Desktop.Controls"
         x:Class="Flow.Desktop.Views.DeleteConfirmationDialog"
-        Title="DELETE TRANSACTION"
-        Width="400" Height="240"
+        Title="Delete Download"
+        Width="360" Height="160"
         CanResize="False"
         Background="#0A0A0A"
         WindowStartupLocation="CenterOwner"
@@ -11,60 +11,38 @@
         RequestedThemeVariant="Dark">
 
     <Grid>
-        <!-- Background Grid -->
         <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
 
         <DockPanel Margin="20">
-            <!-- Dialog Actions -->
-            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
-                <Button Classes="cyber" Content="ABORT" Click="OnCancelClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
-                <ctrls:CyberBorder ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
-                    <Button Classes="cyber-primary" Content="CONFIRM DELETE" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="36" Width="150" HorizontalContentAlignment="Center"/>
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
+                <!-- Delete button on left with error color (matching main app's error color for destructive action) -->
+                <ctrls:CyberBorder Grid.Column="0" ChamferSize="6" BorderBrush="#DC2626" BorderThickness="1" Background="#DC2626">
+                    <Button Classes="cyber-primary" Content="Delete" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="36" Width="120" HorizontalContentAlignment="Center" Foreground="White"/>
                 </ctrls:CyberBorder>
-            </StackPanel>
+                <Button Grid.Column="2" Classes="cyber" Content="Cancel" Click="OnCancelClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
+            </Grid>
 
-            <!-- Main Content -->
             <StackPanel Spacing="16">
-                <!-- WARNING HEADER -->
-                <Border BorderBrush="#EAB308" BorderThickness="1" Background="#261F00" Padding="12,8">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <TextBlock Text="⚠ WARNING" 
-                                   FontFamily="JetBrains Mono" 
-                                   FontSize="12" 
-                                   FontWeight="Bold" 
-                                   Foreground="#EAB308"
-                                   VerticalAlignment="Center"/>
-                        <TextBlock Text="ACTION CANNOT BE UNDONE" 
-                                   FontFamily="JetBrains Mono" 
-                                   FontSize="11" 
-                                   Foreground="#EAB308"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- DESCRIPTION -->
                 <StackPanel Spacing="6">
-                    <TextBlock Text="CONFIRM REMOVAL OF THE FOLLOWING TARGET TRANSACTION:" 
+                    <TextBlock Text="Are you sure you want to delete this download?" 
                                FontFamily="JetBrains Mono" 
-                               FontSize="11" 
-                               Foreground="#888888" 
+                               FontSize="12" 
+                               Foreground="#E5E7EB" 
                                FontWeight="Bold"
                                TextWrapping="Wrap"/>
                     <TextBlock Name="FileNameTextBlock" 
                                Text="filename.bin"
                                FontFamily="JetBrains Mono" 
-                               FontSize="13" 
-                               FontWeight="Bold" 
+                               FontSize="11" 
                                Foreground="#E64A00"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <!-- CHECKBOX TO DELETE FILE ON DISK -->
                 <CheckBox Name="DeleteFileCheckBox" 
                           Classes="cyber"
                           IsChecked="False"
-                          Content="DELETE FILE FROM PHYSICAL DISK"
+                          Content="Also delete file from disk"
                           Margin="0,4,0,0" />
             </StackPanel>
         </DockPanel>

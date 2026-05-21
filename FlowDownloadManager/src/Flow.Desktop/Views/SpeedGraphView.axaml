@@ -19,24 +19,24 @@
         <Border Grid.Row="0" BorderBrush="#3A3A3A" BorderThickness="0,0,0,1" Padding="0,0,0,16" Margin="0,0,0,16">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Spacing="4">
-                    <TextBlock Text="REALTIME SPECTRAL SPEED ANALYZER" FontFamily="JetBrains Mono" FontSize="16" FontWeight="Bold" Foreground="#E64A00"/>
-                    <TextBlock Text="Live monitoring pipeline of direct download tasks streams" FontFamily="JetBrains Mono" FontSize="11" Foreground="#555555"/>
+                    <TextBlock Text="Speed Graph" FontFamily="JetBrains Mono" FontSize="16" FontWeight="Bold" Foreground="#E64A00"/>
+                    <TextBlock Text="Real-time download speed monitoring" FontFamily="JetBrains Mono" FontSize="11" Foreground="#555555"/>
                 </StackPanel>
 
                 <!-- Stats Blocks -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="24">
                     <StackPanel Spacing="2">
-                        <TextBlock Text="CURRENT RATE" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" FontWeight="Bold"/>
+                        <TextBlock Text="Current" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" FontWeight="Bold"/>
                         <TextBlock Text="{Binding CurrentSpeedText}" FontFamily="JetBrains Mono" FontSize="16" Foreground="#FF8547" FontWeight="Bold"/>
                     </StackPanel>
                     
                     <StackPanel Spacing="2">
-                        <TextBlock Text="PEAK RATE" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" FontWeight="Bold"/>
+                        <TextBlock Text="Peak" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" FontWeight="Bold"/>
                         <TextBlock Text="{Binding MaxSpeedText}" FontFamily="JetBrains Mono" FontSize="16" Foreground="#E64A00" FontWeight="Bold"/>
                     </StackPanel>
 
                     <StackPanel Spacing="2">
-                        <TextBlock Text="AVERAGE RATE" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" FontWeight="Bold"/>
+                        <TextBlock Text="Average" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" FontWeight="Bold"/>
                         <TextBlock Text="{Binding AverageSpeedText}" FontFamily="JetBrains Mono" FontSize="16" Foreground="#E5E7EB" FontWeight="Bold"/>
                     </StackPanel>
                 </StackPanel>
@@ -52,9 +52,9 @@
                 <!-- Bottom scale info overlay -->
                 <Border VerticalAlignment="Bottom" Height="32" Background="#121212" BorderBrush="#1E1E1E" BorderThickness="0,1,0,0" Padding="12,0">
                     <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="-60 SECONDS" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="INTERVAL 1S // SPECTRAL SCALE AUTO" FontFamily="JetBrains Mono" FontSize="10" Foreground="#E64A00" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <TextBlock Grid.Column="2" Text="NOW" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="-60s" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Interval 1s" FontFamily="JetBrains Mono" FontSize="10" Foreground="#E64A00" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="Now" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
             </Grid>

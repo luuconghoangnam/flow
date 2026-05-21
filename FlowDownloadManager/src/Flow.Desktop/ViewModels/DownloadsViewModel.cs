@@ -38,13 +38,13 @@ public partial class DownloadsViewModel : ViewModelBase
     private string _selectedStatusFilter = "ALL";
 
     [ObservableProperty]
-    private string _selectedTypeFilter = "ALL";
+    private string _searchText = string.Empty;
+
+    partial void OnSearchTextChanged(string value) => RefreshList();
 
     public ObservableCollection<string> StatusFilters { get; } = new() { "ALL", "FINISHED", "UNFINISHED" };
-    public ObservableCollection<string> TypeFilters { get; } = new() { "ALL", "Compressed", "Programs", "Videos", "Music", "Pictures", "Documents" };
 
     partial void OnSelectedStatusFilterChanged(string value) => RefreshList();
-    partial void OnSelectedTypeFilterChanged(string value) => RefreshList();
 
     private readonly IDownloadMonitor _monitor;
     private readonly Core.DownloadManager _manager;
@@ -86,15 +86,10 @@ public partial class DownloadsViewModel : ViewModelBase
             list = list.Where(d => d is IProcessingDownloadItemState);
         }
 
-        // Filter by Type
-        if (SelectedTypeFilter != "ALL" && !string.IsNullOrEmpty(SelectedTypeFilter))
+        // Filter by search text (like main app's search box)
+        if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            var defaultCats = DefaultCategories.GetDefaultCategories();
-            var category = defaultCats.FirstOrDefault(c => c.Name.Equals(SelectedTypeFilter, StringComparison.OrdinalIgnoreCase));
-            if (category != null)
-            {
-                list = list.Where(d => category.AcceptFileName(d.Name));
-            }
+            list = list.Where(d => d.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
         }
 
         var sortedList = list.OrderByDescending(d => d.DateAdded).ToList();

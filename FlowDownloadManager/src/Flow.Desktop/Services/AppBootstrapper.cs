@@ -27,10 +27,11 @@ public class AppBootstrapper
     public EmptyFileCreator EmptyFileCreator { get; }
     public HttpClientHttpDownloaderClient HttpClient { get; }
     public DownloaderRegistry DownloaderRegistry { get; }
-    public DownloadManager DownloadManager { get; }
+    public Core.DownloadManager DownloadManager { get; }
     public ManualDownloadQueue ManualQueue { get; }
     public DownloadMonitor DownloadMonitor { get; }
     public Integration.Integration IntegrationServer { get; }
+    public DesktopIntegrationHandler IntegrationHandler { get; }
 
     public string DefaultDownloadFolder { get; set; }
 
@@ -103,9 +104,19 @@ public class AppBootstrapper
             )
         );
 
-        // 3. Initialize Integration Handler & Server
-        var handler = new DesktopIntegrationHandler(DownloadManager, this);
-        IntegrationServer = new Integration.Integration(handler, debugMode: true);
+            // 3. Initialize Integration Handler & Server
+        IntegrationHandler = new DesktopIntegrationHandler(DownloadManager, this);
+        IntegrationServer = new Integration.Integration(IntegrationHandler, debugMode: true);
+    }
+
+    /// <summary>
+    /// Fired when the browser extension sends a non-silent download request.
+    /// Subscribe in App.axaml.cs to show the AddDownloadDialog.
+    /// </summary>
+    public event EventHandler<IntegrationDownloadRequestEventArgs>? OnIntegrationDownloadRequested
+    {
+        add => IntegrationHandler.OnDownloadRequested += value;
+        remove => IntegrationHandler.OnDownloadRequested -= value;
     }
 
     public async Task StartAsync()
@@ -158,10 +169,31 @@ public class AppBootstrapper
     }
 }
 
+/// <summary>
+/// Carries download credentials from the integration server to the UI thread for dialog display.
+/// </summary>
+public class IntegrationDownloadRequestEventArgs : EventArgs
+{
+    public List<IDownloadCredentialsFromIntegration> Items { get; }
+    public AddDownloadOptionsFromIntegration Options { get; }
+
+    public IntegrationDownloadRequestEventArgs(List<IDownloadCredentialsFromIntegration> items, AddDownloadOptionsFromIntegration options)
+    {
+        Items = items;
+        Options = options;
+    }
+}
+
 public class DesktopIntegrationHandler : IIntegrationHandler
 {
     private readonly DownloadManager _downloadManager;
     private readonly AppBootstrapper _bootstrapper;
+
+    /// <summary>
+    /// Raised when the integration server receives a non-silent download request.
+    /// UI should handle this to show a download dialog.
+    /// </summary>
+    public event EventHandler<IntegrationDownloadRequestEventArgs>? OnDownloadRequested;
 
     public DesktopIntegrationHandler(DownloadManager downloadManager, AppBootstrapper bootstrapper)
     {
@@ -171,53 +203,21 @@ public class DesktopIntegrationHandler : IIntegrationHandler
 
     public async Task AddDownloadAsync(List<IDownloadCredentialsFromIntegration> list, AddDownloadOptionsFromIntegration options)
     {
-        Flow.Shared.Utils.Logger.Info($"[Integration] AddDownloadAsync received {list.Count} items. SilentStart: {options.SilentStart}");
-        foreach (var cred in list)
+        Flow.Shared.Utils.Logger.Info($"[Integration] AddDownloadAsync received {list.Count} items. SilentAdd: {options.SilentAdd}, SilentStart: {options.SilentStart}");
+
+        // Non-silent: dispatch to UI to show download dialog with pre-filled info
+        if (!options.SilentAdd)
         {
-            Flow.Shared.Utils.Logger.Info($"[Integration] Processing captured link: {cred.Link} (suggested: {cred.SuggestedName})");
-            var item = new HttpDownloadItem
+            Flow.Shared.Utils.Logger.Info($"[Integration] Non-silent mode — raising OnDownloadRequested for UI dialog");
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                Link = cred.Link,
-                Name = cred.SuggestedName ?? Path.GetFileName(new Uri(cred.Link).LocalPath),
-                Folder = _bootstrapper.DefaultDownloadFolder,
-                DownloadPage = cred.DownloadPage,
-                DateAdded = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Status = DownloadStatus.Added
-            };
-
-            if (string.IsNullOrWhiteSpace(item.Name))
-            {
-                item.Name = "download_" + Guid.NewGuid().ToString("N").Substring(0, 8);
-            }
-
-            if (cred is HttpDownloadCredentialsFromIntegration httpCred)
-            {
-                item.Headers = httpCred.Headers;
-            }
-            else if (cred is HlsDownloadCredentialsFromIntegration hlsCred)
-            {
-                item.Headers = hlsCred.Headers;
-            }
-
-            var props = new NewDownloadItemProps(
-                item,
-                null,
-                OnDuplicateStrategy.AddNumbered,
-                DownloadItemContext.Empty
-            );
-
-            long id = await _downloadManager.AddDownloadAsync(props);
-            Flow.Shared.Utils.Logger.Info($"[Integration] Item added successfully to DB with ID: {id}, Name: {item.Name}");
-            if (options.SilentStart)
-            {
-                Flow.Shared.Utils.Logger.Info($"[Integration] Auto-starting download for ID: {id}");
-                await _downloadManager.ResumeAsync(id);
-            }
-            else
-            {
-                Flow.Shared.Utils.Logger.Warning($"[Integration] SilentStart is false, download ID: {id} is placed in queue (Idle). User must click Resume to start.");
-            }
+                OnDownloadRequested?.Invoke(this, new IntegrationDownloadRequestEventArgs(list, options));
+            });
+            return;
         }
+
+        // Silent: add directly without user dialog
+        await AddDownloadsDirectly(list, options.SilentStart);
     }
 
     public List<ApiQueueModel> ListQueues()
@@ -232,11 +232,31 @@ public class DesktopIntegrationHandler : IIntegrationHandler
     {
         var cred = task.DownloadSource;
         Flow.Shared.Utils.Logger.Info($"[Integration] AddDownloadTaskAsync received. Link: {cred.Link}, Name: {task.Name}, Folder: {task.Folder}");
+
+        // Headless tasks always add silently (they have all info pre-filled)
+        await AddSingleDownloadDirectly(cred, task.Folder ?? _bootstrapper.DefaultDownloadFolder, task.Name, autoStart: true);
+    }
+
+    /// <summary>
+    /// Adds downloads directly without showing a dialog. Used for silent/headless mode.
+    /// </summary>
+    public async Task AddDownloadsDirectly(List<IDownloadCredentialsFromIntegration> list, bool autoStart)
+    {
+        foreach (var cred in list)
+        {
+            await AddSingleDownloadDirectly(cred, _bootstrapper.DefaultDownloadFolder, cred.SuggestedName, autoStart);
+        }
+    }
+
+    private async Task AddSingleDownloadDirectly(IDownloadCredentialsFromIntegration cred, string folder, string? name, bool autoStart)
+    {
+        Flow.Shared.Utils.Logger.Info($"[Integration] Direct add: {cred.Link}");
+
         var item = new HttpDownloadItem
         {
             Link = cred.Link,
-            Name = task.Name ?? cred.SuggestedName ?? Path.GetFileName(new Uri(cred.Link).LocalPath),
-            Folder = task.Folder ?? _bootstrapper.DefaultDownloadFolder,
+            Name = name ?? Path.GetFileName(new Uri(cred.Link).LocalPath),
+            Folder = folder,
             DownloadPage = cred.DownloadPage,
             DateAdded = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Status = DownloadStatus.Added
@@ -264,6 +284,12 @@ public class DesktopIntegrationHandler : IIntegrationHandler
         );
 
         long id = await _downloadManager.AddDownloadAsync(props);
-        Flow.Shared.Utils.Logger.Info($"[Integration] Task item added successfully to DB with ID: {id}, Name: {item.Name}");
+        Flow.Shared.Utils.Logger.Info($"[Integration] Item added to DB (ID: {id}): {item.Name}");
+
+        if (autoStart)
+        {
+            Flow.Shared.Utils.Logger.Info($"[Integration] Auto-starting download ID: {id}");
+            await _downloadManager.ResumeAsync(id);
+        }
     }
 }

@@ -11,8 +11,8 @@
         Background="#0A0A0A"
         Icon="/Assets/icon.ico"
         Title="Flow"
-        Width="1000" Height="500"
-        MinWidth="400" MinHeight="400"
+        Width="1100" Height="650"
+        MinWidth="600" MinHeight="400"
         WindowStartupLocation="CenterScreen">
 
     <Window.Styles>
@@ -21,69 +21,107 @@
             <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
             <Setter Property="MinHeight" Value="48" />
         </Style>
+        <Style Selector="MenuItem">
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
     </Window.Styles>
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding NewDownloadCommand}"/>
+        <KeyBinding Gesture="Ctrl+V" Command="{Binding NewDownloadFromClipboardCommand}"/>
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding BatchDownloadCommand}"/>
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenFileCommand}"/>
+        <KeyBinding Gesture="Ctrl+F" Command="{Binding OpenFolderCommand}"/>
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding EditDownloadCommand}"/>
+        <KeyBinding Gesture="Ctrl+P" Command="{Binding PauseSelectedCommand}"/>
+        <KeyBinding Gesture="Ctrl+R" Command="{Binding ResumeSelectedCommand}"/>
+        <KeyBinding Gesture="Ctrl+I" Command="{Binding ShowDetailsCommand}"/>
+        <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedCommand}"/>
+    </Window.KeyBindings>
 
     <Grid>
         <!-- 1. Technical blueprint grid layered in the background -->
         <ctrls:CyberGridBackground GridSpacing="32" GridColor="#1A1A1A" />
 
-        <!-- 2. Main structure: NavigationView -->
-        <!-- ItemInvoked handled in code-behind for navigation -->
-        <ui:NavigationView Name="MainNav"
-                           PaneDisplayMode="Left"
-                           IsSettingsVisible="False"
-                           IsBackButtonVisible="False"
-                           Background="Transparent"
-                           OpenPaneLength="260"
-                           ItemInvoked="OnNavItemInvoked">
+        <!-- 2. Menu bar + NavigationView -->
+        <DockPanel>
+            <!-- Menu bar (File / Tasks / Tools / Help) -->
+            <Menu DockPanel.Dock="Top" Background="#0D0D0D" BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Height="30" Padding="4,0">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_New Download" InputGesture="Ctrl+N" Command="{Binding NewDownloadCommand}"/>
+                    <MenuItem Header="New Download from _Clipboard" InputGesture="Ctrl+V" Command="{Binding NewDownloadFromClipboardCommand}"/>
+                    <MenuItem Header="_Batch Download" InputGesture="Ctrl+B" Command="{Binding BatchDownloadCommand}"/>
+                    <Separator/>
+                    <MenuItem Header="E_xit" InputGesture="Ctrl+Q" Command="{Binding ExitCommand}"/>
+                </MenuItem>
+                <MenuItem Header="_Tasks">
+                    <MenuItem Header="Stop _All" InputGesture="Ctrl+Shift+S" Command="{Binding StopAllCommand}"/>
+                </MenuItem>
+                <MenuItem Header="_Tools">
+                    <MenuItem Header="_Settings" InputGesture="Ctrl+Alt+S" Command="{Binding NavigateToSettingsCommand}"/>
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_About Flow" Command="{Binding AboutCommand}"/>
+                </MenuItem>
+            </Menu>
 
-            <ui:NavigationView.MenuItems>
+            <!-- 3. NavigationView -->
+            <ui:NavigationView Name="MainNav"
+                               PaneDisplayMode="Left"
+                               IsSettingsVisible="False"
+                               IsBackButtonVisible="False"
+                               Background="Transparent"
+                               OpenPaneLength="260"
+                               ItemInvoked="OnNavItemInvoked">
 
-                <ui:NavigationViewItem Name="NavDownloads"
-                                       Content="ACTIVE QUEUE"
-                                       Tag="Downloads"
-                                       IconSource="Download"
-                                       IsSelected="True" />
+                <ui:NavigationView.MenuItems>
 
-                <ui:NavigationViewItem Name="NavSpeed"
-                                       Content="SPEED WAVE"
-                                       Tag="Speed"
-                                       IconSource="ShowResults" />
+                    <ui:NavigationViewItem Name="NavDownloads"
+                                            Content="Downloads"
+                                            Tag="Downloads"
+                                            IconSource="Download"
+                                            IsSelected="True" />
 
-                <ui:NavigationViewItem Name="NavSettings"
-                                       Content="SYSTEM CONFIG"
-                                       Tag="Settings"
-                                       IconSource="Settings" />
+                    <ui:NavigationViewItem Name="NavSpeed"
+                                            Content="Speed Graph"
+                                            Tag="Speed"
+                                            IconSource="ShowResults" />
 
-            </ui:NavigationView.MenuItems>
+                    <ui:NavigationViewItem Name="NavSettings"
+                                            Content="Settings"
+                                            Tag="Settings"
+                                            IconSource="Settings" />
 
-            <ui:NavigationView.PaneFooter>
-                <!-- Dynamic Header info moved to Sidebar Footer to avoid overlapping content -->
-                <StackPanel Spacing="8" Margin="12,20">
-                    <Border BorderBrush="#E64A00" BorderThickness="1" Background="#260D00" Padding="8,6" CornerRadius="0" HorizontalAlignment="Stretch">
-                        <TextBlock Text="INTEGRATION ACTIVE: PORT 15151"
+                </ui:NavigationView.MenuItems>
+
+                <ui:NavigationView.PaneFooter>
+                    <StackPanel Spacing="8" Margin="12,20">
+                        <Border BorderBrush="#E64A00" BorderThickness="1" Background="#260D00" Padding="8,6" CornerRadius="0" HorizontalAlignment="Stretch">
+                            <TextBlock Text="Integration Active: Port 15151"
+                                       FontFamily="JetBrains Mono, monospace"
+                                       FontSize="9"
+                                       Foreground="#FF8547"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Flow v1.0.0 // Online"
                                    FontFamily="JetBrains Mono, monospace"
-                                   FontSize="9"
-                                   Foreground="#FF8547"
+                                   FontSize="10"
+                                   FontWeight="Bold"
+                                   Foreground="#4B4B4B"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="FLOW.SYS v1.0.0 // ONLINE"
-                               FontFamily="JetBrains Mono, monospace"
-                               FontSize="10"
-                               FontWeight="Bold"
-                               Foreground="#4B4B4B"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-            </ui:NavigationView.PaneFooter>
+                    </StackPanel>
+                </ui:NavigationView.PaneFooter>
 
-            <!-- Content area driven by CurrentPage from ViewModel -->
-            <ui:NavigationView.Content>
-                <ContentControl Content="{Binding CurrentPage}" />
-            </ui:NavigationView.Content>
+                <!-- Content area driven by CurrentPage from ViewModel -->
+                <ui:NavigationView.Content>
+                    <ContentControl Content="{Binding CurrentPage}" />
+                </ui:NavigationView.Content>
 
-        </ui:NavigationView>
+            </ui:NavigationView>
+        </DockPanel>
 
         <ctrls:ToastContainer x:Name="ToastHost"/>
     </Grid>

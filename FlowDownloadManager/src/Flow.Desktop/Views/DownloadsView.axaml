@@ -11,129 +11,95 @@
              x:DataType="vm:DownloadsViewModel"
              Background="Transparent">
 
-    <Grid Margin="24">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-
-        <!-- TOP BAR CONTROLS -->
-        <Border Grid.Row="0" Grid.ColumnSpan="2" BorderBrush="#3A3A3A" BorderThickness="0,0,0,1" Padding="0,0,0,16" Margin="0,0,0,16">
-            <Grid>
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <!-- ADD LINK chamfered button -->
-                    <ctrls:CyberBorder ChamferSize="8" BorderBrush="#E64A00" BorderThickness="1" Background="#1E1E1E">
-                        <Button Classes="cyber" Click="OnAddDownloadClick" BorderThickness="0" Background="Transparent" Height="36" Padding="16,0">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="+" FontWeight="Bold" Foreground="#E64A00" VerticalAlignment="Center"/>
-                                <TextBlock Text="ADD NEW INSTANCE" FontFamily="JetBrains Mono" VerticalAlignment="Center"/>
+        <!-- TOP BAR: Add + Batch + Search + Speed (like main app's layout) -->
+        <Border Grid.Row="0" BorderBrush="#3A3A3A" BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,8">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <!-- New Download button -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                    <ctrls:CyberBorder ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#1E1E1E">
+                        <Button Classes="cyber" Click="OnAddDownloadClick" BorderThickness="0" Background="Transparent" Height="30" Padding="12,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="+" FontWeight="Bold" Foreground="#E64A00" VerticalAlignment="Center" FontSize="13"/>
+                                <TextBlock Text="New Download" FontFamily="JetBrains Mono" VerticalAlignment="Center" FontSize="12"/>
                             </StackPanel>
                         </Button>
                     </ctrls:CyberBorder>
 
-                    <!-- ADD BATCH chamfered button -->
-                    <ctrls:CyberBorder ChamferSize="8" BorderBrush="#3B82F6" BorderThickness="1" Background="#1E1E1E">
-                        <Button Classes="cyber" Click="OnAddBatchClick" BorderThickness="0" Background="Transparent" Height="36" Padding="16,0">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="++" FontWeight="Bold" Foreground="#3B82F6" VerticalAlignment="Center"/>
-                                <TextBlock Text="BATCH SEQUENCE" FontFamily="JetBrains Mono" VerticalAlignment="Center"/>
+                    <ctrls:CyberBorder ChamferSize="6" BorderBrush="#3B82F6" BorderThickness="1" Background="#1E1E1E">
+                        <Button Classes="cyber" Click="OnAddBatchClick" BorderThickness="0" Background="Transparent" Height="30" Padding="10,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="++" FontWeight="Bold" Foreground="#3B82F6" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Text="Batch" FontFamily="JetBrains Mono" VerticalAlignment="Center" FontSize="12"/>
                             </StackPanel>
                         </Button>
                     </ctrls:CyberBorder>
-                    
-                    <Button Classes="cyber" Content="PAUSE ALL ACTIVE" Click="OnPauseAllClick" Height="36" Padding="16,0"/>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="16" VerticalAlignment="Center">
-                    <TextBlock Text="GLOBAL BANDWIDTH:" FontFamily="JetBrains Mono" Foreground="#555555" FontSize="11" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding GlobalSpeedText}" FontFamily="JetBrains Mono" Foreground="#E64A00" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                <!-- Search box (like main app's search) -->
+                <TextBox Grid.Column="2" Name="SearchBox" Classes="cyber" Watermark="Search downloads..."
+                         Height="30" Padding="10,0" Margin="16,0" HorizontalAlignment="Stretch"
+                         Text="{Binding SearchText, Mode=TwoWay}"/>
+
+                <!-- Action buttons (like main app's Actions toolbar) -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Button Classes="cyber" Content="Pause All" Click="OnPauseAllClick" Height="26" Padding="10,0" FontSize="10"/>
+                </StackPanel>
+
+                <!-- Global speed (like main app's DashboardStatsHeader) -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Speed:" FontFamily="JetBrains Mono" Foreground="#888888" FontSize="11" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding GlobalSpeedText}" FontFamily="JetBrains Mono" Foreground="#E64A00" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- CATEGORY SIDEBAR -->
-        <Border Grid.Row="1" Grid.Column="0" 
-                Background="#101010" 
-                BorderBrush="#2A2A2A" 
-                BorderThickness="0,0,1,0" 
-                Padding="0,0,16,0"
-                Margin="0,0,16,0">
-            <ScrollViewer>
-                <StackPanel Spacing="24">
-                    <!-- STATUS FILTER SECTION -->
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="STATUS" FontFamily="Orbitron, Trebuchet MS, sans-serif" FontSize="11" Foreground="#555555" FontWeight="Bold" LetterSpacing="2"/>
-                        <ListBox ItemsSource="{Binding StatusFilters}"
-                                 SelectedItem="{Binding SelectedStatusFilter}"
-                                 Background="Transparent"
-                                 BorderThickness="0">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Setter Property="Padding" Value="10,8" />
-                                    <Setter Property="Margin" Value="0,0,0,4" />
-                                    <Setter Property="CornerRadius" Value="0" />
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="#181818" />
-                                    <Setter Property="Foreground" Value="#E64A00" />
-                                </Style>
-                                <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="#1A1512" />
-                                    <Setter Property="Foreground" Value="#E64A00" />
-                                </Style>
-                            </ListBox.Styles>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontFamily="JetBrains Mono" FontSize="12" FontWeight="Bold"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </StackPanel>
-
-                    <!-- FILE TYPES FILTER SECTION -->
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="FILE TYPES" FontFamily="Orbitron, Trebuchet MS, sans-serif" FontSize="11" Foreground="#555555" FontWeight="Bold" LetterSpacing="2"/>
-                        <ListBox ItemsSource="{Binding TypeFilters}"
-                                 SelectedItem="{Binding SelectedTypeFilter}"
-                                 Background="Transparent"
-                                 BorderThickness="0">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Setter Property="Padding" Value="10,8" />
-                                    <Setter Property="Margin" Value="0,0,0,4" />
-                                    <Setter Property="CornerRadius" Value="0" />
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="#181818" />
-                                    <Setter Property="Foreground" Value="#E64A00" />
-                                </Style>
-                                <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-                                    <Setter Property="Background" Value="#1A1512" />
-                                    <Setter Property="Foreground" Value="#E64A00" />
-                                </Style>
-                            </ListBox.Styles>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontFamily="JetBrains Mono" FontSize="12" FontWeight="Bold"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
+        <!-- STATUS FILTER CHIPS (horizontal row like main app's StatusFilterRow) -->
+        <Border Grid.Row="1" BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="0,0,0,8" Margin="0,0,0,8">
+            <ListBox ItemsSource="{Binding StatusFilters}"
+                     SelectedItem="{Binding SelectedStatusFilter}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     Height="28">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="12,4" />
+                        <Setter Property="Margin" Value="0,0,6,0" />
+                        <Setter Property="Background" Value="#181818" />
+                        <Setter Property="BorderBrush" Value="#333333" />
+                        <Setter Property="BorderThickness" Value="1" />
+                        <Setter Property="CornerRadius" Value="0" />
+                        <Setter Property="FontFamily" Value="JetBrains Mono" />
+                        <Setter Property="FontSize" Value="11" />
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="#222222" />
+                        <Setter Property="BorderBrush" Value="#E64A00" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background" Value="#1A1512" />
+                        <Setter Property="BorderBrush" Value="#E64A00" />
+                        <Setter Property="Foreground" Value="#E64A00" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
         </Border>
 
-        <!-- QUEUE LIST -->
-        <ListBox Grid.Row="1" Grid.Column="1" 
+        <!-- DOWNLOAD LIST (full width, no sidebar) -->
+        <ListBox Grid.Row="2" 
                  ItemsSource="{Binding Downloads}" 
                  SelectedItem="{Binding SelectedDownload}"
                  Background="Transparent" 
@@ -145,8 +111,8 @@
                     <Setter Property="Background" Value="#101010" />
                     <Setter Property="BorderBrush" Value="#222222" />
                     <Setter Property="BorderThickness" Value="1" />
-                    <Setter Property="Padding" Value="16" />
-                    <Setter Property="Margin" Value="0,0,0,12" />
+                    <Setter Property="Padding" Value="12" />
+                    <Setter Property="Margin" Value="0,0,0,8" />
                     <Setter Property="CornerRadius" Value="0" />
                 </Style>
                 <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
@@ -164,64 +130,67 @@
                     <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
                         <Grid.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="OPEN FOLDER" Click="OnOpenFolderClick"/>
-                                <MenuItem Header="CHECKSUM" Click="OnChecksumClick"/>
-                                <MenuItem Header="DELETE" Click="OnDeleteClick"/>
+                                <MenuItem Header="Open File" Click="OnOpenFileClick"/>
+                                <MenuItem Header="Open Folder" Click="OnOpenFolderClick"/>
+                                <Separator/>
+                                <MenuItem Header="Copy Link" Click="OnCopyLinkClick"/>
+                                <MenuItem Header="Checksum" Click="OnChecksumClick"/>
+                                <Separator/>
+                                <MenuItem Header="Delete" Click="OnDeleteClick"/>
                             </ContextMenu>
                         </Grid.ContextMenu>
                         
                         <!-- FILE INFO -->
-                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="3">
                             <TextBlock Text="{Binding Name}" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="14" 
+                                       FontSize="13" 
                                        FontWeight="Bold" 
                                        Foreground="#E5E7EB"
                                        TextTrimming="CharacterEllipsis"/>
                             <TextBlock Text="{Binding DownloadLink}" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="11" 
+                                       FontSize="10" 
                                        Foreground="#555555"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
-                        <!-- CONNECTION GLOW TAG -->
+                        <!-- CONNECTION BADGE -->
                         <Border Grid.Row="0" Grid.Column="1" 
                                 BorderThickness="1" 
                                 Background="#122E1A"
                                 BorderBrush="#22C55E" 
-                                Padding="8,2" 
+                                Padding="6,1" 
                                 VerticalAlignment="Top">
-                            <TextBlock Text="DIRECT // HTTP" 
+                            <TextBlock Text="HTTP" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="9" 
+                                       FontSize="8" 
                                        FontWeight="Bold" 
                                        Foreground="#22C55E" />
                         </Border>
 
-                        <!-- TASK PROGRESS OR STATUS GRAPHICS -->
-                        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16" ColumnDefinitions="*,Auto">
-                            <!-- Progress Bar (Success/Completed is Green and 100%) -->
+                        <!-- TASK PROGRESS -->
+                        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10" ColumnDefinitions="*,Auto">
                             <ProgressBar Grid.Column="0" 
                                          Minimum="0" Maximum="100" 
                                          Value="100"
                                          Background="#1A1A1A" 
                                          Foreground="#22C55E" 
-                                         Height="4" 
+                                         Height="3" 
                                          CornerRadius="0"
                                          VerticalAlignment="Center"
-                                         Margin="0,0,16,0"/>
+                                         Margin="0,0,12,0"/>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="100%" 
                                            FontFamily="JetBrains Mono" 
-                                           FontSize="12" 
+                                           FontSize="11" 
                                            FontWeight="Bold" 
                                            Foreground="#22C55E" 
                                            VerticalAlignment="Center"/>
-                                <TextBlock Text="FINISHED" 
+                                <TextBlock Text="Finished" 
                                            FontFamily="JetBrains Mono" 
-                                           FontSize="12" 
+                                           FontSize="11" 
                                            Foreground="#22C55E" 
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -229,16 +198,16 @@
 
                         <!-- ACTIONS PANEL -->
                         <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
-                                <Button Classes="cyber" Content="OPEN FOLDER" 
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                <Button Classes="cyber" Content="Open Folder" 
                                         Click="OnOpenFolderClick"
-                                        Height="26" FontSize="11" Padding="8,0"/>
-                                <Button Classes="cyber" Content="CHECKSUM" 
+                                        Height="24" FontSize="10" Padding="6,0"/>
+                                <Button Classes="cyber" Content="Checksum" 
                                         Click="OnChecksumClick"
-                                        Height="26" FontSize="11" Padding="8,0"/>
-                                <Button Classes="cyber" Content="DELETE" 
+                                        Height="24" FontSize="10" Padding="6,0"/>
+                                <Button Classes="cyber" Content="Delete" 
                                         Click="OnDeleteClick"
-                                        Height="26" FontSize="11" Padding="8,0"/>
+                                        Height="24" FontSize="10" Padding="6,0"/>
                             </StackPanel>
                         </Grid>
                     </Grid>
@@ -248,79 +217,83 @@
                     <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
                         <Grid.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="RESUME" 
+                                <MenuItem Header="Resume" 
                                           Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).ResumeDownloadCommand}" 
                                           CommandParameter="{Binding}"
                                           IsEnabled="{Binding Status.CanBeResumed}"/>
-                                <MenuItem Header="PAUSE" 
+                                <MenuItem Header="Pause" 
                                           Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).PauseDownloadCommand}" 
                                           CommandParameter="{Binding}"
                                           IsEnabled="{Binding Status.IsActive}"/>
-                                <MenuItem Header="RESET" 
+                                <MenuItem Header="Reset" 
                                           Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).ResetDownloadCommand}" 
                                           CommandParameter="{Binding}"
                                           IsEnabled="{Binding Status.CanBeResumed}"/>
                                 <Separator/>
-                                <MenuItem Header="EDIT" Click="OnEditClick"/>
-                                <MenuItem Header="CHECKSUM" Click="OnChecksumClick"/>
-                                <MenuItem Header="DETAILED SEGMENTS" Click="OnShowDetailsClick"/>
+                                <MenuItem Header="Open File" Click="OnOpenFileClick"/>
+                                <MenuItem Header="Open Folder" Click="OnOpenFolderClick"/>
                                 <Separator/>
-                                <MenuItem Header="DELETE" Click="OnDeleteClick"/>
+                                <MenuItem Header="Copy Link" Click="OnCopyLinkClick"/>
+                                <MenuItem Header="Edit" Click="OnEditClick"/>
+                                <MenuItem Header="Checksum" Click="OnChecksumClick"/>
+                                <MenuItem Header="Details" Click="OnShowDetailsClick"/>
+                                <Separator/>
+                                <MenuItem Header="Delete" Click="OnDeleteClick"/>
                             </ContextMenu>
                         </Grid.ContextMenu>
                         
                         <!-- FILE INFO -->
-                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="3">
                             <TextBlock Text="{Binding Name}" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="14" 
+                                       FontSize="13" 
                                        FontWeight="Bold" 
                                        Foreground="#E5E7EB"
                                        TextTrimming="CharacterEllipsis"/>
                             <TextBlock Text="{Binding DownloadLink}" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="11" 
+                                       FontSize="10" 
                                        Foreground="#555555"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
 
-                        <!-- CONNECTION GLOW TAG -->
+                        <!-- CONNECTION BADGE -->
                         <Border Grid.Row="0" Grid.Column="1" 
                                 BorderThickness="1" 
                                 Background="#122E1A"
                                 BorderBrush="#22C55E" 
-                                Padding="8,2" 
+                                Padding="6,1" 
                                 VerticalAlignment="Top">
-                            <TextBlock Text="DIRECT // HTTP" 
+                            <TextBlock Text="HTTP" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="9" 
+                                       FontSize="8" 
                                        FontWeight="Bold" 
                                        Foreground="#22C55E" />
                         </Border>
 
-                        <!-- TASK PROGRESS OR STATUS GRAPHICS -->
-                        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,16" ColumnDefinitions="*,Auto,Auto">
+                        <!-- TASK PROGRESS -->
+                        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10" ColumnDefinitions="*,Auto,Auto">
                             <!-- Progress Bar -->
                             <ProgressBar Grid.Column="0" 
                                          Minimum="0" Maximum="100" 
                                          Value="{Binding Percent, FallbackValue=0}"
                                          Background="#1A1A1A" 
                                          Foreground="#E64A00" 
-                                         Height="4" 
+                                         Height="3" 
                                          CornerRadius="0"
                                          VerticalAlignment="Center"
-                                         Margin="0,0,16,0"/>
+                                         Margin="0,0,12,0"/>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" Margin="0,0,16,0">
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,0,12,0">
                                 <TextBlock Text="{Binding Percent, StringFormat='{}{0}%'}" 
                                            FontFamily="JetBrains Mono" 
-                                           FontSize="12" 
+                                           FontSize="11" 
                                            FontWeight="Bold" 
                                            Foreground="#E5E7EB" 
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding Speed, Converter={x:Static ctrls:FormatHelpers.SpeedConverter}}" 
                                            FontFamily="JetBrains Mono" 
-                                           FontSize="12" 
+                                           FontSize="11" 
                                            Foreground="#FF8547" 
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -328,7 +301,7 @@
                             <TextBlock Grid.Column="2" 
                                        Text="{Binding Status}" 
                                        FontFamily="JetBrains Mono" 
-                                       FontSize="11" 
+                                       FontSize="10" 
                                        FontWeight="Bold" 
                                        Foreground="#555555" 
                                        VerticalAlignment="Center"/>
@@ -336,26 +309,26 @@
 
                         <!-- ACTIONS PANEL -->
                         <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="Auto,*">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
-                                <Button Classes="cyber" Content="RESUME" 
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                <Button Classes="cyber" Content="Resume" 
                                         Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).ResumeDownloadCommand}" 
                                         CommandParameter="{Binding}"
                                         IsVisible="{Binding Status.CanBeResumed}"
-                                        Height="26" FontSize="11" Padding="8,0"/>
-                                <Button Classes="cyber" Content="PAUSE" 
+                                        Height="24" FontSize="10" Padding="6,0"/>
+                                <Button Classes="cyber" Content="Pause" 
                                         Command="{Binding $parent[UserControl].((vm:DownloadsViewModel)DataContext).PauseDownloadCommand}" 
                                         CommandParameter="{Binding}"
                                         IsVisible="{Binding Status.IsActive}"
-                                        Height="26" FontSize="11" Padding="8,0"/>
-                                <Button Classes="cyber" Content="DELETE" 
+                                        Height="24" FontSize="10" Padding="6,0"/>
+                                <Button Classes="cyber" Content="Delete" 
                                         Click="OnDeleteClick"
-                                        Height="26" FontSize="11" Padding="8,0"/>
+                                        Height="24" FontSize="10" Padding="6,0"/>
                             </StackPanel>
 
-                        <Button Grid.Column="1" Classes="cyber" Content="DETAILS" 
+                        <Button Grid.Column="1" Classes="cyber" Content="Details" 
                                 Click="OnShowDetailsClick"
                                 HorizontalAlignment="Right"
-                                Height="26" FontSize="11" Padding="8,0"/>
+                                Height="24" FontSize="10" Padding="6,0"/>
                         </Grid>
 
                     </Grid>

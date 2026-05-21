@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrls="using:Flow.Desktop.Controls"
+        x:Class="Flow.Desktop.Views.EnterNewUrlDialog"
+        Title="New Download"
+        Width="420" Height="160"
+        CanResize="False"
+        Background="#0A0A0A"
+        WindowStartupLocation="CenterOwner"
+        Icon="/Assets/icon.ico"
+        RequestedThemeVariant="Dark">
+
+    <Grid>
+        <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
+
+        <DockPanel Margin="16">
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="2" Classes="cyber" Content="Cancel" Click="OnCancelClick" Height="34" Width="90" Margin="8,0,0,0" HorizontalContentAlignment="Center"/>
+                <ctrls:CyberBorder Grid.Column="0" ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
+                    <Button Name="OkButton" Classes="cyber-primary" Content="Download" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="34" Width="110" HorizontalContentAlignment="Center"/>
+                </ctrls:CyberBorder>
+            </Grid>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Download Link" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Name="UrlTextBox" Classes="cyber" Watermark="https://example.com/file.bin" Height="34" Padding="10,6" TextWrapping="NoWrap" Margin="0,0,8,0"/>
+                    <Button Grid.Column="1" Classes="cyber" Content="Paste" Click="OnPasteClick" Height="34" Padding="12,0" FontSize="11"/>
+                </Grid>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

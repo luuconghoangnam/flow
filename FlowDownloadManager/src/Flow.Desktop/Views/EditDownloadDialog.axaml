@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrls="using:Flow.Desktop.Controls"
         x:Class="Flow.Desktop.Views.EditDownloadDialog"
-        Title="EDIT DOWNLOAD PROPERTIES"
-        Width="480" Height="500"
+        Title="Edit Download"
+        Width="440" Height="310"
         CanResize="False"
         Background="#0A0A0A"
         WindowStartupLocation="CenterOwner"
@@ -11,118 +11,107 @@
         RequestedThemeVariant="Dark">
 
     <Grid>
-        <!-- Background Grid -->
         <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
 
-        <DockPanel Margin="20">
-            <!-- Dialog Actions -->
-            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
-                <Button Classes="cyber" Content="ABORT" Click="OnCancelClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
-                <ctrls:CyberBorder ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
-                    <Button Classes="cyber-primary" Content="SAVE CHANGES" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="36" Width="140" HorizontalContentAlignment="Center"/>
+        <DockPanel Margin="16">
+            <!-- Bottom action buttons: [Save] spacer [Cancel] (primary left, cancel right) -->
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="0,12,0,0">
+                <ctrls:CyberBorder Grid.Column="0" ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
+                    <Button Classes="cyber-primary" Content="Save" Click="OnOkClick" BorderThickness="0" Background="Transparent" Height="34" Width="120" HorizontalContentAlignment="Center"/>
                 </ctrls:CyberBorder>
-            </StackPanel>
+                <Button Grid.Column="2" Classes="cyber" Content="Cancel" Click="OnCancelClick" Height="34" Width="100" HorizontalContentAlignment="Center"/>
+            </Grid>
 
-            <!-- Main Content -->
             <ScrollViewer>
-                <StackPanel Spacing="16" Margin="0,0,12,0">
-                    <!-- TARGET URI INPUT -->
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="TARGET LOCATION URL // HTTP/HTTPS" 
+                <StackPanel Spacing="12">
+                    <!-- URL field (full width at top, like main app) -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Download Link" 
                                    FontFamily="JetBrains Mono" 
                                    FontSize="11" 
                                    Foreground="#888888" 
                                    FontWeight="Bold"/>
                         <TextBox Name="UrlTextBox" 
                                  Classes="cyber" 
-                                 Watermark="https://example.com/target-payload.bin"
-                                 Height="36" 
-                                 Padding="12,8"
+                                 Watermark="https://example.com/file.bin"
+                                 Height="34" Padding="10,6"
                                  TextWrapping="NoWrap"/>
                     </StackPanel>
 
-                    <!-- FILENAME INPUT -->
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="FILENAME" 
-                                   FontFamily="JetBrains Mono" 
-                                   FontSize="11" 
-                                   Foreground="#888888" 
-                                   FontWeight="Bold"/>
-                        <TextBox Name="NameTextBox" 
-                                 Classes="cyber" 
-                                 Watermark="payload.bin"
-                                 Height="36" 
-                                 Padding="12,8"/>
-                    </StackPanel>
-
-                    <!-- SAVE LOCATION INPUT -->
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
-                                   FontFamily="JetBrains Mono" 
-                                   FontSize="11" 
-                                   Foreground="#888888" 
-                                   FontWeight="Bold"/>
-                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
-                            <TextBox Grid.Column="0" 
-                                     Name="FolderTextBox" 
-                                     Classes="cyber" 
-                                     Watermark="D:\Downloads"
-                                     Height="36" 
-                                     Padding="12,8"
-                                     Margin="0,0,8,0"/>
-                            <Button Grid.Column="1" 
-                                    Classes="cyber" 
-                                    Content="BROWSE" 
-                                    Click="OnBrowseClick"
-                                    Height="36" 
-                                    Padding="16,0"
-                                    HorizontalContentAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- THREAD COUNT & SPEED LIMIT -->
-                    <Grid ColumnDefinitions="*,*">
-                        <!-- Thread Count -->
-                        <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,8,0">
-                            <TextBlock Text="THREAD COUNT // 0=GLOBAL" 
-                                       FontFamily="JetBrains Mono" 
-                                       FontSize="11" 
-                                       Foreground="#888888" 
-                                       FontWeight="Bold"/>
-                            <TextBox Name="ThreadCountTextBox" 
-                                     Classes="cyber" 
-                                     Watermark="0"
-                                     Height="36" 
-                                     Padding="12,8"/>
+                    <!-- Two-column layout below URL (like main app left/right pattern) -->
+                    <Grid ColumnDefinitions="*,16,*">
+                        <!-- LEFT COLUMN: Name + Location -->
+                        <StackPanel Grid.Column="0" Spacing="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Filename" 
+                                           FontFamily="JetBrains Mono" 
+                                           FontSize="11" 
+                                           Foreground="#888888" 
+                                           FontWeight="Bold"/>
+                                <TextBox Name="NameTextBox" 
+                                         Classes="cyber" 
+                                         Watermark="file.bin"
+                                         Height="34" Padding="10,6"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Save Folder" 
+                                           FontFamily="JetBrains Mono" 
+                                           FontSize="11" 
+                                           Foreground="#888888" 
+                                           FontWeight="Bold"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" 
+                                             Name="FolderTextBox" 
+                                             Classes="cyber" 
+                                             Watermark="D:\Downloads"
+                                             Height="34" Padding="10,6"
+                                             Margin="0,0,6,0"/>
+                                    <Button Grid.Column="1" 
+                                            Classes="cyber" 
+                                            Content="Browse" 
+                                            Click="OnBrowseClick"
+                                            Height="34" Padding="12,0"/>
+                                </Grid>
+                            </StackPanel>
                         </StackPanel>
-                        <!-- Speed Limit -->
-                        <StackPanel Grid.Column="1" Spacing="6" Margin="8,0,0,0">
-                            <TextBlock Text="SPEED LIMIT // 0=UNLIMITED" 
-                                       FontFamily="JetBrains Mono" 
-                                       FontSize="11" 
-                                       Foreground="#888888" 
-                                       FontWeight="Bold"/>
-                            <TextBox Name="SpeedLimitTextBox" 
-                                     Classes="cyber" 
-                                     Watermark="0"
-                                     Height="36" 
-                                     Padding="12,8"/>
+
+                        <!-- RIGHT COLUMN: Threads + Speed + Checksum (like main app's file info panel) -->
+                        <StackPanel Grid.Column="2" Spacing="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Threads" 
+                                           FontFamily="JetBrains Mono" 
+                                           FontSize="11" 
+                                           Foreground="#888888" 
+                                           FontWeight="Bold"/>
+                                <TextBox Name="ThreadCountTextBox" 
+                                         Classes="cyber" 
+                                         Watermark="0 (default)"
+                                         Height="34" Padding="10,6"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Speed Limit" 
+                                           FontFamily="JetBrains Mono" 
+                                           FontSize="11" 
+                                           Foreground="#888888" 
+                                           FontWeight="Bold"/>
+                                <TextBox Name="SpeedLimitTextBox" 
+                                         Classes="cyber" 
+                                         Watermark="0 (unlimited)"
+                                         Height="34" Padding="10,6"/>
+                            </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Checksum" 
+                                           FontFamily="JetBrains Mono" 
+                                           FontSize="11" 
+                                           Foreground="#888888" 
+                                           FontWeight="Bold"/>
+                                <TextBox Name="ChecksumTextBox" 
+                                         Classes="cyber" 
+                                         Watermark="algorithm:hashvalue"
+                                         Height="34" Padding="10,6"/>
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
-
-                    <!-- EXPECTED CHECKSUM -->
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="EXPECTED CHECKSUM // (e.g. sha256:abc...)" 
-                                   FontFamily="JetBrains Mono" 
-                                   FontSize="11" 
-                                   Foreground="#888888" 
-                                   FontWeight="Bold"/>
-                        <TextBox Name="ChecksumTextBox" 
-                                 Classes="cyber" 
-                                 Watermark="algorithm:hashvalue"
-                                 Height="36" 
-                                 Padding="12,8"/>
-                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>

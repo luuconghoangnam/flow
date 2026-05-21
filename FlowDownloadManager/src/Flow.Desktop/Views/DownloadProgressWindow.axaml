@@ -11,7 +11,7 @@
         Title="{Binding Name, StringFormat='Flow — {0}'}"
         Icon="/Assets/icon.ico"
         Background="#0A0A0A"
-        Width="560" Height="440"
+        Width="500" Height="400"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
         SizeToContent="Manual">
@@ -80,21 +80,21 @@
                     <!-- Left controls -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                         <Button Classes="cyber-primary"
-                                Content="▶  RESUME"
+                                Content="Resume"
                                 Command="{Binding ResumeCommand}"
                                 IsVisible="{Binding CanResume}"
                                 Height="34" Padding="16,0"
                                 FontFamily="JetBrains Mono, Courier New, monospace"
                                 FontSize="11"/>
                         <Button Classes="cyber"
-                                Content="⏸  PAUSE"
+                                Content="Pause"
                                 Command="{Binding PauseCommand}"
                                 IsVisible="{Binding CanPause}"
                                 Height="34" Padding="16,0"
                                 FontFamily="JetBrains Mono, Courier New, monospace"
                                 FontSize="11"/>
                         <Button Classes="cyber"
-                                Content="📁  OPEN FOLDER"
+                                Content="Open Folder"
                                 Command="{Binding OpenFolderCommand}"
                                 IsVisible="{Binding IsCompleted}"
                                 Height="34" Padding="16,0"
@@ -105,7 +105,7 @@
                     <!-- Right: close -->
                     <Button Grid.Column="2"
                             Classes="cyber"
-                            Content="CLOSE"
+                            Content="Close"
                             Click="OnCloseClick"
                             Height="34" Padding="16,0"
                             FontFamily="JetBrains Mono, Courier New, monospace"
@@ -140,19 +140,19 @@
                         <!-- Stats row: Downloaded / Total / Speed / Time -->
                         <Grid ColumnDefinitions="*,*,*,*" Margin="0,4,0,0">
                             <StackPanel Grid.Column="0" Spacing="3">
-                                <TextBlock Classes="lbl" Text="DOWNLOADED"/>
+                                <TextBlock Classes="lbl" Text="Downloaded"/>
                                 <TextBlock Classes="val" Text="{Binding DownloadedText}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="3">
-                                <TextBlock Classes="lbl" Text="TOTAL SIZE"/>
+                                <TextBlock Classes="lbl" Text="Total"/>
                                 <TextBlock Classes="val" Text="{Binding TotalSizeText}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="3">
-                                <TextBlock Classes="lbl" Text="SPEED"/>
+                                <TextBlock Classes="lbl" Text="Speed"/>
                                 <TextBlock Classes="val-hi" Text="{Binding SpeedText}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="3" Spacing="3">
-                                <TextBlock Classes="lbl" Text="TIME LEFT"/>
+                                <TextBlock Classes="lbl" Text="Time Left"/>
                                 <TextBlock Classes="val" Text="{Binding TimeLeftText}"/>
                             </StackPanel>
                         </Grid>
@@ -164,13 +164,13 @@
                     <!-- ── FILE INFO ── -->
                     <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,0,0,4">
                         <StackPanel Grid.Row="0" Grid.Column="0" Spacing="3">
-                            <TextBlock Classes="lbl" Text="SAVE LOCATION"/>
+                            <TextBlock Classes="lbl" Text="Save Folder"/>
                             <TextBlock Classes="val"
                                        Text="{Binding SaveFolder}"
                                        TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="3">
-                            <TextBlock Classes="lbl" Text="RESUME SUPPORT"/>
+                            <TextBlock Classes="lbl" Text="Resume"/>
                             <TextBlock Classes="val" Text="{Binding ResumeSupportText}"/>
                         </StackPanel>
                     </Grid>
@@ -182,7 +182,7 @@
                     <StackPanel Spacing="8">
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0"
-                                       Text="CONNECTION THREADS"
+                                       Text="Threads"
                                        FontFamily="JetBrains Mono, Courier New, monospace"
                                        FontSize="11" FontWeight="Bold"
                                        Foreground="#E64A00"/>

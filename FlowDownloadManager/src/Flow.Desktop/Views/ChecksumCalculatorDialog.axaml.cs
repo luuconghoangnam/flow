@@ -203,6 +203,14 @@ public partial class ChecksumCalculatorDialog : Window
         }
     }
 
+    private void OnCalculateClick(object? sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_filePath))
+        {
+            Task.Run(CalculateHashAsync);
+        }
+    }
+
     private void OnDismissClick(object? sender, RoutedEventArgs e)
     {
         Close();

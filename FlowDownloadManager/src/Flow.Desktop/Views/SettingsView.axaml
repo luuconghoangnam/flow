@@ -16,62 +16,83 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- TITLE BAR -->
+        <!-- TITLE BAR (like main app's SettingsPage header) -->
         <Border Grid.Row="0" BorderBrush="#3A3A3A" BorderThickness="0,0,0,1" Padding="0,0,0,16" Margin="0,0,0,16">
             <StackPanel Spacing="4">
-                <TextBlock Text="SYSTEM REGISTRY CONFIGURATION" FontFamily="JetBrains Mono" FontSize="16" FontWeight="Bold" Foreground="#E64A00"/>
-                <TextBlock Text="Modify parameters of download pipelines and IO structures" FontFamily="JetBrains Mono" FontSize="11" Foreground="#555555"/>
+                <TextBlock Text="Settings" FontFamily="JetBrains Mono" FontSize="16" FontWeight="Bold" Foreground="#E64A00"/>
+                <TextBlock Text="Configure download behavior and system preferences" FontFamily="JetBrains Mono" FontSize="11" Foreground="#555555"/>
             </StackPanel>
         </Border>
 
-        <!-- FORM CONTROLS -->
+        <!-- FORM CONTROLS grouped by category (like main app's SettingsPage sidebar sections) -->
         <ScrollViewer Grid.Row="1" Margin="0,0,0,16">
-            <StackPanel Spacing="24" MaxWidth="600" HorizontalAlignment="Left">
-                
-                <!-- DEFAULT DIRECTORY -->
-                <StackPanel Spacing="6">
-                    <TextBlock Text="DEFAULT DOWNLOAD SECTOR DIRECTORY" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBox Grid.Column="0" Text="{Binding DefaultDownloadFolder}" Classes="cyber" Height="36" Padding="12,8" Margin="0,0,8,0"/>
-                        <Button Grid.Column="1" Classes="cyber" Content="LOCATE" Click="OnLocateClick" Height="36" Padding="16,0"/>
-                    </Grid>
-                </StackPanel>
+            <StackPanel Spacing="28" MaxWidth="600" HorizontalAlignment="Left">
 
-                <!-- THREAD COUNT -->
-                <StackPanel Spacing="6">
-                    <TextBlock Text="DEFAULT CONCURRENT CONNECTIONS (THREADS)" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
-                    <TextBox Text="{Binding DefaultThreadCount}" Classes="cyber" Height="36" Padding="12,8" Width="120" HorizontalAlignment="Left"/>
-                </StackPanel>
-
-                <!-- SPEED LIMIT -->
-                <StackPanel Spacing="6">
-                    <TextBlock Text="GLOBAL BANDWIDTH CEILING SPEED LIMIT (BYTES/S, 0 = UNLIMITED)" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
-                    <TextBox Text="{Binding GlobalSpeedLimit}" Classes="cyber" Height="36" Padding="12,8" Width="200" HorizontalAlignment="Left"/>
-                </StackPanel>
-
-                <!-- FEATURE TOGGLES -->
+                <!-- ═══ DOWNLOAD ENGINE ═══ (matches main app's DownloadEngine category) -->
                 <StackPanel Spacing="12">
-                    <TextBlock Text="PIPELINE SUB-SYSTEM SWITCHES" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold" Margin="0,0,0,4"/>
-                    
-                    <CheckBox IsChecked="{Binding DynamicPartCreationMode}" Content="DYNAMIC MULTI-THREAD SEGMENT ALLOCATION" FontFamily="JetBrains Mono" FontSize="12"/>
-                    <CheckBox IsChecked="{Binding UseSparseFileAllocation}" Content="USE SPARSE FILES (INSTANT ALLOCATION WITHOUT PRE-ALLOC FILL)" FontFamily="JetBrains Mono" FontSize="12"/>
-                    <CheckBox IsChecked="{Binding UseServerLastModifiedTime}" Content="SYNCHRONIZE LOCAL TIMESTAMPS WITH SERVER DATE-MODIFIED" FontFamily="JetBrains Mono" FontSize="12"/>
-                    <CheckBox IsChecked="{Binding AppendExtensionToIncompleteDownloads}" Content="APPEND '.DOWNLOADING' SUFFIX TO ACTIVE FILES" FontFamily="JetBrains Mono" FontSize="12"/>
+                    <Border BorderBrush="#E64A00" BorderThickness="0,0,0,1" Padding="0,0,0,8" Margin="0,0,0,4">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Download Engine" FontFamily="JetBrains Mono" FontSize="13" FontWeight="Bold" Foreground="#E64A00"/>
+                            <TextBlock Text="Download behavior and performance settings" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Default Download Folder" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding DefaultDownloadFolder}" Classes="cyber" Height="36" Padding="12,8" Margin="0,0,8,0"/>
+                            <Button Grid.Column="1" Classes="cyber" Content="Browse" Click="OnLocateClick" Height="36" Padding="16,0"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Default Connections (Threads)" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
+                        <TextBox Text="{Binding DefaultThreadCount}" Classes="cyber" Height="36" Padding="12,8" Width="120" HorizontalAlignment="Left"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Global Speed Limit (bytes/s, 0 = unlimited)" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
+                        <TextBox Text="{Binding GlobalSpeedLimit}" Classes="cyber" Height="36" Padding="12,8" Width="200" HorizontalAlignment="Left"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Advanced" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold" Margin="0,0,0,2"/>
+                        <CheckBox IsChecked="{Binding DynamicPartCreationMode}" Content="Dynamic multi-thread segment allocation" FontFamily="JetBrains Mono" FontSize="12"/>
+                        <CheckBox IsChecked="{Binding UseSparseFileAllocation}" Content="Use sparse files for faster allocation" FontFamily="JetBrains Mono" FontSize="12"/>
+                        <CheckBox IsChecked="{Binding UseServerLastModifiedTime}" Content="Use server last-modified timestamp" FontFamily="JetBrains Mono" FontSize="12"/>
+                        <CheckBox IsChecked="{Binding AppendExtensionToIncompleteDownloads}" Content="Append .DOWNLOADING to active files" FontFamily="JetBrains Mono" FontSize="12"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ═══ BROWSER INTEGRATION ═══ (matches main app's BrowserIntegration category) -->
+                <StackPanel Spacing="12">
+                    <Border BorderBrush="#3A3A3A" BorderThickness="0,0,0,1" Padding="0,0,0,8" Margin="0,0,0,4">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Browser Integration" FontFamily="JetBrains Mono" FontSize="13" FontWeight="Bold" Foreground="#E64A00"/>
+                            <TextBlock Text="Browser extension and remote control settings" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Integration Port" FontFamily="JetBrains Mono" FontSize="11" Foreground="#888888" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBox Text="15151" Classes="cyber" Height="36" Padding="12,8" Width="100" IsReadOnly="True"/>
+                            <TextBlock Grid.Column="1" Text="Listening for browser extension requests" FontFamily="JetBrains Mono" FontSize="10" Foreground="#22C55E" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </Grid>
+                    </StackPanel>
                 </StackPanel>
 
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ACTIONS ROW -->
+        <!-- ACTIONS ROW (Save button on left, matching main app's pattern) -->
         <Border Grid.Row="2" BorderBrush="#3A3A3A" BorderThickness="0,1,0,0" Padding="0,16,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <!-- Apply primary button -->
-                <ctrls:CyberBorder ChamferSize="8" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
-                    <Button Command="{Binding SaveCommand}" Classes="cyber-primary" Content="APPLY CONFIG CHANGES" BorderThickness="0" Background="Transparent" Height="36" Padding="24,0"/>
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <ctrls:CyberBorder Grid.Column="0" ChamferSize="8" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
+                    <Button Command="{Binding SaveCommand}" Classes="cyber-primary" Content="Save" BorderThickness="0" Background="Transparent" Height="36" Padding="24,0"/>
                 </ctrls:CyberBorder>
-                
-                <TextBlock Text="* CONFIG CHANGES WILL TAKE EFFECT ON SUBSEQUENT INSTANCES" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" VerticalAlignment="Center"/>
-            </StackPanel>
+                <TextBlock Grid.Column="2" Text="* Changes take effect on new downloads" FontFamily="JetBrains Mono" FontSize="10" Foreground="#555555" VerticalAlignment="Center"/>
+            </Grid>
         </Border>
 
     </Grid>

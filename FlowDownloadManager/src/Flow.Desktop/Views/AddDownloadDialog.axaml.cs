@@ -24,7 +24,7 @@ public partial class AddDownloadDialog : Window
     {
         var folders = await this.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
-            Title = "SELECT DESTINATION FOLDER",
+            Title = "Select Download Folder",
             AllowMultiple = false
         });
 

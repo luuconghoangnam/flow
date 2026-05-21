@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrls="using:Flow.Desktop.Controls"
         x:Class="Flow.Desktop.Views.ChecksumCalculatorDialog"
-        Title="FILE CHECKSUM CALCULATOR"
-        Width="500" Height="450"
+        Title="File Checksum"
+        Width="440" Height="370"
         CanResize="False"
         Background="#0A0A0A"
         WindowStartupLocation="CenterOwner"
@@ -11,20 +11,20 @@
         RequestedThemeVariant="Dark">
 
     <Grid>
-        <!-- Background Grid -->
         <ctrls:CyberGridBackground GridSpacing="24" GridColor="#151515" />
 
         <DockPanel Margin="20">
-            <!-- Dialog Actions -->
-            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12" Margin="0,16,0,0">
-                <Button Classes="cyber" Content="DISMISS" Click="OnDismissClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
-            </StackPanel>
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
+                <!-- Calculate button on left (matching main app's [Start] [Close] pattern) -->
+                <ctrls:CyberBorder Grid.Column="0" ChamferSize="6" BorderBrush="#E64A00" BorderThickness="1" Background="#E64A00">
+                    <Button Classes="cyber-primary" Content="Calculate" Click="OnCalculateClick" BorderThickness="0" Background="Transparent" Height="36" Width="120" HorizontalContentAlignment="Center"/>
+                </ctrls:CyberBorder>
+                <Button Grid.Column="2" Classes="cyber" Content="Close" Click="OnDismissClick" Height="36" Width="100" HorizontalContentAlignment="Center"/>
+            </Grid>
 
-            <!-- Main Content -->
             <StackPanel Spacing="16">
-                <!-- TARGET FILE INFO -->
                 <StackPanel Spacing="4">
-                    <TextBlock Text="TARGET FILE" 
+                    <TextBlock Text="Target File" 
                                FontFamily="JetBrains Mono" 
                                FontSize="11" 
                                Foreground="#888888" 
@@ -44,9 +44,8 @@
                                TextWrapping="Wrap"/>
                 </StackPanel>
 
-                <!-- ALGORITHM SELECTION -->
                 <StackPanel Spacing="6">
-                    <TextBlock Text="HASHING ALGORITHM" 
+                    <TextBlock Text="Algorithm" 
                                FontFamily="JetBrains Mono" 
                                FontSize="11" 
                                Foreground="#888888" 
@@ -58,7 +57,6 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- PROGRESS BAR -->
                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto" Margin="0,4,0,0">
                     <ProgressBar Grid.Column="0" 
                                  Name="CalculationProgressBar" 
@@ -80,9 +78,8 @@
                                VerticalAlignment="Center"/>
                 </Grid>
 
-                <!-- CALCULATED HASH -->
                 <StackPanel Spacing="6">
-                    <TextBlock Text="CALCULATED HASH" 
+                    <TextBlock Text="Checksum" 
                                FontFamily="JetBrains Mono" 
                                FontSize="11" 
                                Foreground="#888888" 
@@ -92,14 +89,14 @@
                                  Name="CalculatedHashTextBox" 
                                  Classes="cyber" 
                                  IsReadOnly="True"
-                                 Watermark="Click calculate to generate hash..."
+                                 Watermark="Calculating..."
                                  Height="36" 
                                  Padding="12,8"
                                  Margin="0,0,8,0"/>
                         <Button Grid.Column="1" 
                                 Name="CopyButton"
                                 Classes="cyber" 
-                                Content="COPY" 
+                                Content="Copy" 
                                 Click="OnCopyClick"
                                 IsEnabled="False"
                                 Height="36" 
@@ -108,22 +105,20 @@
                     </Grid>
                 </StackPanel>
 
-                <!-- COMPARE FIELD -->
                 <StackPanel Spacing="6">
-                    <TextBlock Text="COMPARE CHECKSUM // EXPECTED VALUE" 
+                    <TextBlock Text="Compare with expected" 
                                FontFamily="JetBrains Mono" 
                                FontSize="11" 
                                Foreground="#888888" 
                                FontWeight="Bold"/>
                     <TextBox Name="CompareTextBox" 
                              Classes="cyber" 
-                             Watermark="Paste expected checksum here..."
+                             Watermark="Paste expected checksum..."
                              Height="36" 
                              Padding="12,8"
                              TextChanged="OnCompareTextChanged"/>
                 </StackPanel>
 
-                <!-- VERIFICATION RESULT -->
                 <Border Name="ResultBorder" BorderThickness="1" Padding="12,8" IsVisible="False">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <TextBlock Name="ResultIconTextBlock" 
@@ -133,7 +128,7 @@
                                    FontWeight="Bold" 
                                    VerticalAlignment="Center"/>
                         <TextBlock Name="ResultTextBlock" 
-                                   Text="CHECKSUMS MATCH" 
+                                   Text="MATCH" 
                                    FontFamily="JetBrains Mono" 
                                    FontSize="11" 
                                    FontWeight="Bold"
