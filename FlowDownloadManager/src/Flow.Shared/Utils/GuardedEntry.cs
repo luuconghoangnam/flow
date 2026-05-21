@@ -13,6 +13,7 @@ public interface IBaseGuardedEntry
 public interface IGuardedEntry : IBaseGuardedEntry
 {
     T? Action<T>(Func<T> block);
+    void Action(Action block);
 }
 
 public interface ISuspendGuardedEntry : IBaseGuardedEntry
@@ -49,6 +50,18 @@ public class GuardedEntryImpl : BaseGuardedEntryImpl, IGuardedEntry
             var result = block();
             SetIsDone();
             return result;
+        }
+    }
+
+    public void Action(Action block)
+    {
+        if (IsDone()) return;
+
+        lock (_lock)
+        {
+            if (IsDone()) return;
+            block();
+            SetIsDone();
         }
     }
 }
