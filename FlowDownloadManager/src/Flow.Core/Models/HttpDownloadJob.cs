@@ -26,6 +26,17 @@ public class HttpDownloadJob : DownloadJob
     private long? _serverLastModified;
     public long? ServerLastModified => _serverLastModified;
 
+    public IReadOnlyList<RangedPart> ActiveParts
+    {
+        get
+        {
+            lock (_parts)
+            {
+                return _parts.ToList();
+            }
+        }
+    }
+
     private readonly SemaphoreSlim _itemSaveLock = new(1, 1);
     private readonly SemaphoreSlim _partLock = new(1, 1);
     private readonly SemaphoreSlim _partLoopLock = new(1, 1);

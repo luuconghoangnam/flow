@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Flow.Desktop.Views.AddDownloadDialog"
+             Width="500" Background="Transparent">
+
+    <StackPanel Spacing="16" Margin="8,16,8,8">
+        
+        <!-- TARGET URI INPUT -->
+        <StackPanel Spacing="6">
+            <TextBlock Text="TARGET LOCATION URL // HTTP/HTTPS" 
+                       FontFamily="JetBrains Mono" 
+                       FontSize="11" 
+                       Foreground="#888888" 
+                       FontWeight="Bold"/>
+            <TextBox Name="UrlTextBox" 
+                     Classes="cyber" 
+                     Watermark="https://example.com/target-payload.bin"
+                     Height="36" 
+                     Padding="12,8"
+                     TextWrapping="NoWrap"/>
+        </StackPanel>
+
+        <!-- FILENAME INPUT -->
+        <StackPanel Spacing="6">
+            <TextBlock Text="PREFERED FILENAME // OPTIONAL" 
+                       FontFamily="JetBrains Mono" 
+                       FontSize="11" 
+                       Foreground="#888888" 
+                       FontWeight="Bold"/>
+            <TextBox Name="NameTextBox" 
+                     Classes="cyber" 
+                     Watermark="payload.bin"
+                     Height="36" 
+                     Padding="12,8"/>
+        </StackPanel>
+
+        <!-- SAVE LOCATION INPUT -->
+        <StackPanel Spacing="6">
+            <TextBlock Text="SAVE SECTOR PATH // FOLDER" 
+                       FontFamily="JetBrains Mono" 
+                       FontSize="11" 
+                       Foreground="#888888" 
+                       FontWeight="Bold"/>
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                <TextBox Grid.Column="0" 
+                         Name="FolderTextBox" 
+                         Classes="cyber" 
+                         Watermark="D:\Downloads"
+                         Height="36" 
+                         Padding="12,8"
+                         Margin="0,0,8,0"/>
+                <Button Grid.Column="1" 
+                        Classes="cyber" 
+                        Content="BROWSE" 
+                        Click="OnBrowseClick"
+                        Height="36" 
+                        Padding="16,0"/>
+            </Grid>
+        </StackPanel>
+
+    </StackPanel>
+</UserControl>

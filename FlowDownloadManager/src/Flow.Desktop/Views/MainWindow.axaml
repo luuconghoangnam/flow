@@ -1,20 +1,86 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Flow.Desktop.ViewModels"
+        xmlns:ctrls="using:Flow.Desktop.Controls"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="700"
         x:Class="Flow.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        Background="#0A0A0A"
         Icon="/Assets/avalonia-logo.ico"
-        Title="Flow.Desktop">
+        Title="FLOW DOWNLOAD MANAGER // C# EDITION"
+        Width="1024" Height="700"
+        WindowStartupLocation="CenterScreen">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
+    <Window.Styles>
+        <!-- Brutalist sidebar item theme override -->
+        <Style Selector="ui|NavigationViewItem">
+            <Setter Property="FontFamily" Value="JetBrains Mono, Courier New, monospace" />
+            <Setter Property="MinHeight" Value="48" />
+        </Style>
+    </Window.Styles>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Grid>
+        <!-- 1. Technical blueprint grid layered in the background -->
+        <ctrls:CyberGridBackground GridSpacing="32" GridColor="#1A1A1A" />
 
+        <!-- 2. Main structure: NavigationView -->
+        <!-- ItemInvoked handled in code-behind for navigation -->
+        <ui:NavigationView Name="MainNav"
+                           PaneDisplayMode="Left"
+                           IsSettingsVisible="False"
+                           IsBackButtonVisible="False"
+                           Background="Transparent"
+                           OpenPaneLength="260"
+                           ItemInvoked="OnNavItemInvoked">
+
+            <ui:NavigationView.MenuItems>
+
+                <ui:NavigationViewItem Name="NavDownloads"
+                                       Content="ACTIVE QUEUE"
+                                       Tag="Downloads"
+                                       IconSource="DownloadLink"
+                                       IsSelected="True" />
+
+                <ui:NavigationViewItem Name="NavSpeed"
+                                       Content="SPEED WAVE"
+                                       Tag="Speed"
+                                       IconSource="ShowResults" />
+
+                <ui:NavigationViewItem Name="NavSettings"
+                                       Content="SYSTEM CONFIG"
+                                       Tag="Settings"
+                                       IconSource="Setting" />
+
+            </ui:NavigationView.MenuItems>
+
+            <!-- Content area driven by CurrentPage from ViewModel -->
+            <ui:NavigationView.Content>
+                <ContentControl Content="{Binding CurrentPage}" />
+            </ui:NavigationView.Content>
+
+        </ui:NavigationView>
+
+        <!-- Dynamic Header info top right -->
+        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="24,14" Height="32"
+                IsHitTestVisible="False">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <Border BorderBrush="#E64A00" BorderThickness="1" Background="#260D00" Padding="8,4" CornerRadius="0">
+                    <TextBlock Text="INTEGRATION ACTIVE: PORT 23075"
+                               FontFamily="JetBrains Mono, monospace"
+                               FontSize="10"
+                               Foreground="#FF8547"
+                               VerticalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="FLOW.SYS v1.0.0"
+                           FontFamily="JetBrains Mono, monospace"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           Foreground="#4B4B4B"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>

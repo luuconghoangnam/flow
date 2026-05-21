@@ -16,7 +16,7 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
-    public override void OnFrameworkInitializationCompleted()
+    public override async void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -24,8 +24,19 @@ public partial class App : Application
             {
                 DataContext = new MainWindowViewModel(),
             };
+
+            desktop.Exit += async (s, e) =>
+            {
+                await Services.AppBootstrapper.Instance.StopAsync();
+            };
         }
 
         base.OnFrameworkInitializationCompleted();
+
+        // Boot system background processes and databases
+        if (Services.AppBootstrapper.Instance != null)
+        {
+            await Services.AppBootstrapper.Instance.StartAsync();
+        }
     }
 }

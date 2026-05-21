@@ -26,5 +26,6 @@
     <ProjectReference Include="..\Flow.Core\Flow.Core.csproj" />
     <ProjectReference Include="..\Flow.Shared\Flow.Shared.csproj" />
     <ProjectReference Include="..\Flow.Monitor\Flow.Monitor.csproj" />
+    <ProjectReference Include="..\Flow.Integration\Flow.Integration.csproj" />
   </ItemGroup>
 </Project>
