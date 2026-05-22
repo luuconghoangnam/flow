@@ -73,6 +73,9 @@ private fun AddDownloadWindow(
             ) {
                 LaunchedEffect(Unit) {
                     window.minimumSize = Dimension(w, h)
+                    window.toFront()
+                    window.requestFocus()
+                    kotlinx.coroutines.delay(100)
                     PlatformAppActivator.active()
                 }
 //                    BringToFront()
@@ -97,6 +100,9 @@ private fun AddDownloadWindow(
             ) {
                 LaunchedEffect(Unit) {
                     window.minimumSize = Dimension(w, h)
+                    window.toFront()
+                    window.requestFocus()
+                    kotlinx.coroutines.delay(100)
                     PlatformAppActivator.active()
                 }
 //                    BringToFront()
