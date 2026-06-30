@@ -32,7 +32,7 @@
 <p align="center">
   <img src="landing/assets/showcase/slide_settings.jpg" width="80%" alt="Settings">
 </p>
-
+<!-- update -->
 ---
 
 ## Features
