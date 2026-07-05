@@ -32,8 +32,7 @@ kotlin {
             api(project(":shared:utils"))
             api(project(":shared:compose-utils"))
             api(project(":shared:resources"))
-            // auto-start only used internally in shared:app (AutoStartManager via Koin)
-            implementation(project(":shared:auto-start"))
+            api(project(":shared:auto-start"))
             api(project(":shared:updater"))
 
             api(libs.kotlin.coroutines.core)

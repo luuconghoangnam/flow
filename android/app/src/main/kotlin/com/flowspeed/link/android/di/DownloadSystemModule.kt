@@ -1,6 +1,6 @@
 package com.flowspeed.link.android.di
 
-import com.flowspeed.lib.downloader.db.DownloadFoldersRegistry
+import com.flowspeed.link.shared.util.DownloadFoldersRegistry
 import com.flowspeed.link.android.pages.onboarding.permissions.FlowPermissions
 import com.flowspeed.link.android.pages.onboarding.permissions.PermissionManager
 import com.flowspeed.link.android.storage.AndroidExtraDownloadItemSettings
