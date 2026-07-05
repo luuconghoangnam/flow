@@ -53,6 +53,18 @@ jobs:
       - name: Compile Android sources
         run: ./gradlew compileDebugKotlin --no-daemon --continue
 
+      # Run unit tests on JVM (desktopTest targets commonTest too)
+      - name: Run unit tests
+        run: ./gradlew :downloader:core:desktopTest --no-daemon --continue
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/build/reports/tests/"
+          if-no-files-found: ignore
+
       - name: Stop Gradle daemon
         if: always()
         run: ./gradlew --stop
