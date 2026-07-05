@@ -23,6 +23,10 @@ kotlin {
             api(libs.arrow.optics)
             api("com.flowspeed.lib.util:platform:1")
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlin.coroutines.test)
+        }
         val desktopMain by getting
         desktopMain.dependencies {
             api(libs.jna.platform)
