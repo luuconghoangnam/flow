@@ -307,6 +307,7 @@ class FlowServiceNotificationManager(
     ) {
         val statusString = reason?.rememberReasonString()
         LaunchedEffect(reason, statusString, LocalNotificationUpdateSignal.current) {
+            @Suppress("MissingPermission") // POST_NOTIFICATIONS permission checked before showing notification
             notificationManagerCompat.notify(
                 AndroidConstants.SERVICE_NOTIFICATION_ID,
                 createMainNotification(reason, statusString)
@@ -337,6 +338,7 @@ class FlowServiceNotificationManager(
         iDownloadItemState: ProcessingDownloadItemState
     ) {
         LaunchedEffect(iDownloadItemState, LocalNotificationUpdateSignal.current) {
+            @Suppress("MissingPermission") // POST_NOTIFICATIONS permission checked before showing notification
             notificationManagerCompat.notify(
                 getNotificationIdForDownloadItem(iDownloadItemState.id),
                 createDownloadItemNotification(iDownloadItemState)
