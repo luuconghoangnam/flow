@@ -34,6 +34,8 @@ import com.flowspeed.link.shared.ui.widget.MessageDialogType
 import com.flowspeed.link.shared.ui.widget.NotificationModel
 import com.flowspeed.link.shared.ui.widget.NotificationType
 import com.flowspeed.link.desktop.delegate.ExitDelegate
+import com.flowspeed.link.desktop.delegate.NotificationDelegate
+import com.flowspeed.link.desktop.delegate.DownloadOperationsDelegate
 import com.flowspeed.link.desktop.utils.*
 import com.flowspeed.link.shared.util.mvi.ContainsEffects
 import com.flowspeed.link.shared.util.mvi.supportEffects
@@ -45,10 +47,6 @@ import com.arkivanov.decompose.router.pages.childPages
 import com.arkivanov.decompose.router.pages.navigate
 import com.arkivanov.decompose.router.slot.*
 import com.flowspeed.lib.downloader.DownloadManagerEvents
-import com.flowspeed.lib.downloader.downloaditem.contexts.ResumedBy
-import com.flowspeed.lib.downloader.downloaditem.contexts.User
-import com.flowspeed.lib.downloader.queue.DefaultQueueInfo
-import com.flowspeed.lib.downloader.utils.ExceptionUtils
 import com.flowspeed.link.integration.Integration
 import com.flowspeed.link.integration.IntegrationResult
 import com.flowspeed.link.resources.*
@@ -79,30 +77,20 @@ import com.flowspeed.link.shared.util.perhostsettings.PerHostSettingsManager
 import com.flowspeed.link.shared.util.subscribeAsStateFlow
 import com.arkivanov.decompose.childContext
 import com.flowspeed.lib.downloader.NewDownloadItemProps
-import com.flowspeed.lib.downloader.destination.IncompleteFileUtil
-import com.flowspeed.lib.downloader.downloaditem.DownloadStatus
 import com.flowspeed.lib.downloader.downloaditem.IDownloadItem
-import com.flowspeed.lib.downloader.exception.TooManyErrorException
 import com.flowspeed.lib.downloader.monitor.isDownloadActiveFlow
 import com.flowspeed.lib.downloader.queue.QueueManager
 import com.flowspeed.lib.util.compose.IIconResolver
 import com.flowspeed.lib.util.compose.StringSource
 import com.flowspeed.lib.util.compose.asStringSource
-import com.flowspeed.lib.util.compose.combineStringSources
-import com.flowspeed.lib.util.coroutines.launchWithDeferred
 import com.flowspeed.lib.util.flow.mapStateFlow
-import com.flowspeed.lib.util.osfileutil.FileUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.awt.Toolkit
-import kotlin.system.exitProcess
 
 sealed interface AppEffects {
     data class SimpleNotificationNotification(
@@ -160,6 +148,25 @@ class AppComponent(
     suspend fun exitApp() = exitDelegate.exitApp()
     fun closeConfirmExit() = exitDelegate.closeConfirmExit()
     override suspend fun requestExitApp() = exitDelegate.requestExitApp()
+
+    private val notificationDelegate by lazy {
+        NotificationDelegate(
+            appSettings = appSettings,
+            effectSender = this,
+            downloadDialogManager = this,
+        )
+    }
+    val dialogMessages get() = notificationDelegate.dialogMessages
+    fun onDismissDialogMessage(model: com.flowspeed.link.desktop.ui.widget.MessageDialogModel) =
+        notificationDelegate.onDismissDialogMessage(model)
+
+    private val downloadOpsDelegate by lazy {
+        DownloadOperationsDelegate(
+            scope = scope,
+            downloadSystem = downloadSystem,
+            notificationSender = this,
+        )
+    }
     fun openHome() {
         scope.launch {
             showHomeSlot.value.child?.instance.let {
@@ -572,8 +579,7 @@ class AppComponent(
     }
 
     override fun sendNotification(tag: Any, title: StringSource, description: StringSource, type: NotificationType) {
-        beep()
-        showNotification(tag = tag, title = title, description = description, type = type)
+        notificationDelegate.sendNotification(tag, title, description, type)
     }
 
     override fun sendDialogNotification(
@@ -581,39 +587,14 @@ class AppComponent(
         description: StringSource,
         type: MessageDialogType,
     ) {
-        beep()
-        newDialogMessage(MessageDialogModel(title = title, description = description, type = type))
-    }
-
-    private fun beep() {
-        if (appSettings.notificationSound.value) {
-            Toolkit.getDefaultToolkit().beep()
-        }
-    }
-
-    private fun showNotification(
-        tag: Any,
-        title: StringSource,
-        description: StringSource,
-        type: NotificationType = NotificationType.Info,
-    ) {
-        sendEffect(
-            AppEffects.SimpleNotificationNotification(
-                NotificationModel(
-                    tag = tag,
-                    initialTitle = title,
-                    initialDescription = description,
-                    initialNotificationType = type
-                )
-            )
-        )
+        notificationDelegate.sendDialogNotification(title, description, type)
     }
 
     init {
         downloadSystem
             .downloadEvents
             .onEach {
-                onNewDownloadEvent(it)
+                notificationDelegate.onNewDownloadEvent(it)
             }
             .launchIn(scope)
 //        IntegrationPortBroadcaster.cleanOnClose()
@@ -641,133 +622,20 @@ class AppComponent(
             }.launchIn(scope)
     }
 
-    private fun onNewDownloadEvent(it: DownloadManagerEvents) {
-        if (it.context[ResumedBy]?.by !is User) {
-            //only notify events that is started by user
-            return
-        }
-//                or
-//                val qm = downloadSystem.queueManager
-//                val queueId = qm.findItemInQueue(it.downloadItem.id)
-//                if (queueId != null) {
-//                    return@onEach
-//                    // skip download events when download is triggered by queue
-////                    if (qm.getQueue(queue).isQueueActive){
-////                      return@onEach
-////                    }
-//                }
-        if (it is DownloadManagerEvents.OnJobCanceled) {
-            val exception = it.e
-            if (ExceptionUtils.isNormalCancellation(exception)) {
-                return
-            }
-            var isMaxTryReachedError = false
-            val actualCause = if (exception is TooManyErrorException) {
-                isMaxTryReachedError = true
-                exception.findActualDownloadErrorCause()
-            } else exception
-            if (ExceptionUtils.isNormalCancellation(actualCause)) {
-                return
-            }
-            val prefix = if (isMaxTryReachedError) {
-                "Too Many Error: "
-            } else {
-                "Error: "
-            }.asStringSource()
-            val reason = actualCause.message?.asStringSource() ?: Res.string.unknown.asStringSource()
-            sendNotification(
-                "downloadId=${it.downloadItem.id}",
-                title = it.downloadItem.name.asStringSource(),
-                description = listOf(prefix, reason).combineStringSources(),
-                type = NotificationType.Error,
-            )
-        }
-        if (it is DownloadManagerEvents.OnJobCompleted) {
-            sendNotification(
-                tag = "downloadId=${it.downloadItem.id}",
-                title = it.downloadItem.name.asStringSource(),
-                description = Res.string.finished.asStringSource(),
-                type = NotificationType.Success,
-            )
-            if (appSettings.showDownloadCompletionDialog.value) {
-                openDownloadDialog(it.downloadItem.id)
-            }
-        }
-        if (it is DownloadManagerEvents.OnJobStarting) {
-            if (appSettings.showDownloadProgressDialog.value) {
-                openDownloadDialog(it.downloadItem.id)
-            }
-        }
-    }
-
     override suspend fun openDownloadItem(id: Long) {
-        val item = downloadSystem.getDownloadItemById(id)
-        if (item == null) {
-            sendNotification(
-                Res.string.open_file,
-                Res.string.cant_open_file.asStringSource(),
-                Res.string.download_item_not_found.asStringSource(),
-                NotificationType.Error,
-            )
-            return
-        }
-        openDownloadItem(item)
+        downloadOpsDelegate.openDownloadItem(id)
     }
 
     override suspend fun openDownloadItem(downloadItem: IDownloadItem) {
-        runCatching {
-            withContext(Dispatchers.IO) {
-                FileUtils.openFile(downloadSystem.getDownloadFile(downloadItem))
-            }
-        }.onFailure {
-            sendNotification(
-                Res.string.open_file,
-                Res.string.cant_open_file.asStringSource(),
-                it.localizedMessage?.asStringSource() ?: Res.string.unknown_error.asStringSource(),
-                NotificationType.Error,
-            )
-            println("Can't open file:${it.message}")
-        }
+        downloadOpsDelegate.openDownloadItem(downloadItem)
     }
 
     override suspend fun openDownloadItemFolder(id: Long) {
-        val item = downloadSystem.getDownloadItemById(id)
-        if (item == null) {
-            sendNotification(
-                Res.string.open_folder,
-                Res.string.cant_open_folder.asStringSource(),
-                Res.string.download_item_not_found.asStringSource(),
-                NotificationType.Error,
-            )
-            return
-        }
-        openDownloadItemFolder(item)
+        downloadOpsDelegate.openDownloadItemFolder(id)
     }
 
     override suspend fun openDownloadItemFolder(downloadItem: IDownloadItem) {
-        runCatching {
-            withContext(Dispatchers.IO) {
-                val file = downloadSystem.getDownloadFile(downloadItem)
-                if (file.exists()) {
-                    FileUtils.openFolderOfFile(file)
-                } else {
-                    val incompleteFile = IncompleteFileUtil.addIncompleteIndicator(file, downloadItem.id)
-                    if (incompleteFile.exists() && downloadItem.status != DownloadStatus.Completed) {
-                        FileUtils.openFolderOfFile(incompleteFile)
-                    } else {
-                        FileUtils.openFolder(file.parentFile)
-                    }
-                }
-            }
-        }.onFailure {
-            sendNotification(
-                Res.string.open_folder,
-                Res.string.cant_open_folder.asStringSource(),
-                it.localizedMessage?.asStringSource() ?: Res.string.unknown_error.asStringSource(),
-                NotificationType.Error,
-            )
-            println("Can't open folder:${it.message}")
-        }
+        downloadOpsDelegate.openDownloadItemFolder(downloadItem)
     }
 
     fun externalCredentialComingIntoApp(
@@ -923,44 +791,18 @@ class AppComponent(
         items: List<NewDownloadItemProps>,
         categorySelectionMode: CategorySelectionMode?,
         queueId: Long?,
-    ): Deferred<List<Long>> {
-        return scope.launchWithDeferred {
-            downloadSystem.addDownload(
-                newItemsToAdd = items,
-                queueId = queueId,
-                categorySelectionMode = categorySelectionMode,
-            )
-        }
-    }
+    ) = downloadOpsDelegate.addDownloads(items, categorySelectionMode, queueId)
 
     fun addDownload(
         item: NewDownloadItemProps,
         queueId: Long?,
         categoryId: Long?,
-    ): Deferred<Long> {
-        return scope.launchWithDeferred {
-            downloadSystem.addDownload(
-                newDownload = item,
-                queueId = queueId,
-                categoryId = categoryId,
-            )
-        }
-    }
+    ) = downloadOpsDelegate.addDownload(item, queueId, categoryId)
 
     fun startNewDownload(
         item: NewDownloadItemProps,
         categoryId: Long?,
-    ): Deferred<Long> {
-        return scope.launchWithDeferred {
-            downloadSystem.addDownload(
-                newDownload = item,
-                queueId = DefaultQueueInfo.ID,
-                categoryId = categoryId,
-            ).also {
-                downloadSystem.userManualResume(it)
-            }
-        }
-    }
+    ) = downloadOpsDelegate.startNewDownload(item, categoryId)
 
     override fun openAboutPage() {
         showAboutPage.update { true }
@@ -1082,23 +924,6 @@ class AppComponent(
     override fun closeEnterNewURLWindow() {
         scope.launch {
             enterNewURLWindow.dismiss()
-        }
-    }
-
-    val dialogMessages: MutableStateFlow<List<MessageDialogModel>> = MutableStateFlow(emptyList())
-    private fun newDialogMessage(msgDialogModel: MessageDialogModel) {
-        dialogMessages.update {
-            it
-                .filter { item -> item.id != msgDialogModel.id }
-                .plus(msgDialogModel)
-        }
-    }
-
-    fun onDismissDialogMessage(msgDialogModel: MessageDialogModel) {
-        dialogMessages.update {
-            it.filter { item ->
-                msgDialogModel.id != item.id
-            }
         }
     }
 
