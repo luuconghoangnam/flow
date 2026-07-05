@@ -52,8 +52,7 @@ kotlin {
 
             // multiplatform scrollbars
             api(libs.fastscroller.core)
-            // markdown renderer — only used internally in shared:app
-            implementation(libs.markdownRenderer.core)
+            api(libs.markdownRenderer.core)
             api(libs.compose.reorderable)
         }
         androidMain.dependencies {
