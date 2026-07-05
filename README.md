@@ -32,7 +32,7 @@
 <p align="center">
   <img src="landing/assets/showcase/slide_settings.jpg" width="80%" alt="Settings">
 </p>
-
+<!-- update -->
 ---
 
 ## Features
@@ -40,7 +40,7 @@
 - **Multi-threaded Engine** — Splits files into parallel streams, up to 10x faster than browser downloads
 - **Smart Queues** — Multiple queues with bandwidth limits, scheduling, and auto-actions on completion
 - **Browser Extension** — Chrome, Edge, Brave. Hover any link → Flow button appears → one click download
-- **Cyber-Industrial UI** — Sharp corners, high contrast, orange accent. 5 themes included
+- **Cyber-Industrial UI** — Sharp corners, high contrast, orange accent. 6 themes included
 - **Cross-platform** — Windows, macOS, Linux (desktop) + Android
 - **System Tray** — Runs silently in background, auto-starts on boot
 - **Zero Telemetry** — No analytics, no ads, no subscriptions. Fully offline
