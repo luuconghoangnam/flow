@@ -32,7 +32,8 @@ kotlin {
             api(project(":shared:utils"))
             api(project(":shared:compose-utils"))
             api(project(":shared:resources"))
-            api(project(":shared:auto-start"))
+            // auto-start only used internally in shared:app (AutoStartManager via Koin)
+            implementation(project(":shared:auto-start"))
             api(project(":shared:updater"))
 
             api(libs.kotlin.coroutines.core)
@@ -51,7 +52,8 @@ kotlin {
 
             // multiplatform scrollbars
             api(libs.fastscroller.core)
-            api(libs.markdownRenderer.core)
+            // markdown renderer — only used internally in shared:app
+            implementation(libs.markdownRenderer.core)
             api(libs.compose.reorderable)
         }
         androidMain.dependencies {
