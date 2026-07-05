@@ -11,7 +11,6 @@ import com.flowspeed.lib.downloader.connection.proxy.AutoConfigurableProxyProvid
 import com.flowspeed.lib.downloader.connection.proxy.NoopSystemProxySelectorProvider
 import com.flowspeed.lib.downloader.connection.proxy.ProxyStrategyProvider
 import com.flowspeed.lib.downloader.connection.proxy.SystemProxySelectorProvider
-import com.flowspeed.lib.downloader.db.DownloadFoldersRegistry
 import com.flowspeed.lib.downloader.db.DownloadListFileStorage
 import com.flowspeed.lib.downloader.db.DownloadQueueFileStorageDatabase
 import com.flowspeed.lib.downloader.db.IDownloadListDb
@@ -36,6 +35,7 @@ import com.flowspeed.link.shared.downloaderinui.http.HttpDownloaderInUi
 import com.flowspeed.link.shared.util.AndroidDiskStat
 import com.flowspeed.link.shared.util.AndroidSystemThemeDetector
 import com.flowspeed.link.shared.util.DefinedPaths
+import com.flowspeed.link.shared.util.DownloadFoldersRegistry
 import com.flowspeed.link.shared.util.UserAgentProviderFromSettings
 import com.flowspeed.link.shared.util.proxy.ProxyManager
 import com.flowspeed.link.shared.util.ui.theme.ISystemThemeDetector
