@@ -86,6 +86,7 @@ class AndroidGlobalExceptionHandler(
                 .setContentIntent(pendingIntent)
                 .build()
             runCatching {
+                @Suppress("MissingPermission") // SecurityException is caught by runCatching
                 notificationManagerCompat.notify(notificationId, notification)
             }
         }
