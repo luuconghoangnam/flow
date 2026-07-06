@@ -23,7 +23,7 @@ kotlin {
                 api(libs.okhttp.okhttp)
                 api(libs.okhttp.coroutines)
                 implementation(project(":shared:utils"))
-                api("io.lindstrom:m3u8-parser:0.29")
+                api("io.lindstrom:m3u8-parser:0.30")
             }
         }
         commonTest {
