@@ -79,7 +79,7 @@ private fun CompactActionButton(
                 action.icon.collectAsState().value?.let { icon ->
                     MyIcon(
                         icon = icon,
-                        contentDescription = null,
+                        contentDescription = title.rememberString(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -107,7 +107,7 @@ private fun CompactGroupButton(
                 action.icon.collectAsState().value?.let { icon ->
                     MyIcon(
                         icon = icon,
-                        contentDescription = null,
+                        contentDescription = title.rememberString(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
