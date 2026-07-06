@@ -88,6 +88,22 @@ object Ui : KoinComponent {
 
     private var lightweightTray: LightweightTray? = null
 
+    // ---------------------------------------------------------------------------
+    // Public API — used by IntegrationHandlerImp for silent download routing
+    // ---------------------------------------------------------------------------
+
+    /** Whether Compose UI is currently active (windows visible). */
+    val isComposeActive: Boolean get() = composeUiRequested.value
+
+    /**
+     * Shows a native OS notification via the lightweight tray icon.
+     * Only works when Compose is NOT active (tray mode).
+     * No-op if tray is not showing.
+     */
+    fun notifyFromTray(title: String, text: String, type: java.awt.TrayIcon.MessageType = java.awt.TrayIcon.MessageType.INFO) {
+        lightweightTray?.displayMessage(title, text, type)
+    }
+
     fun boot(
         appArguments: AppArguments,
         globalAppExceptionHandler: GlobalAppExceptionHandler,
@@ -123,6 +139,34 @@ object Ui : KoinComponent {
                 if (dialogs.isNotEmpty() && !composeUiRequested.value) {
                     composeUiRequested.value = true
                 }
+            }
+        }
+
+        // Notify via tray when downloads complete/fail while Compose is inactive
+        scope.launch {
+            appComponent.downloadSystem.downloadEvents.collect { event ->
+                if (!composeUiRequested.value) {
+                    // Compose is off → send native OS notification via tray
+                    when (event) {
+                        is com.flowspeed.lib.downloader.DownloadManagerEvents.OnJobCompleted -> {
+                            notifyFromTray(
+                                "Download Complete",
+                                event.downloadItem.name,
+                            )
+                        }
+                        is com.flowspeed.lib.downloader.DownloadManagerEvents.OnJobCanceled -> {
+                            if (!com.flowspeed.lib.downloader.utils.ExceptionUtils.isNormalCancellation(event.e)) {
+                                notifyFromTray(
+                                    "Download Failed",
+                                    "${event.downloadItem.name}\n${event.e.message ?: "Unknown error"}",
+                                    java.awt.TrayIcon.MessageType.ERROR,
+                                )
+                            }
+                        }
+                        else -> {} // OnJobStarting, OnJobAdded, etc. — skip to avoid notification spam
+                    }
+                }
+                // When Compose IS active → NotificationDelegate handles it (already wired)
             }
         }
 

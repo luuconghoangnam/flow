@@ -4,6 +4,7 @@ import com.flowspeed.link.desktop.AppComponent
 import com.flowspeed.link.shared.pages.adddownload.AddDownloadCredentialsInUiProps
 import com.flowspeed.link.shared.pages.adddownload.ImportOptions
 import com.flowspeed.link.shared.pages.adddownload.SilentImportOptions
+import com.flowspeed.link.desktop.ui.Ui
 import com.flowspeed.link.desktop.repository.AppRepository
 import com.flowspeed.link.shared.util.DownloadSystem
 import com.flowspeed.link.integration.IntegrationHandler
@@ -35,18 +36,67 @@ class IntegrationHandlerImp : IntegrationHandler, KoinComponent {
         list: List<IDownloadCredentialsFromIntegration>,
         options: AddDownloadOptionsFromIntegration,
     ) {
-        appComponent.externalCredentialComingIntoApp(
-            list.map {
-                convertToDownloadSystemCredentials(it)
-            },
-            options = ImportOptions(
-                silentImport = if (options.silentAdd) {
-                    SilentImportOptions(
-                        silentDownload = options.silentStart
-                    )
-                } else null
+        if (Ui.isComposeActive) {
+            // UI is open → show Add Download dialog (existing flow)
+            appComponent.externalCredentialComingIntoApp(
+                list.map { convertToDownloadSystemCredentials(it) },
+                options = ImportOptions(
+                    silentImport = if (options.silentAdd) {
+                        SilentImportOptions(silentDownload = options.silentStart)
+                    } else null
+                )
             )
-        )
+        } else {
+            // UI is hidden (tray mode) → download immediately to default folder
+            silentDownloadFromTray(list)
+        }
+    }
+
+    /**
+     * Downloads files immediately without showing any UI.
+     * Used when app is in tray mode (Compose inactive).
+     * Sends native OS notification via tray icon.
+     */
+    private suspend fun silentDownloadFromTray(list: List<IDownloadCredentialsFromIntegration>) {
+        val startedNames = mutableListOf<String>()
+        for (item in list) {
+            val credentials = convertToDownloadSystemCredentials(item)
+            val downloaderInUi = downloaderInUiRegistry.getDownloaderOf(credentials.credentials)
+                ?: continue // skip unsupported link types
+
+            val filename = credentials.extraConfig.suggestedName
+                ?: item.link.substringAfterLast("/").substringBefore("?").takeIf { it.isNotEmpty() }
+                ?: "download"
+
+            val downloadItem = downloaderInUi.createBareDownloadItem(
+                credentials.credentials,
+                basicDownloadItem = BasicDownloadItem(
+                    folder = appSettings.saveLocation.value,
+                    name = filename,
+                ),
+            )
+            val id = downloadSystem.addDownload(
+                newDownload = NewDownloadItemProps(
+                    downloadItem = downloadItem,
+                    onDuplicateStrategy = OnDuplicateStrategy.AddNumbered,
+                    extraConfig = null,
+                    context = EmptyContext,
+                ),
+                queueId = null,
+                categoryId = null,
+            )
+            downloadSystem.userManualResume(id)
+            startedNames.add(filename)
+        }
+        // Send a single tray notification summarizing what started
+        if (startedNames.isNotEmpty()) {
+            val message = if (startedNames.size == 1) {
+                startedNames.first()
+            } else {
+                "${startedNames.size} downloads started:\n${startedNames.joinToString("\n") { "• $it" }}"
+            }
+            Ui.notifyFromTray("Download Started", message)
+        }
     }
 
     override fun listQueues(): List<ApiQueueModel> {

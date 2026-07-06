@@ -55,6 +55,49 @@ class LightweightTray(
         trayIcon = null
     }
 
+    // ---------------------------------------------------------------------------
+    // Notifications — native OS toast without Compose
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Shows a native OS notification via AWT TrayIcon.
+     * - Windows: balloon notification
+     * - Linux: libnotify popup (most DEs support this)
+     * - macOS: falls back to osascript (AWT displayMessage deprecated on macOS)
+     */
+    fun displayMessage(title: String, text: String, type: TrayIcon.MessageType = TrayIcon.MessageType.INFO) {
+        val icon = trayIcon
+        if (icon != null) {
+            try {
+                icon.displayMessage(title, text, type)
+            } catch (_: Exception) {
+                // Fallback for macOS or unsupported platforms
+                macOSNotifyFallback(title, text)
+            }
+        } else {
+            // No tray icon available — try macOS native notification
+            macOSNotifyFallback(title, text)
+        }
+    }
+
+    private fun macOSNotifyFallback(title: String, text: String) {
+        try {
+            val os = System.getProperty("os.name", "").lowercase()
+            if (os.contains("mac")) {
+                val escapedTitle = title.replace("\"", "\\\"")
+                val escapedText = text.replace("\"", "\\\"")
+                Runtime.getRuntime().exec(
+                    arrayOf(
+                        "osascript", "-e",
+                        """display notification "$escapedText" with title "$escapedTitle""""
+                    )
+                )
+            }
+        } catch (_: Exception) {
+            // Silent fail — notification is best-effort
+        }
+    }
+
     private fun createPopupMenu(): PopupMenu {
         return PopupMenu().apply {
             add(MenuItem("Show Downloads").apply {
