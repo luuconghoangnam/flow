@@ -160,7 +160,7 @@ jobs:
             - 🔒 Privacy: https://flow.getdrops.link/privacy.html
 
       - name: Cleanup artifacts
-        uses: geekyeggo/delete-artifact@v5
+        uses: geekyeggo/delete-artifact@v6
         with:
           name: build-*
 
