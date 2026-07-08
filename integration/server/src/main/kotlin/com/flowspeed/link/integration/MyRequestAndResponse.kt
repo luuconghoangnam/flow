@@ -5,8 +5,13 @@ typealias Header = Map<String, String>
 data class MyRequest(
     val uri:String,
     val method:String,//: GET | POST
-    val getBody:()->String?
-)
+    val getBody:()->String?,
+    val headers: Header = emptyMap(),
+) {
+    /** Case-insensitive header lookup — HTTP header names are case-insensitive per RFC 7230. */
+    fun header(name: String): String? =
+        headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+}
 
 
 sealed class MyResponse(

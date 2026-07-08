@@ -17,6 +17,54 @@ sealed interface IntegrationResult {
     data class Success(val port: Int) : IntegrationResult
 }
 
+/**
+ * Origin schemes used by browser extensions when making cross-origin requests
+ * from their background/service-worker context. Regular web pages can only ever
+ * have an http:// or https:// Origin — they cannot spoof these schemes, and the
+ * browser itself sets the `Origin` header (it is a "forbidden header name" that
+ * JavaScript cannot override). This lets us reject requests coming from an
+ * arbitrary website while still accepting requests from the Flow browser extension,
+ * with zero configuration required on the extension side.
+ */
+private val ALLOWED_EXTENSION_ORIGIN_SCHEMES = listOf(
+    "chrome-extension://",
+    "moz-extension://",
+    "edge-extension://",
+)
+
+/**
+ * Optional allowlist of specific extension IDs (e.g. "chrome-extension://abcdefgh...").
+ * Empty means "accept any extension of an allowed scheme" — still blocks regular
+ * websites entirely. Fill this in once the Chrome/Edge Web Store listing ID is known
+ * to narrow the allowlist to exactly the official Flow extension.
+ */
+private val ALLOWED_EXTENSION_ORIGINS: Set<String> = emptySet()
+
+private fun isFromTrustedExtension(request: MyRequest): Boolean {
+    val origin = request.header("Origin") ?: return false
+    val matchesScheme = ALLOWED_EXTENSION_ORIGIN_SCHEMES.any { origin.startsWith(it) }
+    if (!matchesScheme) return false
+    if (ALLOWED_EXTENSION_ORIGINS.isEmpty()) return true
+    return origin in ALLOWED_EXTENSION_ORIGINS
+}
+
+/**
+ * Wraps a handler for state-changing/sensitive endpoints so that only requests
+ * originating from the Flow browser extension are accepted. Requests from regular
+ * websites (which could otherwise forge a POST to localhost via fetch/XHR — a classic
+ * "localhost CSRF" attack) are rejected with 403 before the handler body runs.
+ */
+private fun protectExtensionOnly(handler: Handler): Handler = { request ->
+    if (isFromTrustedExtension(request)) {
+        handler(request)
+    } else {
+        MyResponse.BadRequest(
+            errorText = "Forbidden: request must originate from the Flow browser extension",
+            statusCode = 403,
+        )
+    }
+}
+
 class Integration(
     val integrationHandler: IntegrationHandler,
     val scope: CoroutineScope,
@@ -85,10 +133,10 @@ class Integration(
 
     private fun createServer(port: Int): MyServer {
         val handlers = HandlerMap().apply {
-            post("/add") {
+            post("/add", protectExtensionOnly { request ->
                 runBlocking {
                     val itemsToAdd = kotlin.runCatching {
-                        val message = it.getBody().orEmpty()
+                        val message = request.getBody().orEmpty()
                         AddDownloadsFromIntegration.createFromRequest(
                             json = json,
                             jsonData = message
@@ -103,24 +151,30 @@ class Integration(
                     }
                 }
                 MyResponse.Text("OK")
-            }
-            get("/queues") {
+            })
+            get("/queues", protectExtensionOnly {
                 runBlocking {
                     val queues = integrationHandler.listQueues()
                     val jsonResponse = json.encodeToString(ListSerializer(ApiQueueModel.serializer()), queues)
                     MyResponse.Text(jsonResponse)
                 }
-            }
-            post("/start-headless-download") {
+            })
+            post("/start-headless-download", protectExtensionOnly { request ->
                 runBlocking {
                     val itemsToAdd = kotlin.runCatching {
-                        val message = it.getBody().orEmpty()
+                        val message = request.getBody().orEmpty()
                         json.decodeFromString<NewDownloadTask>(message)
                     }
                     itemsToAdd.onFailure { it.printStackTrace() }
                     integrationHandler.addDownloadTask(itemsToAdd.getOrThrow())
                 }
                 MyResponse.Text("OK")
+            })
+            // Health checks stay unauthenticated: used by the extension popup purely to detect
+            // "is Flow running on this port at all" before any sensitive action is taken.
+            // It leaks no data and performs no action, so it's safe to leave origin-unchecked.
+            get("/") {
+                MyResponse.Text("pong")
             }
             post("/ping") {
                 MyResponse.Text("pong")
