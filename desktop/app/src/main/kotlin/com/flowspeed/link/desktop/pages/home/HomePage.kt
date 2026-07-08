@@ -10,7 +10,7 @@ import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,8 +30,9 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.flowspeed.link.desktop.pages.home.sections.DownloadList
+import com.flowspeed.link.desktop.pages.home.sections.CardGrid
 import com.flowspeed.link.desktop.pages.home.sections.SearchBox
+import com.flowspeed.link.desktop.pages.home.sections.ShowDownloadOptions
 import com.flowspeed.link.shared.pages.home.category.DefinedStatusCategories
 import com.flowspeed.link.shared.pages.home.category.DownloadStatusCategoryFilter
 import com.flowspeed.link.desktop.pages.home.sections.category.StatusFilterItem
@@ -95,7 +96,7 @@ fun HomePage(component: HomeComponent) {
     }
 
     val coroutineScope = rememberCoroutineScope()
-    val lazyListState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val tableState = component.tableState
 
     HandleEffects(component) { effect ->
@@ -139,14 +140,14 @@ fun HomePage(component: HomeComponent) {
                             .takeIf { it != -1 }
                         positionOrNull?.let { index ->
                             if (effect.skipIfVisible) {
-                                val isVisible = lazyListState.layoutInfo.visibleItemsInfo
+                                val isVisible = gridState.layoutInfo.visibleItemsInfo
                                     .any { it.index == index }
                                 if (isVisible) {
                                     return@let
                                 }
                             }
                             coroutineScope.launch {
-                                lazyListState.scrollToItem(index)
+                                gridState.scrollToItem(index)
                             }
                         }
                     }
@@ -350,26 +351,23 @@ fun HomePage(component: HomeComponent) {
                             )
                         }
                     }
-                    // Download list (keeping existing table for now - grid will replace later)
-                    var lastSelected by remember { mutableStateOf(null as Long?) }
                     Box(Modifier.weight(1f)) {
                         CyberGridBackground(Modifier.fillMaxSize())
-                        DownloadList(
+                        ShowDownloadOptions(
+                            component.downloadOptions.collectAsState().value,
+                            component::onRequestCloseDownloadItemOption,
+                        )
+                        CardGrid(
                             modifier = Modifier
                                 .padding(horizontal = 4.dp)
                                 .fillMaxWidth()
                                 .fillMaxHeight(),
                             downloadList = listState,
-                            downloadOptions = component.downloadOptions.collectAsState().value,
-                            onRequestCloseOption = {
-                                component.onRequestCloseDownloadItemOption()
-                            },
                             onRequestOpenOption = { itemState ->
                                 component.onRequestOpenDownloadItemOption(itemState)
                             },
                             selectionList = component.selectionList.collectAsState().value,
                             onItemSelectionChange = { id, checked ->
-                                lastSelected = id
                                 component.onItemSelectionChange(id, checked)
                             },
                             onRequestOpenDownload = {
@@ -378,11 +376,7 @@ fun HomePage(component: HomeComponent) {
                             onNewSelection = {
                                 component.newSelection(ids = it)
                             },
-                            lastSelectedId = lastSelected,
-                            tableState = tableState,
-                            fileIconProvider = component.fileIconProvider,
-                            categoryManager = component.categoryManager,
-                            lazyListState = lazyListState,
+                            gridState = gridState,
                         )
                     }
                 }

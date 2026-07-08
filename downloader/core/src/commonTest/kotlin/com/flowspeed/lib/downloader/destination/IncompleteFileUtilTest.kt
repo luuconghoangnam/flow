@@ -12,7 +12,7 @@ class IncompleteFileUtilTest {
         val file = File("/downloads/video.mp4")
         val result = IncompleteFileUtil.addIncompleteIndicator(file, 42)
         assertEquals("video.mp4.dl-42.Flow.part", result.name)
-        assertEquals("/downloads", result.parent)
+        assertEquals(file.parentFile, result.parentFile)
     }
 
     @Test

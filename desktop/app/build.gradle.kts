@@ -189,7 +189,7 @@ installerPlugin {
         outputFileName = getAppName()
         licenceFile = rootProject.file("LICENSE")
         iconFile = project.file("icons/icon.ico")
-        nsisTemplate = project.file("resources/installer/nsis-script-template.nsi")
+        innoTemplate = rootProject.file("installer/flow-setup.iss")
         extraParams = mapOf(
             "app_publisher" to "flowspeed.link",
             "app_version_with_build" to "${getAppVersionStringForPackaging(Exe)}.0",
