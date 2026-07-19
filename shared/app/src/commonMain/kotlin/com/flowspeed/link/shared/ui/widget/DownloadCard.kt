@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import com.flowspeed.link.shared.util.div
 import com.flowspeed.link.shared.util.ui.WithContentAlpha
 import com.flowspeed.link.shared.util.ui.myColors
@@ -81,6 +83,9 @@ fun DownloadCard(
                 .fillMaxWidth()
                 .height(4.dp)
                 .background(myColors.onBackground / 0.1f, RectangleShape)
+                .semantics {
+                    progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(progress, 0f..1f)
+                }
         ) {
             Box(
                 Modifier
@@ -90,14 +95,15 @@ fun DownloadCard(
             )
             // Shimmer overlay for active downloads
             if (isActive && progress > 0f) {
-                val shimmerTransition = rememberInfiniteTransition()
+                val shimmerTransition = rememberInfiniteTransition(label = "shimmer")
                 val shimmerOffset by shimmerTransition.animateFloat(
                     initialValue = -1f,
                     targetValue = 2f,
                     animationSpec = infiniteRepeatable(
                         animation = tween(1500, easing = LinearEasing),
                         repeatMode = RepeatMode.Restart
-                    )
+                    ),
+                    label = "shimmer_offset"
                 )
                 Box(
                     Modifier
