@@ -29,8 +29,6 @@ import com.flowspeed.link.shared.util.SizeAndSpeedUnitProvider
 import com.flowspeed.link.shared.util.ui.IMyIcons
 import com.flowspeed.link.shared.util.ui.icon.MyIcons
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
@@ -70,11 +68,7 @@ val uiModule = module {
     single {
         val lifecycle = LifecycleRegistry(Lifecycle.State.RESUMED)
         val context = DefaultComponentContext(lifecycle)
-        runBlocking {
-            withContext(Dispatchers.Main) {
-                AppComponent(context)
-            }
-        }
+        AppComponent(context)
     }.apply {
         bind<DesktopDownloadDialogManager>()
         bind<DesktopAddDownloadDialogManager>()
