@@ -101,7 +101,7 @@ data class WindowsConfig(
 
     var inputDir: File? = null,
 
-    var nsisTemplate: File? = null,
+    var innoTemplate: File? = null,
 
     var extraParams: Map<String, Any> = emptyMap()
 ) : Serializable

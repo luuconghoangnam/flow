@@ -2,7 +2,7 @@ package com.flowspeed.lib.installer
 
 import com.flowspeed.lib.installer.extensiion.InstallerPluginExtension
 import com.flowspeed.lib.installer.tasks.macos.CreateDmgTask
-import com.flowspeed.lib.installer.tasks.windows.NsisTask
+import com.flowspeed.lib.installer.tasks.windows.InnoSetupTask
 import com.flowspeed.lib.installer.utils.Constants
 import com.flowspeed.lib.util.platform.Platform
 import org.gradle.api.Plugin
@@ -25,14 +25,14 @@ class InstallerPlugin : Plugin<Project> {
         val windowConfig = extension.windowsConfig
         val macosConfig = extension.macosConfig
         val createInstallerTaskName = Constants.CREATE_INSTALLER_TASK_NAME
-        val createInstallerNsisTaskName = "${createInstallerTaskName}Nsis"
+        val createInstallerInnoTaskName = "${createInstallerTaskName}Inno"
         val createInstallerDmgTaskName = "${createInstallerTaskName}Dmg"
         if (windowConfig != null) {
             project.tasks
-                .register<NsisTask>(createInstallerNsisTaskName)
+                .register<InnoSetupTask>(createInstallerInnoTaskName)
                 .configure {
                     dependsOn(extension.taskDependencies.toTypedArray())
-                    this.nsisTemplate.set(requireNotNull(windowConfig.nsisTemplate) { "Nsis Template not provided" })
+                    this.innoTemplate.set(requireNotNull(windowConfig.innoTemplate) { "Inno Setup template not provided" })
                     this.commonParams.set(windowConfig)
                     this.extraParams.set(windowConfig.extraParams)
                     this.destFolder.set(extension.outputFolder.get().asFile)
@@ -78,7 +78,7 @@ class InstallerPlugin : Plugin<Project> {
 
                 Platform.Desktop.Windows -> {
                     if (windowConfig != null) {
-                        dependsOn(createInstallerNsisTaskName)
+                        dependsOn(createInstallerInnoTaskName)
                     }
                 }
 

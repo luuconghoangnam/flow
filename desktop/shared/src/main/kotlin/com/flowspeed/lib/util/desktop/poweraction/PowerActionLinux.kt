@@ -6,8 +6,8 @@ class PowerActionLinux : PowerAction {
     override fun initiate(config: PowerActionConfig): Boolean {
         return when (config.type) {
             PowerActionConfig.Type.Shutdown -> shutdown(config.force)
-            PowerActionConfig.Type.Hibernate -> TODO()
-            PowerActionConfig.Type.Sleep -> TODO()
+            PowerActionConfig.Type.Hibernate -> hibernate()
+            PowerActionConfig.Type.Sleep -> sleep()
         }
     }
 
@@ -29,5 +29,19 @@ class PowerActionLinux : PowerAction {
                 execAndWait(command)
             }.getOrElse { false }
         }
+    }
+
+    private fun hibernate(): Boolean {
+        return listOf(
+            arrayOf("systemctl", "hibernate"),
+            arrayOf("loginctl", "hibernate"),
+        ).any(::execAndWait)
+    }
+
+    private fun sleep(): Boolean {
+        return listOf(
+            arrayOf("systemctl", "suspend"),
+            arrayOf("loginctl", "suspend"),
+        ).any(::execAndWait)
     }
 }

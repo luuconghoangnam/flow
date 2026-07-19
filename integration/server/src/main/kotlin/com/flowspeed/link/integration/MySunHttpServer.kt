@@ -64,6 +64,8 @@ private class HttpHandlerImpl(
             getBody = {
                 exchange.requestBody.reader().readText()
             },
+            headers = exchange.requestHeaders
+                .mapValues { it.value.firstOrNull().orEmpty() },
         )
     }
 

@@ -141,7 +141,10 @@ class AppComponent(
     val extraDownloadSettingStorage: ExtraDownloadSettingsStorage<DesktopExtraDownloadItemSettings> by inject()
     val useSystemTray = appSettings.useSystemTray
 
-    // --- Delegates ---
+    // ---------------------------------------------------------------------------
+    // Delegates
+    // ---------------------------------------------------------------------------
+
     private val exitDelegate by lazy { ExitDelegate(scope, downloadSystem) }
     val showConfirmExitDialog get() = exitDelegate.showConfirmExitDialog
     fun exitAppAsync() = exitDelegate.exitAppAsync()
@@ -167,6 +170,10 @@ class AppComponent(
             notificationSender = this,
         )
     }
+    // ---------------------------------------------------------------------------
+    // Window slots — Home, Settings, Queues, Batch, PerHostSettings, EnterURL
+    // ---------------------------------------------------------------------------
+
     fun openHome() {
         scope.launch {
             showHomeSlot.value.child?.instance.let {
@@ -351,6 +358,10 @@ class AppComponent(
         }
     ).subscribeAsStateFlow()
     private val pageStatesStorage: PageStatesStorage by inject()
+
+    // ---------------------------------------------------------------------------
+    // Dialog slots — AddDownload, DownloadDialog, CategoryDialog, FileChecksum, EditDownload
+    // ---------------------------------------------------------------------------
 
     val downloadSystem: DownloadSystem by inject()
     private val fileIconProvider: FileIconProvider by inject()
@@ -787,6 +798,10 @@ class AppComponent(
         }
     }
 
+    // ---------------------------------------------------------------------------
+    // Download operations — addDownload, startNewDownload (via DownloadOperationsDelegate)
+    // ---------------------------------------------------------------------------
+
     fun addDownloads(
         items: List<NewDownloadItemProps>,
         categorySelectionMode: CategorySelectionMode?,
@@ -927,6 +942,10 @@ class AppComponent(
         }
     }
 
+    // ---------------------------------------------------------------------------
+    // System integration — browser extension server, power actions
+    // ---------------------------------------------------------------------------
+
     fun isReady(): Boolean {
         return listOf(
             IntegrationPortBroadcaster.isInitialized(),
@@ -1018,6 +1037,10 @@ class AppComponent(
         perHostSettings.dismiss { }
     }
 
+
+    // ---------------------------------------------------------------------------
+    // App state — theme, scale, about page, open source libraries
+    // ---------------------------------------------------------------------------
 
     val showAboutPage = MutableStateFlow(false)
     val showOpenSourceLibraries = MutableStateFlow(false)

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "author": "Luu Cong Hoang Nam <flowspeed.link>",
   "name": "Flow Download Manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Intercept downloads and send them to Flow Download Manager for faster, managed downloads.",
   "permissions": [
     "downloads",
@@ -10,8 +10,7 @@
     "notifications"
   ],
   "host_permissions": [
-    "http://localhost/*",
-    "<all_urls>"
+    "http://localhost/*"
   ],
   "background": {
     "service_worker": "background.js"

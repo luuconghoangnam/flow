@@ -6,8 +6,8 @@ class PowerActionMac : PowerAction {
     override fun initiate(config: PowerActionConfig): Boolean {
         return when (config.type) {
             PowerActionConfig.Type.Shutdown -> shutdown(config.force)
-            PowerActionConfig.Type.Hibernate -> TODO()
-            PowerActionConfig.Type.Sleep -> TODO()
+            PowerActionConfig.Type.Hibernate -> sleep()
+            PowerActionConfig.Type.Sleep -> sleep()
         }
     }
 
@@ -17,5 +17,9 @@ class PowerActionMac : PowerAction {
                 "osascript", "-e", "tell application \"System Events\" to shut down"
             )
         )
+    }
+
+    private fun sleep(): Boolean {
+        return execAndWait(arrayOf("pmset", "sleepnow"))
     }
 }

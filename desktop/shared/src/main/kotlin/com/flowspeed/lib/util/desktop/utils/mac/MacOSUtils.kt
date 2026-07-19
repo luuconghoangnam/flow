@@ -5,7 +5,6 @@ import com.flowspeed.lib.util.desktop.keepawake.KeepAwake
 import com.flowspeed.lib.util.desktop.keepawake.MacKeepAwake
 import com.flowspeed.lib.util.desktop.poweraction.PowerAction
 import com.flowspeed.lib.util.desktop.poweraction.PowerActionMac
-import com.flowspeed.lib.util.desktop.poweraction.PowerActionWindows
 import com.flowspeed.lib.util.execAndWait
 
 class MacOSUtils : DesktopUtils {

@@ -23,6 +23,9 @@ class MyHttp4KServer(
                 if (request.body == Body.EMPTY) null
                 else request.bodyString()
             },
+            headers = request.headers
+                .mapNotNull { (key, value) -> value?.let { key to it } }
+                .toMap(),
         )
     }
 

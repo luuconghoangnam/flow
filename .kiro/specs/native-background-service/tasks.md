@@ -1,5 +1,9 @@
 # Implementation Tasks
 
+> **Status: DEFERRED** — All phases untouched. This is a large spec requiring GraalVM native-image setup, IPC protocol, and lifecycle management. Will be picked up in a dedicated future sprint.
+>
+> The Inno installer (created Jul 2026) replaces the NSIS installer referenced in Phase 7.2.
+
 ## Phase 1: Service Module Foundation [REQ 1, 2, 3]
 
 - [ ] 1.1 Create `desktop/service/build.gradle.kts`
