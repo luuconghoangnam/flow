@@ -18,6 +18,12 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
+import com.flowspeed.lib.downloader.downloaditem.DownloadJobStatus
+import com.flowspeed.lib.downloader.exception.TooManyErrorException
+import java.io.IOException
 
 class HttpDownloadJobTest {
 
@@ -122,9 +128,40 @@ class HttpDownloadJobTest {
         assertEquals(File(dir, "video.mp4").canonicalFile, job.getDestination().outputFile)
     }
 
+    @Test
+    fun `resume and pause transitions state to canceled`() = runTest {
+        val job = newJob()
+        try {
+            job.resume()
+            job.pause()
+            val finalStatus = job.status.first { it is DownloadJobStatus.Canceled }
+            assertTrue(finalStatus is DownloadJobStatus.Canceled)
+        } finally {
+            job.close()
+        }
+    }
+
+    @Test
+    fun `too many failures transitions status to canceled with TooManyErrorException`() = runTest {
+        val failingClient = FailingHttpDownloaderClient()
+        val job = newJob(
+            settings = DownloadSettings(maxDownloadRetryCount = 1),
+            client = failingClient
+        )
+        try {
+            job.resume()
+            val finalStatus = job.status.first { it is DownloadJobStatus.Canceled }
+            assertTrue(finalStatus is DownloadJobStatus.Canceled)
+            assertTrue((finalStatus as DownloadJobStatus.Canceled).e is TooManyErrorException)
+        } finally {
+            job.close()
+        }
+    }
+
     private fun newJob(
         settings: DownloadSettings = DownloadSettings(),
         item: HttpDownloadItem = newItem(),
+        client: HttpDownloaderClient = FakeHttpDownloaderClient(),
     ): HttpDownloadJob {
         val manager = DownloadManager(
             dlListDb = MemoryDownloadListDB(),
@@ -142,7 +179,7 @@ class HttpDownloadJobTest {
         return HttpDownloadJob(
             downloadItem = item,
             downloadManager = manager,
-            client = FakeHttpDownloaderClient(),
+            client = client,
         )
     }
 
@@ -180,5 +217,23 @@ class HttpDownloadJobTest {
             requestUrl = "https://example.com/file.bin",
             responseHeaders = mapOf("content-length" to "0"),
         )
+    }
+
+    private class FailingHttpDownloaderClient(val exception: Exception = IOException("Connection lost")) : HttpDownloaderClient() {
+        override suspend fun actualHead(
+            credentials: IHttpDownloadCredentials,
+            start: Long?,
+            end: Long?,
+        ): HttpResponseInfo {
+            throw exception
+        }
+
+        override suspend fun actualConnect(
+            credentials: IHttpBasedDownloadCredentials,
+            start: Long?,
+            end: Long?,
+        ): Connection<HttpResponseInfo> {
+            throw exception
+        }
     }
 }

@@ -55,7 +55,7 @@ jobs:
 
       # Run unit tests on JVM (desktopTest targets commonTest too)
       - name: Run unit tests
-        run: ./gradlew :downloader:core:desktopTest --no-daemon --continue
+        run: ./gradlew :downloader:core:desktopTest :shared:utils:desktopTest --no-daemon --continue
 
       - name: Upload test results
         if: always()
