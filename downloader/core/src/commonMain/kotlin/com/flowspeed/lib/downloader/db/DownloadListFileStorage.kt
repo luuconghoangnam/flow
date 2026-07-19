@@ -15,21 +15,37 @@ class DownloadListFileStorage(
 
     private val fileLocks = SuspendLockList<Long>()
 
+    private var isCached = false
+    private val cache = mutableMapOf<Long, IDownloadItem>()
+    private val cacheLock = Mutex()
+    private val lastWriteTimes = mutableMapOf<Long, Long>()
+    private val throttleInterval = 2000L
+
     fun getDownloadItemFile(id: Long): File {
         return downloadListFolder.resolve("$id.json")
     }
 
     override suspend fun getAll(): List<IDownloadItem> {
-        return withContext(Dispatchers.IO) {
-            val jsonExtension = ".json"
-            downloadListFolder.listFiles()
-                ?.mapNotNull { file ->
-                    file.name
-                        .takeIf { it.endsWith(jsonExtension) }
-                        ?.removeSuffix(jsonExtension)
-                        ?.toLongOrNull()
-                        ?.let { get(file, it) }
-                }.orEmpty()
+        return cacheLock.withLock {
+            if (!isCached) {
+                withContext(Dispatchers.IO) {
+                    val jsonExtension = ".json"
+                    downloadListFolder.listFiles()
+                        ?.mapNotNull { file ->
+                            file.name
+                                .takeIf { it.endsWith(jsonExtension) }
+                                ?.removeSuffix(jsonExtension)
+                                ?.toLongOrNull()
+                                ?.let { id ->
+                                    fileLocks.withLock(id) { fileSaver.readObject<IDownloadItem>(file) }?.also { 
+                                        cache[id] = it 
+                                    }
+                                }
+                        }
+                }
+                isCached = true
+            }
+            cache.values.toList()
         }
     }
 
@@ -40,8 +56,15 @@ class DownloadListFileStorage(
     }
 
     override suspend fun getById(id: Long): IDownloadItem? {
+        cacheLock.withLock {
+            if (isCached) return cache[id]
+        }
         return withContext(Dispatchers.IO) {
-            get(getDownloadItemFile(id), id)
+            val item = get(getDownloadItemFile(id), id)
+            if (item != null) {
+                cacheLock.withLock { cache[id] = item }
+            }
+            item
         }
     }
 
@@ -57,20 +80,44 @@ class DownloadListFileStorage(
                     }
                 }
             }
+            cacheLock.withLock {
+                cache[item.id] = item
+                lastWriteTimes[item.id] = System.currentTimeMillis()
+            }
         }
     }
 
     override suspend fun update(item: IDownloadItem) {
+        val now = System.currentTimeMillis()
+        val forceFlush = item.status != com.flowspeed.lib.downloader.downloaditem.DownloadStatus.Downloading
+
         withContext(Dispatchers.IO) {
-            // we don't use same lock for all items , but create lock for each item
-            fileLocks.withLock(item.id) {
-                fileSaver.writeObject(getDownloadItemFile(item.id), item)
+            cacheLock.withLock {
+                cache[item.id] = item
+            }
+            val lastWrite = cacheLock.withLock { lastWriteTimes[item.id] ?: 0L }
+            if (forceFlush || now - lastWrite >= throttleInterval) {
+                fileLocks.withLock(item.id) {
+                    fileSaver.writeObject(getDownloadItemFile(item.id), item)
+                }
+                cacheLock.withLock {
+                    lastWriteTimes[item.id] = now
+                }
             }
         }
     }
 
     override suspend fun removeById(itemId: Long) {
-        getDownloadItemFile(itemId).delete()
+        withContext(Dispatchers.IO) {
+            fileLocks.withLock(itemId) {
+                val file = getDownloadItemFile(itemId)
+                if (file.exists()) file.delete()
+            }
+            cacheLock.withLock {
+                cache.remove(itemId)
+                lastWriteTimes.remove(itemId)
+            }
+        }
     }
 
     override suspend fun remove(item: IDownloadItem) {

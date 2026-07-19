@@ -42,6 +42,9 @@ fun main(args: Array<String>) {
             SingleInstanceLauncher.dispatchIntegrationPortAndExit(singleInstance)
         }
 
+        // Setup autostart if on Mac or Linux
+        AutoStartManager.setupAutoStart()
+
         // Normal startup — acquire single-instance lock and boot
         startApplication(singleInstance, appArguments)
 

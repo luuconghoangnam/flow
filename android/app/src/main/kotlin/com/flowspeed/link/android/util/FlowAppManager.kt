@@ -244,14 +244,8 @@ class FlowAppManager(
                     }
 
                     AndroidConstants.Intents.TOGGLE_ACTION -> {
-                        intent
-                            .getLongExtra(AndroidConstants.Intents.TOGGLE_DOWNLOAD_ACTION_DOWNLOAD_ID, -1)
-                            .takeIf { it > -1 }
-                            ?.let {
-                                scope.launch {
-                                    TODO("Toggle action not implemented yet")
-                                }
-                            }
+                        // Legacy action kept for old pending intents. Current notifications send
+                        // explicit STOP_ACTION or RESUME_ACTION, so ignore this instead of crashing.
                     }
 
                     AndroidConstants.Intents.STOP_ALL_ACTION -> {

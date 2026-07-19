@@ -105,18 +105,13 @@ compose {
             // Define the main class for the application.
             mainClass = "$desktopPackageName.AppKt"
             jvmArgs(
-                // Return unused memory to OS aggressively
-                "-XX:+UseG1GC",
+                // Use Serial GC for lowest native memory footprint
+                "-XX:+UseSerialGC",
                 "-XX:MaxHeapFreeRatio=20",
                 "-XX:MinHeapFreeRatio=5",
-                "-XX:G1PeriodicGCInterval=5000",
                 // Tight heap limits - force GC pressure to keep memory low
                 "-Xms16m",
                 "-Xmx192m",
-                // Deduplicate strings to save memory
-                "-XX:+UseStringDeduplication",
-                // Smaller heap regions = more granular memory management
-                "-XX:G1HeapRegionSize=512k",
                 // Reduce metaspace and code cache
                 "-XX:MaxMetaspaceSize=96m",
                 "-XX:ReservedCodeCacheSize=48m",
@@ -189,7 +184,7 @@ installerPlugin {
         outputFileName = getAppName()
         licenceFile = rootProject.file("LICENSE")
         iconFile = project.file("icons/icon.ico")
-        nsisTemplate = project.file("resources/installer/nsis-script-template.nsi")
+        innoTemplate = rootProject.file("installer/flow-setup.iss")
         extraParams = mapOf(
             "app_publisher" to "flowspeed.link",
             "app_version_with_build" to "${getAppVersionStringForPackaging(Exe)}.0",

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -75,6 +76,26 @@ fun rememberHeaderAlpha(
                 headerHeightPx == 0f -> 1f
                 else -> {
                     val scrolled = listState.firstVisibleItemScrollOffset.toFloat()
+                    (scrolled / headerHeightPx).coerceIn(0f, 1f)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun rememberHeaderAlpha(
+    gridState: LazyGridState,
+    headerHeightPx: Float,
+): State<Float> {
+    val headerHeightPx by rememberUpdatedState(headerHeightPx)
+    return remember {
+        derivedStateOf {
+            when {
+                gridState.firstVisibleItemIndex > 0 -> 1f
+                headerHeightPx == 0f -> 1f
+                else -> {
+                    val scrolled = gridState.firstVisibleItemScrollOffset.toFloat()
                     (scrolled / headerHeightPx).coerceIn(0f, 1f)
                 }
             }

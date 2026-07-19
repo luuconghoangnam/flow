@@ -1,5 +1,6 @@
 package com.flowspeed.lib.downloader.utils
 
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import java.io.File
 import java.nio.file.Files

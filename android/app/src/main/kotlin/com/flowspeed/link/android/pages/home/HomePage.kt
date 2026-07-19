@@ -23,7 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -98,7 +98,7 @@ fun HomePage(component: HomeComponent) {
     var showConfirmPrompt by remember {
         mutableStateOf(null as ConfirmPromptState?)
     }
-    val lazyListState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val downloadList by component.sortedDownloadList.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -145,7 +145,7 @@ fun HomePage(component: HomeComponent) {
 
                         positionOrNull?.let { index ->
                             if (effect.skipIfVisible) {
-                                val isVisible = lazyListState.layoutInfo.visibleItemsInfo.any {
+                                val isVisible = gridState.layoutInfo.visibleItemsInfo.any {
                                     it.index == index
                                 }
                                 if (isVisible) {
@@ -153,7 +153,7 @@ fun HomePage(component: HomeComponent) {
                                 }
                             }
                             coroutineScope.launch {
-                                lazyListState.scrollToItem(index)
+                                gridState.scrollToItem(index)
                             }
                         }
                     }
@@ -177,7 +177,7 @@ fun HomePage(component: HomeComponent) {
         PageUi(
             header = {
                 val headerAlpha = rememberHeaderAlpha(
-                    lazyListState,
+                    gridState,
                     density.run {
                         topPaddingInDp.toPx()
                     },
@@ -253,10 +253,9 @@ fun HomePage(component: HomeComponent) {
                             component.onCategoryFilterChange(filter, component.filterState.typeCategoryFilter)
                         },
                     )
-                    // Download list
                     Box(Modifier.weight(1f)) {
                         CyberGridBackground(Modifier.fillMaxSize())
-                        DownloadList(
+                        CardGrid(
                             downloadList = downloadList,
                             selectionList = selectionList,
                             onItemSelectionChange = { id, checked ->
@@ -265,14 +264,16 @@ fun HomePage(component: HomeComponent) {
                             onItemClicked = {
                                 component.onItemClicked(it)
                             },
-                            fileIconProvider = component.fileIconProvider,
                             onNewSelection = {
                                 component.newSelection(ids = it)
                             },
-                            lazyListState = lazyListState,
+                            onItemLongClicked = {
+                                component.onItemSelectionChange(it.id, it.id !in selectionList)
+                            },
                             modifier = Modifier
                                 .fillMaxSize(),
                             contentPadding = params.paddingValues,
+                            gridState = gridState,
                         )
                     }
                 }

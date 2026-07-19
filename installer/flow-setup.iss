@@ -1,31 +1,34 @@
 [Setup]
-AppName=Flow
-AppVersion=1.0.0
-AppPublisher=FlowSpeed
-AppPublisherURL=https://flowspeed.link
-DefaultDirName={autopf}\Flow
-DefaultGroupName=Flow
-OutputDir=..\build\installer
-OutputBaseFilename=Flow-Setup-1.0.0
+AppName={{app_display_name}}
+AppVersion={{app_version}}
+AppPublisher={{app_publisher}}
+AppPublisherURL=https://{{project_website}}
+AppSupportURL=https://{{project_website}}
+AppUpdatesURL={{source_code_url}}
+DefaultDirName={{app_install_dir}}
+DefaultGroupName={{app_display_name}}
+OutputDir={{output_dir}}
+OutputBaseFilename={{output_base_filename}}
 Compression=lzma2/ultra64
 SolidCompression=yes
-SetupIconFile=..\desktop\app\icons\icon.ico
-UninstallDisplayIcon={app}\Flow.exe
+SetupIconFile={{icon_file}}
+UninstallDisplayIcon={{app_exe}}
+LicenseFile={{license_file}}
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 DisableProgramGroupPage=yes
 
 [Files]
-Source: "..\desktop\app\build\compose\binaries\main-release\app\Flow\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "{{input_dir}}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\Flow"; Filename: "{app}\Flow.exe"
-Name: "{autodesktop}\Flow"; Filename: "{app}\Flow.exe"
-Name: "{userstartup}\Flow"; Filename: "{app}\Flow.exe"; Parameters: "--background"
+Name: "{{app_group_icon}}"; Filename: "{{app_exe}}"
+Name: "{{app_desktop_icon}}"; Filename: "{{app_exe}}"
+Name: "{{app_startup_icon}}"; Filename: "{{app_exe}}"; Parameters: "--background"
 
 [Run]
-Filename: "{app}\Flow.exe"; Description: "Launch Flow"; Flags: nowait postinstall skipifsilent
+Filename: "{{app_exe}}"; Description: "Launch {{app_display_name}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{userappdata}\.flow"
+Type: filesandordirs; Name: "{{app_data_dir}}"

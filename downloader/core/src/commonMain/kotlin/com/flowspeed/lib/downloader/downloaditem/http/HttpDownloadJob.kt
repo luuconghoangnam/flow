@@ -317,31 +317,13 @@ class HttpDownloadJob(
         if (parts.isNotEmpty()) {
             return
         }
-        if (downloadItem.contentLength == IDownloadItem.LENGTH_UNKNOWN) {
-            setParts(
-                listOf(RangedPart(0, null, 0))
-            )
-        } else {
-            if (supportsConcurrent == true) {
-                //split parts
-                setParts(
-                    splitToRange(
-                        minPartSize = downloadManager.settings.minPartSize,
-                        maxPartCount = getRequestedPartitionCount().toLong(),
-                        size = downloadItem.contentLength,
-                    ).map {
-                        RangedPart(it.first, it.last)
-                    })
-            } else {
-                setParts(
-                    listOf(RangedPart(0, (downloadItem.contentLength - 1).takeIf { it >= 0 }, 0))
-                )
-            }
-
-        }
-
-//        thisLogger().info("dl_$id parts created $parts")
-
+        val determined = HttpPartSplitting().determineParts(
+            contentLength = downloadItem.contentLength,
+            supportsConcurrent = supportsConcurrent == true,
+            minPartSize = downloadManager.settings.minPartSize,
+            maxPartCount = getRequestedPartitionCount().toLong()
+        )
+        setParts(determined)
         saveState()
     }
 
@@ -475,31 +457,23 @@ class HttpDownloadJob(
         e: Throwable,
         isInFirstResume: Boolean,
     ) {
-        //moving to the main scope and request to cancel activeDownload scope!
         scope.launch {
-            if (isInFirstResume && failedDownloadTries == 0 && shouldRetryIfInitialFailed()) {
-                if (ExceptionUtils.isNetworkError(e) || ExceptionUtils.isResponseError(e)) {
-                    pause(e)
-                    return@launch
-                }
-            }
-            // can't proceed
-            if (e is DownloadValidationException && e.isCritical()) {
+            val retryPolicy = HttpRetryPolicy(getMaxAllowedRetries())
+            if (retryPolicy.shouldPauseImmediately(e, failedDownloadTries, isInFirstResume, shouldRetryIfInitialFailed())) {
                 pause(e)
                 return@launch
             }
-            val downloadedSize = getDownloadedSize()
-            if (downloadedSize > downloadedSizeBeforeRetry) {
-                // download had progress! so we reset it
-                failedDownloadTries = 0
-            } else {
-                failedDownloadTries++
-            }
-            downloadedSizeBeforeRetry = downloadedSize
 
-            // we always have one try (the initial resume action), after that others are retries!
-            val retriedCount = (failedDownloadTries - 1).coerceAtLeast(0)
-            if (retriedCount < getMaxAllowedRetries()) {
+            val decision = retryPolicy.getNextRetryState(
+                downloadedSize = getDownloadedSize(),
+                previousDownloadedSizeBeforeRetry = downloadedSizeBeforeRetry,
+                failedDownloadTriesBefore = failedDownloadTries
+            )
+
+            failedDownloadTries = decision.newFailedDownloadTries
+            downloadedSizeBeforeRetry = decision.newDownloadedSizeBeforeRetry
+
+            if (decision.shouldRetry) {
                 retry(isInFirstResume)
             } else {
                 pause(TooManyErrorException(e))
@@ -626,67 +600,22 @@ class HttpDownloadJob(
         return downloadItem.name.endsWith(".html", true)
     }
 
-    private suspend fun fetchDownloadInfoAndValidate(
-    ) {
-//        println("fetch download ")
-
-//        thisLogger().info("fetchDownloadInfoAndValidate")
+    private suspend fun fetchDownloadInfoAndValidate() {
         val response = client.test(downloadItem).expectSuccess()
+        val validator = HttpResponseValidator()
+        val result = validator.validate(
+            response = response,
+            downloadItem = downloadItem,
+            previouslySupportsConcurrent = supportsConcurrent,
+            isWebpageName = isDownloadItemIsAWebpage()
+        )
 
-        supportsConcurrent?.let { previouslyConcurrentWasSupported ->
-            if (previouslyConcurrentWasSupported && !response.resumeSupport) {
-                // server at some point tell us it supports resuming, and we created more than 1 part!
-                // and now it says not resuming isn't supported!
-                // we must stop here!
-                // user must manually restart download or we should retry
-                throw ServerResumeSupportChangeException()
-            }
-        }
+        supportsConcurrent = result.supportsConcurrent
+        serverLastModified = result.serverLastModified
+        strictDownload = result.strictDownload
+        downloadItem.contentLength = result.newContentLength
+        downloadItem.serverETag = result.newServerETag
 
-        supportsConcurrent = response.resumeSupport
-        serverLastModified = runCatching {
-            response.lastModified?.let(TimeUtils::convertLastModifiedHeaderToTimestamp)
-        }.getOrNull()
-        if (response.isWebPage) {
-            if (isDownloadItemIsAWebpage()) {
-                // don't strict if it's a webpage let it download without checks
-                strictDownload = false
-
-                // this makes the file not resume able
-                // we don't want to page downloaded with multi connection
-                // so the download will be restarted [@see prepareDestination]
-                supportsConcurrent = false
-                downloadItem.contentLength = IDownloadItem.LENGTH_UNKNOWN
-                downloadItem.serverETag = null
-            } else {
-                // if download was not a webpage and now this is a webpage
-                // it means maybe user have to change its download link
-                // we should not restart download here!
-                throw FileChangedException.GotAWebPage()
-            }
-        }
-        val totalLength = response.totalLength
-        val oldServerETag = downloadItem.serverETag
-        val newServerETag = response.etag
-        if (downloadItem.contentLength == IDownloadItem.LENGTH_UNKNOWN) {
-            //new download / or restart
-            downloadItem.contentLength = totalLength ?: -1
-            downloadItem.serverETag = newServerETag
-        } else {
-            // check if we file not changed from remote
-            if (totalLength != downloadItem.contentLength) {
-                throw FileChangedException.LengthChangedException(downloadItem.contentLength, totalLength ?: -1)
-            }
-            if (oldServerETag != null && newServerETag != null) {
-                // we already know that sizes are the same,
-                // but we also have etag header
-                // so, we have chance to compare file contents of local and server
-                if (oldServerETag != newServerETag) {
-                    throw FileChangedException.ETagChangedException(oldServerETag, newServerETag)
-                }
-            }
-        }
-//            thisLogger().info("fetchDownloadInfoAndValidate :${response.code},${response.headers} ")
         saveState()
     }
 

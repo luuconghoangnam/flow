@@ -1,7 +1,7 @@
 # Báo cáo Khảo sát & Đề xuất Cải thiện — Flow Download Manager
 
 > **Repo**: `flowspeed.link` · **Ngày khảo sát**: 2026-07-05
-> **Cập nhật lần cuối**: 2026-07-06 (sau khi hoàn thành batch refactor, CI xanh)
+> **Cập nhật lần cuối**: 2026-07-19 (chuẩn hóa bộ Claude Code project skills theo boundary và rủi ro)
 > **Quy mô**: ~91.789 dòng Kotlin, 963 file `.kt`, 16 Gradle modules + 5 composite build modules + 7 convention plugins
 > **Stack**: Kotlin Multiplatform + Jetpack Compose (Desktop + Android) + Decompose + Koin + Ktor/OkHttp + DataStore
 > **Indexer**: GitNexus (13.859 symbols, 47.710 relationships, 300 execution flows)
@@ -19,6 +19,9 @@
 7. [Đánh giá phản biện — Đề xuất nào thực sự có giá trị?](#7-đánh-giá-phản-biện--đề-xuất-nào-thực-sự-có-giá-trị)
 8. [✅ Đã thực hiện — Kết quả thực tế](#8--đã-thực-hiện--kết-quả-thực-tế)
 9. [Bảng ưu tiên hành động — Còn lại](#9-bảng-ưu-tiên-hành-động--còn-lại)
+10. [Tái đánh giá 2026-07-12 — quyết định theo rủi ro](#10-tái-đánh-giá-2026-07-12--quyết-định-theo-rủi-ro)
+11. [Trạng thái phần mềm hiện tại — cập nhật 2026-07-19](#11-trạng-thái-phần-mềm-hiện-tại--cập-nhật-2026-07-19)
+12. [Bộ Claude Code project skills — cập nhật 2026-07-19](#12-bộ-claude-code-project-skills--cập-nhật-2026-07-19)
 
 ---
 
@@ -581,8 +584,8 @@ Mỗi child component được inject qua Koin + Decompose `ComponentContext`.
 | **Decompose** | ✅ Đúng | Tiếp tục — tốt cho KMP |
 | **Koin** | ✅ Đúng | Chia nhỏ Android `Di.kt` theo pattern Desktop |
 | **Expect/Actual** | ✅ Đúng | OK |
-| **Testing** | 🔴 **0 tests trên 91k LOC** | **Quan trọng nhất**: thêm `commonTest/` cho `DownloadJob`, `TransactionalFileSaver`, `FileNameUtil`; ArchUnit/Konsist cho architecture rules |
-| **CI/CD** | 🟡 Chỉ `publish.yml` (5.810 bytes) | Thêm: `lint.yml`, `test.yml` (chạy trên PR), `coverage.yml` |
+| **Testing** | 🟡 Có 11 file test; core desktop suite hiện có 89 test cases | Tiếp tục theo luồng rủi ro cao: retry exhaustion, job lifecycle resume/cancel, queue, monitor và navigation; chưa cần coverage gate |
+| **CI/CD** | ✅ Có `build-check.yml` và `publish.yml`; CI chạy toàn bộ unit-test module hiện có | Cân nhắc coverage report sau khi suite đủ đại diện; chưa cần workflow test riêng |
 | **i18n** | 🟡 2 locale (en_US, vi_VN) | Setup Weblate/Crowdin, mở rộng locale |
 | **A11y** | 🟡 Yếu | `contentDescription` cho icon-only, `focusOrder`, test với TalkBack/screen reader |
 | **Performance monitoring** | ❌ Không có | Baseline Profile cho Android, tracing với `kotlinx-coroutines-debug`, macrobenchmark |
@@ -592,13 +595,16 @@ Mỗi child component được inject qua Koin + Decompose `ComponentContext`.
 | **Code style enforcement** | 🟡 Không rõ | `ktlint` hoặc `spotless` trong CI |
 | **API documentation** | 🟡 Một số file có KDoc, nhiều file không | Convention: public API phải có KDoc |
 
-### 6.2. Testing — thiếu trầm trọng
+### 6.2. Testing — đã có nền tảng, coverage còn hẹp
 
-**Hiện trạng**:
-- Không có thư mục `src/test/`, `src/commonTest/`, `src/desktopTest/`, `src/androidTest/`.
-- 963 file Kotlin, 91.789 dòng — **0 tests**.
-- Không có architecture test (ArchUnit, Konsist).
-- Không có UI test (Compose Multiplatform có thể test).
+**Hiện trạng tái kiểm chứng ngày 2026-07-19**:
+- Có 11 file `*Test.kt`: 10 file trong `downloader/core/src/commonTest/`, 1 file trong `shared/utils/src/commonTest/`.
+- `:downloader:core:desktopTest` chạy 89 test cases, 0 failure, 0 error.
+- `:shared:utils:desktopTest` chạy thành công.
+- PowerShell runner chạy thành công cả hai module qua Gradle wrapper.
+- Test mới không dùng internet thật, user filesystem, wall-clock sleep hoặc global state phụ thuộc thứ tự.
+- Chưa có architecture test, UI test, DI smoke test hoặc navigation smoke test.
+- Job-level ETag/length/resume lifecycle, retry exhaustion, pause/cancel worker transition, queue và monitor vẫn chưa được khóa bằng test deterministic.
 
 **Đề xuất test infrastructure**:
 
@@ -635,11 +641,12 @@ class ArchitectureTest {
 }
 ```
 
-### 6.3. CI/CD — ✅ Đã thêm build-check workflow (commit `3297b60`)
+### 6.3. CI/CD — ✅ Đã thêm build-check workflow và core unit test (commit `3297b60` + cập nhật sau đó)
 
 **Đã thực hiện**:
 - `.github/workflows/build-check.yml` — trigger trên mỗi PR và push vào `main`/`dev`:
   - **Compile job**: `compileKotlinDesktop` + `compileDebugKotlin` — phát hiện compile errors sớm
+  - **Unit test**: `:downloader:core:desktopTest` + `:shared:utils:desktopTest` + upload report
   - **Android Lint job**: `:android:app:lintDebug` — upload HTML report
 - `.github/dependabot.yml` — weekly Gradle + GitHub Actions updates (grouped: compose, kotlin, koin)
 
@@ -648,7 +655,7 @@ class ArchitectureTest {
 - `IntentFilterExportedReceiver` trong generated manifest (`AndroidManifest.xml.hbs`) — thêm `android:exported="true"` vào Handlebars template
 
 **Còn lại (P2)**:
-- `test.yml` — chạy unit test trên mỗi PR (chưa có tests)
+- Thêm module test mới vào cùng bước unit test khi module đó có suite đáng chạy; chưa cần tách thành `test.yml` riêng.
 - `coverage.yml` — Kover/jacoco + Codecov
 - `ktlint`/`detekt` — cần team agree on ruleset trước
 
@@ -671,7 +678,7 @@ class ArchitectureTest {
 | **UiPart leak Compose vào monitor** | ✅ **ĐÚNG** | Module boundary violation — `@Immutable` annotation kéo Compose Compiler vào data module |
 | **api() → implementation()** | ✅ **ĐÚNG** | Build time tăng không cần thiết, transitive deps không cần re-export |
 | **HttpDownloadJob 775 dòng** | ✅ **ĐÚNG** | Quá nhiều responsibility — khó unit test từng logic |
-| **0 tests** | ✅ **ĐÚNG** | Rủi ro cao nhất — không có safety net khi refactor |
+| **Thiếu tests** | ⚠️ **ĐÚNG MỘT PHẦN** | Đã có 11 file test, core suite 89 cases và CI core+utils; safety net vẫn thiếu cho lifecycle retry/resume/cancel/queue/navigation |
 | **runBlocking trong UiModule** | ⚠️ **Nhẹ** | Block main thread lúc init — nhưng chỉ xảy ra 1 lần khi app start, user không cảm nhận |
 | **UseCase / Repository layer** | ⚠️ **Cân nhắc** | Đúng lý thuyết, nhưng over-engineering nếu solo dev. ROI thấp trừ khi team scale |
 | **DownloadListFileStorage O(n) I/O** | ✅ **ĐÚNG nhưng P2** | Chỉ ảnh hưởng startup time. Trade-off resilience vs speed là chấp nhận được |
@@ -702,16 +709,16 @@ class ArchitectureTest {
 - **Rủi ro**: Với solo/small team, thêm UseCase layer cho mỗi operation = thêm file + interface + impl + test cho mỗi tính năng nhỏ. Time-to-feature tăng.
 - **Verdict**: Chỉ nên áp dụng CHO CÁC OPERATION PHỨC TẠP (addDownload có logic category + queue + duplicate check). Không cần cho simple CRUD.
 
-#### Test infrastructure (P0) — Rủi ro: Thấp
+#### Test infrastructure (đánh giá lịch sử; hiện đã có nền tảng) — Rủi ro: Thấp
 - **Được**: Safety net cho mọi refactor phía trước. Không refactor nào ở trên nên làm mà KHÔNG CÓ test.
 - **Mất**: Thời gian viết test ban đầu.
 - **Rủi ro**: Gần như không có. Test tồn tại = good.
 - **Verdict**: **ĐÂY LÀ PREREQUISITE cho mọi refactor khác.** Làm TRƯỚC.
 
-### 7.3. Thứ tự thực hiện đề xuất (dependency-aware)
+### 7.3. Thứ tự đề xuất lịch sử (đã được thay thế bởi mục 10)
 
 ```
-1. Test infrastructure     ← PHẢI làm đầu tiên (safety net)
+1. Test infrastructure     ← PHẢI làm đầu tiên (safety net; hiện đã có nền tảng ban đầu)
    │
    ├─ 2. Tách AppComponent       ← cần test để verify navigation
    ├─ 3. Tách Android Di.kt      ← cần test để verify DI wiring  
@@ -770,34 +777,238 @@ class ArchitectureTest {
 
 | # | Hành động | Tác động | Effort | Ghi chú |
 |---|---|---|---|---|
-| 1 | **Test infrastructure** (unit tests + Konsist arch tests) | Cao — safety net cho mọi refactor | Trung bình | Prerequisite cho tất cả refactor tiếp theo |
-| 2 | **Tách `AppComponent` navigation slots** thành sub-components | Cao — file vẫn 1046 dòng | Cao | Cần plan navigation graph trước |
+| 1 | **Mở rộng behavioral tests** cho download core | Cao — safety net cho engine | Trung bình | Ưu tiên retry/resume/cancel/range validation/persistence recovery |
+| 2 | **Tách `HttpDownloadJob` theo composition, từng phần nhỏ** | Trung bình-Cao — giảm coupling trong engine | Trung bình | Chỉ làm sau khi logic tương ứng có test |
 
 ### 🟡 P1 — Nên làm
 
 | # | Hành động | Tác động | Effort | Ghi chú |
 |---|---|---|---|---|
-| 3 | **Tách `UiPart.kt` hoàn toàn** khỏi `downloader:monitor` | Trung bình — module boundary | Thấp | Loại bỏ `compose.runtime` dep khỏi monitor |
-| 4 | **Tách `HttpDownloadJob.kt`** — dùng inner classes hoặc composition | Trung bình — maintainability | Trung bình | Extension functions không work, cần approach khác |
-| 5 | **Thêm a11y semantics** | Trung bình — UX | Trung bình | `contentDescription` cho icon-only buttons |
-| 6 | **Cache `DownloadListFileStorage.getAll()`** | Thấp-Trung bình — startup time | Thấp | O(n) I/O chỉ ảnh hưởng lúc boot |
+| 3 | **Audit a11y theo control tương tác** | Trung bình — UX | Trung bình | Đã có 110 hit semantics/contentDescription; phân biệt icon trang trí với nút thiếu nhãn |
+| 4 | **Thêm smoke test DI/navigation** | Trung bình-Cao — bảo vệ app startup | Trung bình | Là điều kiện trước khi tách `AppComponent` |
+| 5 | **Tách `UiPart.kt` khỏi monitor nếu đo được build/dependency cost** | Thấp-Trung bình | Thấp | Boundary sạch hơn nhưng lợi ích runtime gần như không có |
 
 ### 🟢 P2 — Cải thiện dài hạn
 
 | # | Hành động | Tác động | Effort |
 |---|---|---|---|
-| 7 | **Implement `Closeable` cho `DownloadMonitor`** | Thấp — testability | Thấp |
-| 8 | **KMP hóa `shared:config`** hoặc gộp vào `shared:utils` | Thấp — consistency | Thấp |
-| 9 | **`intervalFlow` adaptive** (background/foreground) | Thấp — pin mobile | Thấp |
-| 10 | **Thêm UseCase layer** cho complex operations | Trung bình — testability | Trung bình |
-| 11 | **Centralize error handling** với `Result`/`Either` | Trung bình | Trung bình |
-| 12 | **Mở rộng i18n** — zh_CN, ja, ko, de, fr, es | Thấp — reach | Trung bình |
-| 13 | **Setup Crowdin/POEditor** | Thấp — reach | Trung bình |
-| 14 | **Convention plugin refactor** — extract shared config | Thấp — DX | Thấp |
-| 15 | **Gộp `desktop:mac-utils` vào `desktop:app-utils`** | Thấp — cleanup | Thấp |
-| 16 | **Baseline Profile cho Android** | Trung bình — startup time | Trung bình |
-| 17 | **Macrobenchmark** cho DownloadManager | Trung bình — perf monitoring | Trung bình |
-| 18 | **test.yml CI** khi đã có tests | Trung bình — quality gate | Thấp |
+| 6 | **Implement `Closeable` cho `DownloadMonitor`** | Thấp — testability | Thấp |
+| 7 | **Đo startup với lịch sử lớn trước khi cache storage** | Trung bình — quyết định bằng dữ liệu | Thấp |
+| 8 | **Mở rộng i18n theo nhu cầu người dùng** | Thấp — reach | Trung bình |
+| 9 | **Sửa Gradle deprecation trước Gradle 10** | Trung bình — build future-proof | Trung bình |
+
+---
+
+## 10. Tái đánh giá 2026-07-12 — quyết định theo rủi ro
+
+### 10.1. Phạm vi và bằng chứng mới
+
+Khảo sát này tái kiểm chứng trực tiếp source hiện tại, không chỉ kế thừa kết luận v1.3:
+
+- Working tree sạch tại thời điểm khảo sát.
+- Có 11 file test; core desktop suite hiện chạy 89 test cases.
+- `:downloader:core:desktopTest` và `:shared:utils:desktopTest` đều `BUILD SUCCESSFUL`.
+- CI config compile Desktop + Android, chạy core + utils unit test và Android lint.
+- `AppComponent.kt` hiện 1.069 dòng; `HttpDownloadJob.kt` vẫn 775 dòng.
+- `shared:app` vẫn re-export nhiều dependency qua `api()`.
+- Có 110 vị trí `contentDescription`/`semantics`; nhiều `contentDescription = null` có thể là icon trang trí, không thể kết luận tất cả là lỗi a11y bằng grep.
+- Build báo Gradle deprecated features, sẽ không tương thích Gradle 10. `shared:utils` test compile còn warning về opt-in Compose không resolve.
+
+### 10.2. Tiêu chí quyết định
+
+Mỗi đề xuất được cân theo 4 yếu tố:
+
+| Yếu tố | Câu hỏi |
+|---|---|
+| Lợi ích | Có giảm bug, giảm thời gian maintain hoặc cải thiện UX đo được không? |
+| Rủi ro thay đổi | Có chạm luồng download, persistence, DI hoặc navigation quan trọng không? |
+| Safety net | Test hiện tại có phát hiện regression của thay đổi này không? |
+| Chi phí cơ hội | Thời gian bỏ ra có tốt hơn việc sửa bug hoặc thêm feature người dùng cần không? |
+
+Quy ước quyết định:
+
+- **LÀM**: lợi ích rõ, rủi ro kiểm soát được, có cách verify.
+- **LÀM CÓ ĐIỀU KIỆN**: chỉ làm sau test hoặc measurement cụ thể.
+- **HOÃN**: vấn đề thật nhưng ROI hiện thấp hoặc thiếu dữ liệu.
+- **BỎ QUA**: thay đổi mang tính sạch lý thuyết, không giải quyết vấn đề thực tế hiện tại.
+
+### 10.3. Ma trận lợi ích, rủi ro và quyết định
+
+| Đề xuất | Lợi ích | Rủi ro nếu làm | Rủi ro nếu không làm | Quyết định | Điều kiện / cách làm |
+|---|---|---|---|---|---|
+| Mở rộng test download core | Rất cao | Thấp-Trung bình: fake sai có thể tạo test vô nghĩa | Cao: regression retry/resume/cancel khó phát hiện | **LÀM NGAY** | Test behavior và failure path; ưu tiên MockWebServer/fake deterministic, không chase coverage % |
+| Tách `HttpDownloadJob` | Cao | Cao: race, lock, retry và resume dễ đổi semantics | Trung bình-Cao: file tiếp tục khó sửa | **LÀM CÓ ĐIỀU KIỆN** | Viết characterization test cho phần định tách; extract pure policy/validator bằng composition; mỗi PR một responsibility |
+| Tách toàn bộ `AppComponent` | Trung bình | Cao: navigation slot/lifecycle/DI regression | Trung bình: maintain khó, merge conflict | **HOÃN** | Trước hết thêm smoke test DI + navigation; chỉ extract boundary có ownership rõ, không redesign toàn graph |
+| Thêm UseCase/Clean Architecture toàn repo | Thấp-Trung bình | Cao: boilerplate, migration dài, nhiều indirection | Thấp | **BỎ QUA** | Chỉ extract operation phức tạp khi cần test độc lập; không tạo interface cho CRUD đơn giản |
+| Đổi hàng loạt `api()` sang `implementation()` | Trung bình | Trung bình-Cao: consumer break vì transitive imports | Thấp-Trung bình: build coupling tiếp tục | **HOÃN** | Đo build time trước; đổi từng dependency, compile mọi consumer; không batch refactor |
+| Tách `UiPart` khỏi monitor | Thấp-Trung bình | Thấp: package/module move có thể lan import | Thấp: chỉ còn dependency annotation | **HOÃN** | Chỉ làm khi cleanup này mở khóa module isolation hoặc giảm build time đo được |
+| Cache `DownloadListFileStorage.getAll()` | Có thể trung bình với lịch sử lớn | Trung bình: stale cache, tăng complexity đồng bộ | Thấp nếu dữ liệu phổ biến nhỏ | **LÀM CÓ ĐIỀU KIỆN** | Benchmark startup với 100/1.000/10.000 item trước; ưu tiên index metadata hơn cache mutable nếu bottleneck thật |
+| Adaptive `intervalFlow(500)` | Thấp | Trung bình: stale UI/race lifecycle | Thấp: polling hiện nhẹ | **BỎ QUA HIỆN TẠI** | Chỉ xem lại khi profiler cho thấy pin/CPU đáng kể |
+| `Closeable` cho `DownloadMonitor` | Thấp-Trung bình cho test | Thấp | Thấp hiện tại, tăng khi test monitor | **LÀM KHI VIẾT TEST MONITOR** | Thêm lifecycle contract cùng test idempotent close; không đổi singleton behavior trước đó |
+| Audit a11y | Trung bình-Cao | Thấp | Trung bình-Cao với người dùng screen reader/keyboard | **LÀM DẦN** | Audit control tương tác theo màn hình; không thay mọi `null`, vì icon trang trí nên giữ `null` |
+| Mở rộng i18n hàng loạt | Thấp nếu chưa có demand | Trung bình: chi phí duy trì string và QA | Thấp | **HOÃN** | Dựa analytics/issue/community; setup translation platform trước khi thêm nhiều locale |
+| KMP hóa `shared:config` | Thấp | Trung bình: migration và source-set complexity | Thấp | **BỎ QUA** | Chỉ làm nếu target mới không chạy JVM hoặc Android cần dùng module độc lập |
+| Gộp `desktop:mac-utils` | Rất thấp | Thấp-Trung bình: mất isolation platform | Rất thấp | **BỎ QUA** | Module nhỏ nhưng boundary platform rõ; số dòng ít không phải lý do đủ để gộp |
+| Centralize mọi error bằng `Either` | Thấp-Trung bình | Trung bình: churn API, mixed error model | Thấp | **BỎ QUA TOÀN CỤC** | Dùng typed error cho boundary cần recovery; giữ `runCatching` cho thao tác cục bộ |
+| Konsist/architecture tests | Trung bình | Thấp-Trung bình: rule cứng gây false positive | Trung bình khi tiếp tục modularize | **LÀM NHỎ** | Bắt đầu 2-3 invariant có giá trị: core không phụ thuộc UI, platform package không leak common, dependency direction |
+| Coverage gate/Codecov ngay | Thấp lúc đầu | Trung bình: khuyến khích test nông, CI noise | Thấp | **HOÃN** | Thu thập coverage không gate trước; đặt gate sau khi baseline ổn định |
+| Sửa Gradle deprecated features | Trung bình | Thấp-Trung bình | Trung bình-Cao khi lên Gradle 10 | **LÀM CÓ KẾ HOẠCH** | Chạy `--warning-mode all`, phân loại warning project/plugin, sửa trước upgrade wrapper |
+| Thêm `shared:utils:desktopTest` vào CI | Trung bình | Thấp: tăng ít thời gian CI | Trung bình: test hiện có không được bảo vệ trên PR | **LÀM NGAY** | Thêm task vào bước unit test hiện tại, không cần workflow mới |
+
+### 10.4. Phương án thực thi khuyến nghị
+
+#### Giai đoạn 1 — safety net có mục tiêu
+
+1. Thêm `:shared:utils:desktopTest` vào CI.
+2. Bổ sung test cho retry limit, response validation, range/resume mismatch, cancel và persistence recovery.
+3. Thêm 2-3 architecture invariant, không đưa rule style chủ quan vào test.
+4. Thêm smoke test khởi tạo Koin module và navigation chính nếu test harness Decompose ổn định.
+
+**Exit criteria**:
+
+- Test fail được khi cố ý phá retry/range/resume behavior.
+- CI chạy toàn bộ test module hiện có.
+- Test không phụ thuộc network thật hoặc timing không deterministic.
+
+#### Giai đoạn 2 — giảm rủi ro trong download engine
+
+1. Chọn một responsibility pure trong `HttpDownloadJob`, ưu tiên response validation hoặc retry policy.
+2. Viết characterization test cho behavior hiện tại.
+3. Extract bằng composition, giữ API và state transition cũ.
+4. Mỗi PR chỉ extract một phần; chạy compile Desktop/Android và core tests.
+
+**Không làm trong cùng batch**:
+
+- Không đồng thời đổi locking, coroutine scope, retry semantics hoặc persistence format.
+- Không tách file chỉ để giảm line count nếu coupling không giảm.
+
+#### Giai đoạn 3 — cải thiện UX và maintainability theo dữ liệu
+
+1. Audit a11y từng màn hình, ưu tiên Home, Add Download, Settings, Browser.
+2. Benchmark startup với lịch sử download lớn trước khi thêm cache/index.
+3. Đo build time trước khi giảm `api()` dependencies.
+4. Chỉ tách `AppComponent` sau khi có DI/navigation smoke tests và boundary rõ.
+
+### 10.5. Những việc nên bỏ qua hiện tại
+
+- Full Clean Architecture hoặc UseCase class cho mọi thao tác.
+- Repository interface cho storage chỉ có một implementation thực tế.
+- Adaptive polling khi chưa có profiler evidence.
+- KMP hóa `shared:config` chỉ để đồng nhất tên module.
+- Gộp `desktop:mac-utils` chỉ vì module nhỏ.
+- Chuyển toàn bộ error handling sang `Either`.
+- Thay mọi `contentDescription = null`; icon trang trí cần bị loại khỏi accessibility tree.
+- Coverage gate cứng trước khi test suite đủ đại diện.
+
+### 10.6. Kết luận cập nhật
+
+Codebase không ở trạng thái cần rewrite. Kiến trúc KMP, Decompose, Koin và module engine hiện đủ tốt để phát triển tiếp. Rủi ro lớn nhất không phải thiếu layer kiến trúc, mà là behavior phức tạp của download engine và navigation chưa có safety net tương xứng.
+
+Phương thức nên chọn:
+
+1. **Test theo rủi ro, không theo tỷ lệ file hoặc coverage.**
+2. **Refactor nhỏ bằng composition, luôn khóa behavior bằng characterization test trước.**
+3. **Đo trước khi tối ưu storage, polling hoặc build graph.**
+4. **Bỏ qua refactor thuần lý thuyết không có user impact hoặc maintenance payoff rõ.**
+
+Thứ tự này cho ROI tốt nhất: giảm regression trước, giảm coupling lõi sau, tối ưu và tái cấu trúc lớn chỉ khi có bằng chứng.
+
+---
+
+## 11. Trạng thái phần mềm hiện tại — cập nhật 2026-07-19
+
+### 11.1. Mức độ sản phẩm
+
+Flow Download Manager hiện là sản phẩm đa nền tảng có engine, UI, persistence, integration và packaging thực tế; không còn ở mức skeleton hoặc proof of concept. Repo có entry point Desktop/Android, landing page, browser extension, CI build check và release workflow.
+
+Khả năng đã có trong source:
+
+- HTTP/HTTPS download, ranged parts và multi-connection download.
+- HLS/m3u8 download.
+- Pause/resume, retry, persisted download/part state và destination handling.
+- Queue, bandwidth limit, scheduling và completion actions.
+- Compose UI dùng chung cho Desktop/Android, Decompose navigation và Koin DI.
+- Desktop system tray, background behavior, native notification và auto-start.
+- Browser extension giao tiếp với app qua localhost port `15151`.
+- Sáu theme, tiếng Anh + tiếng Việt.
+- Packaging configuration cho Windows, macOS, Linux và Android.
+
+### 11.2. Mức xác minh hiện tại
+
+| Phạm vi | Trạng thái | Bằng chứng/giới hạn |
+|---|---|---|
+| Download core unit tests | ✅ Pass | 89 desktop test cases, 0 failure/error |
+| Shared utils unit tests | ✅ Pass | Gradle task thành công |
+| PowerShell fast runner | ✅ Pass | Chạy core + utils qua wrapper |
+| Linux/macOS shell runner | 🟡 Chưa chạy trên host hiện tại | Script dùng POSIX `sh`, cùng task set với PowerShell runner |
+| CI unit-test config | ✅ Đã cập nhật | Core + utils trong cùng unit-test step |
+| Desktop/Android compile của commit trước | ✅ CI đã xanh theo lịch sử | Batch hiện tại không đổi production code |
+| Full runner của working tree hiện tại | 🟡 Chưa chạy | Chưa tái xác minh compile Desktop + Android + Android lint bằng `-Full` |
+| UI/DI/navigation automated tests | ❌ Chưa có | Rủi ro startup/navigation chưa được khóa bằng smoke test |
+| Release artifact trên mọi OS | 🟡 Không xác minh trong batch | Cần matrix/release workflow hoặc host tương ứng |
+
+### 11.3. Đánh giá sẵn sàng
+
+Phần mềm đủ nền tảng để tiếp tục phát triển và chạy thử thực tế. Download core đã có safety net tốt hơn cho parser, part validation, persistence state và utility behavior. Kiến trúc không cần rewrite.
+
+Chưa thể xem hardening hoàn tất vì:
+
+- `HttpDownloadJob` vẫn gom nhiều responsibility và có coroutine/thread lifecycle phức tạp.
+- Job-level ETag/content-length/resume validation chưa có test qua public lifecycle.
+- Retry exhaustion và pause/cancel transition chưa có test deterministic.
+- Queue/monitor, DI startup, navigation và UI interaction chưa có automated coverage.
+- Accessibility còn thiếu audit screen reader/keyboard có hệ thống.
+- Gradle deprecated features cần xử lý trước Gradle 10.
+
+Ưu tiên đúng: hoàn thiện lifecycle safety net, thêm DI/navigation smoke test, rồi mới tách `HttpDownloadJob` hoặc `AppComponent`. Không thêm Clean Architecture toàn repo và không refactor chỉ để giảm line count.
+
+### 11.4. Working tree tại thời điểm cập nhật
+
+Thay đổi test/tooling/CI của batch chưa commit. `IMPROVEMENTS.md` và `.claude/skills/` đã có thay đổi tài liệu/hướng dẫn trong working tree. Không có production source được sửa bởi batch HTTP safety net.
+
+---
+
+## 12. Bộ Claude Code project skills — cập nhật 2026-07-19
+
+### 12.1. Mục tiêu
+
+Chuẩn hóa workflow theo boundary thực tế của repo, giảm hướng dẫn trùng lặp và tránh lưu thông tin dễ lỗi thời trong skill. Mỗi skill chỉ giữ trigger, invariant, workflow và cách verify; module graph, CI matrix, artifact matrix và trạng thái triển khai phải đọc từ source of truth hiện tại.
+
+GitNexus vẫn là lớp bảo vệ chung qua `CLAUDE.md`: chạy upstream impact trước khi sửa symbol, cảnh báo khi rủi ro HIGH/CRITICAL và chạy change detection trước commit. Project skills bổ sung invariant riêng cho từng domain, không thay thế GitNexus.
+
+### 12.2. Bộ skill chuẩn
+
+| Skill | Phạm vi chính | Boundary |
+|---|---|---|
+| `flowspeed-a11y-ux` | UX, keyboard, screen reader, responsive/error states | Review trải nghiệm; thay đổi Compose thuộc `flowspeed-compose-ui` |
+| `flowspeed-compose-ui` | Compose, Decompose, navigation, state wiring | Không chứa OS lifecycle hoặc engine semantics |
+| `flowspeed-download-engine` | HTTP/HLS, retry, range, resume, persistence, queue | Không xử lý browser trust boundary hoặc native lifecycle |
+| `flowspeed-gradle` | Build, test task, lint, CI parity, dependency setup | Đọc task/workflow hiện tại; không giữ CI matrix dễ stale |
+| `flowspeed-integration-security` | Extension, localhost API, CORS, URL/filename trust | Kết thúc tại request đã được validate |
+| `flowspeed-release` | Version, package, signing, artifact, publish | Đọc Gradle/workflow làm source of truth; publish cần xác nhận |
+| `flowspeed-testing` | Behavioral test, deterministic fake, smoke/architecture test | Test theo rủi ro, không chase coverage % |
+| `flowspeed-platform-runtime` | Android service/permission/boot; Desktop tray/notification/single-instance | OS API không leak vào `commonMain`; lifecycle phải idempotent |
+| `flowspeed-architecture` | Module boundary, KMP source set, DI split, dependency exposure | Một ownership boundary mỗi patch; test/measurement trước refactor rủi ro |
+
+Skill files nằm tại `.claude/skills/flowspeed-*/SKILL.md`.
+
+### 12.3. Quy tắc chuẩn hóa
+
+- Frontmatter chỉ gồm `name` và `description`; description nêu rõ trigger.
+- Một skill tương ứng một domain có công việc lặp lại và invariant riêng.
+- Cross-reference skill khác tại điểm handoff, không lặp nguyên checklist.
+- Không lưu số dòng, danh sách module đầy đủ, CI job, artifact name hoặc trạng thái roadmap khi source đã định nghĩa chúng.
+- Không tạo skill riêng cho i18n, performance, installer, browser extension hoặc storage lúc này: phạm vi quá hẹp hoặc đã thuộc skill hiện có.
+- Verification dùng task nhỏ nhất chứng minh thay đổi, sau đó compile consumer bị ảnh hưởng.
+- Skill kiến trúc phải giữ nguyên quyết định tại mục 10: test trước refactor, composition thay vì split theo line count, đo trước tối ưu và tránh Clean Architecture toàn repo.
+
+### 12.4. Kết quả kiểm tra
+
+- Có 9 skill, tên duy nhất và khớp tên thư mục.
+- Frontmatter hợp lệ, code fence cân bằng, cross-reference không trỏ tới skill thiếu.
+- Sáu skill cũ đã bỏ thông tin dễ stale và rút về workflow/invariant cốt lõi.
+- Ba khoảng trống được bổ sung: testing, platform runtime và architecture.
+- Thay đổi chỉ tác động tài liệu/hướng dẫn Claude Code; không đổi production symbol hoặc execution flow.
 
 ---
 
@@ -834,17 +1045,33 @@ Vì khối lượng code lớn (~92k LOC), mỗi refactor nên chạy GitNexus t
 | `shared/app/.../util/mvi/` | — | ✅ OK | ContainsEffects dùng ở 8+ components |
 | `shared/app/.../util/BaseComponent.kt` | 11-24 | ✅ OK | Pattern tốt |
 | `shared/config/` | — | ✅ OK | Đang dùng tích cực, JVM-only |
-| `desktop/app/.../AppComponent.kt` | — | ⚡ Partial | 1046 dòng (còn 1046 sau delegate refactor) |
+| `desktop/app/.../AppComponent.kt` | — | ⚡ Partial | 1.069 dòng theo source tái kiểm chứng ngày 2026-07-12 |
 | `desktop/app/.../di/UiModule.kt` | 70-77 | 🟡 P2 | runBlocking — cân nhắc thay thế |
-| `.github/workflows/` | — | ✅ **ĐÃ THÊM** | build-check.yml + dependabot.yml |
+| `downloader/core/.../HttpResponseInfoTest.kt` | — | ✅ **ĐÃ THÊM** | HTTP response và Content-Range parser coverage |
+| `downloader/core/.../HttpPartDownloaderTest.kt` | — | ✅ **ĐÃ THÊM** | Part response validation và connection cleanup |
+| `downloader/core/.../HttpDownloadJobStateTest.kt` | — | ✅ **ĐÃ THÊM** | Persisted part restore/reset coverage |
+| `tools/testing/` | — | ✅ **ĐÃ THÊM** | Cross-platform fast/full Gradle test runners |
+| `.github/workflows/` | — | ✅ **ĐÃ THÊM** | build-check chạy core + utils tests; dependabot.yml |
 
 ---
 
 **Người thực hiện khảo sát**: Claude Code (opencode)
-**Ngày hoàn thành**: 2026-07-05
-**Version khảo sát**: 1.3 (cập nhật sau batch refactor + CI xanh)
+**Ngày hoàn thành khảo sát gốc**: 2026-07-05
+**Version khảo sát**: 1.5 (cập nhật HTTP safety net và trạng thái sản phẩm ngày 2026-07-19)
 
 ### Changelog
+- **v1.5** (2026-07-19): Cập nhật test safety net và trạng thái sản phẩm:
+  - Ghi nhận 11 test files và 89 core desktop test cases pass.
+  - Thêm inventory behavior cho `HttpResponseInfo`, `HttpPartDownloader` và persisted `HttpDownloadJob` state.
+  - Ghi nhận PowerShell/Linux/macOS test runners trong `tools/testing/`.
+  - Cập nhật CI chạy cả `:downloader:core:desktopTest` và `:shared:utils:desktopTest`.
+  - Phân biệt phần đã xác minh, full runner chưa chạy và lifecycle/retry coverage còn deferred.
+  - Thêm đánh giá mức độ sản phẩm, khả năng hiện có, độ sẵn sàng và rủi ro còn lại.
+- **v1.4** (2026-07-19): Chuẩn hóa Claude Code project skills:
+  - Tinh gọn 6 skill hiện có, bỏ module/CI/artifact matrix dễ lỗi thời.
+  - Thêm `flowspeed-testing`, `flowspeed-platform-runtime`, `flowspeed-architecture`.
+  - Chuẩn hóa trigger, boundary, invariant, workflow, verification và cross-reference cho 9 skill.
+  - Không tạo skill riêng cho phạm vi hẹp hoặc trùng: i18n, performance, installer, extension, storage.
 - **v1.3** (2026-07-06): Cập nhật kết quả thực tế sau khi thực hiện toàn bộ batch refactor:
   - Đánh dấu các mục ĐÃ THỰC HIỆN (commits `bce62ca` → `9d0b0e1`)
   - Thêm section §8 tổng kết kết quả + lesson learned

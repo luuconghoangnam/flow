@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +22,8 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import com.flowspeed.link.shared.util.div
 import com.flowspeed.link.shared.util.ui.WithContentAlpha
 import com.flowspeed.link.shared.util.ui.myColors
@@ -66,7 +69,7 @@ fun DownloadCard(
         Spacer(Modifier.height(8.dp))
 
         // Progress bar with glow effect for active downloads
-        val progress = when (item) {
+        val targetProgress = when (item) {
             is ProcessingDownloadItemState -> {
                 if (item.contentLength > 0) item.progress.toFloat() / item.contentLength.toFloat()
                 else 0f
@@ -74,13 +77,26 @@ fun DownloadCard(
             is CompletedDownloadItemState -> 1f
             else -> 0f
         }
+        val progress by animateFloatAsState(
+            targetValue = targetProgress,
+            animationSpec = tween(500, easing = LinearOutSlowInEasing),
+            label = "progress"
+        )
         val isActive = item is ProcessingDownloadItemState
-        val progressColor = if (item is CompletedDownloadItemState) myColors.success else myColors.primary
+        val targetColor = if (item is CompletedDownloadItemState) myColors.success else myColors.primary
+        val progressColor by animateColorAsState(
+            targetValue = targetColor,
+            animationSpec = tween(500),
+            label = "progressColor"
+        )
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(4.dp)
                 .background(myColors.onBackground / 0.1f, RectangleShape)
+                .semantics {
+                    progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(progress, 0f..1f)
+                }
         ) {
             Box(
                 Modifier
@@ -90,14 +106,15 @@ fun DownloadCard(
             )
             // Shimmer overlay for active downloads
             if (isActive && progress > 0f) {
-                val shimmerTransition = rememberInfiniteTransition()
+                val shimmerTransition = rememberInfiniteTransition(label = "shimmer")
                 val shimmerOffset by shimmerTransition.animateFloat(
                     initialValue = -1f,
                     targetValue = 2f,
                     animationSpec = infiniteRepeatable(
                         animation = tween(1500, easing = LinearEasing),
                         repeatMode = RepeatMode.Restart
-                    )
+                    ),
+                    label = "shimmer_offset"
                 )
                 Box(
                     Modifier
@@ -132,40 +149,55 @@ fun DownloadCard(
         Spacer(Modifier.height(8.dp))
 
         // Speed + Size row
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            when (item) {
-                is ProcessingDownloadItemState -> {
-                    // Speed
-                    Text(
-                        text = formatSpeedCompact(item.speed),
-                        fontSize = myTextSizes.sm,
-                        color = myColors.primary,
-                    )
-                    // Size
-                    Text(
-                        text = formatSizeCompact(item.contentLength),
-                        fontSize = myTextSizes.sm,
-                    )
-                }
-                is CompletedDownloadItemState -> {
-                    Text(
-                        text = "✓",
-                        fontSize = myTextSizes.sm,
-                        color = myColors.success,
-                    )
-                    Text(
-                        text = formatSizeCompact(item.contentLength),
-                        fontSize = myTextSizes.sm,
-                    )
-                }
-                else -> {
-                    Text(
-                        text = "—",
-                        fontSize = myTextSizes.sm,
-                    )
+        val stateCategory = when(item) {
+            is ProcessingDownloadItemState -> 0
+            is CompletedDownloadItemState -> 1
+            else -> 2
+        }
+
+        AnimatedContent(
+            targetState = stateCategory,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            },
+            label = "speedSizeTransition"
+        ) { category ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                when (category) {
+                    0 -> {
+                        val processingItem = item as? ProcessingDownloadItemState
+                        // Speed
+                        Text(
+                            text = formatSpeedCompact(processingItem?.speed ?: 0L),
+                            fontSize = myTextSizes.sm,
+                            color = myColors.primary,
+                        )
+                        // Size
+                        Text(
+                            text = formatSizeCompact(item.contentLength),
+                            fontSize = myTextSizes.sm,
+                        )
+                    }
+                    1 -> {
+                        Text(
+                            text = "✓",
+                            fontSize = myTextSizes.sm,
+                            color = myColors.success,
+                        )
+                        Text(
+                            text = formatSizeCompact(item.contentLength),
+                            fontSize = myTextSizes.sm,
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "—",
+                            fontSize = myTextSizes.sm,
+                        )
+                    }
                 }
             }
         }

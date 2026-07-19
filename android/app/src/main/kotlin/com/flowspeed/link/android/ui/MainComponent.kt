@@ -464,7 +464,7 @@ class MainComponent(
     }
 
     override fun closeDownloadDialog() {
-        TODO("Not yet implemented")
+        // Android download details are separate activities, not in-process dialogs.
     }
 
     override fun openEditDownloadDialog(id: Long) {
@@ -480,7 +480,7 @@ class MainComponent(
     }
 
     override fun closeAddDownloadDialog() {
-        TODO("Not yet implemented")
+        // Android add-download screens are separate activities, not in-process dialogs.
     }
 
     override fun openAddDownloadDialog(

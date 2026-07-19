@@ -6,7 +6,8 @@ This plan implements the home page layout redesign from sidebar + table view to 
 
 ## Tasks
 
-- [ ] 1. Add `totalDiskUsageFlow` StateFlow to `BaseHomeComponent` that computes the sum of `contentLength` from `completedList`, emitting 0L when no completed downloads exist
+### Shared Components (not started — blocked by shared UI module setup)
+- [ ] 1. Add `totalDiskUsageFlow` StateFlow to `BaseHomeComponent`
   - [ ] 1.1 Add the flow definition using `completedList.map { list -> list.sumOf { it.contentLength } }.stateIn(scope, SharingStarted.Eagerly, 0L)`
   - [ ] 1.2 Verify the flow is accessible from platform HomeComponents
 
@@ -38,34 +39,39 @@ This plan implements the home page layout redesign from sidebar + table view to 
   - [ ] 6.5 Conditionally show speed and time remaining only for active downloads
   - [ ] 6.6 Display status text with appropriate color (success for completed, error for failed, warning for paused)
 
-- [ ] 7. Create Desktop `CardGrid` component at `desktop/app/src/main/kotlin/com/flowspeed/link/desktop/pages/home/sections/CardGrid.kt`
-  - [ ] 7.1 Implement `LazyVerticalGrid` with `GridCells.Adaptive(minSize = 280.dp)`
-  - [ ] 7.2 Wire up Ctrl+click for multi-select, Shift+click for range select
-  - [ ] 7.3 Wire up double-click to open file or show properties, right-click for context menu
-  - [ ] 7.4 Support Ctrl+A to select all and Escape to deselect
-  - [ ] 7.5 Support drag-and-drop of selected items (preserve existing behavior)
-  - [ ] 7.6 Show empty state message when no downloads match filters
+### Desktop CardGrid (done)
+- [x] 7. Create Desktop `CardGrid` component at `desktop/app/src/main/kotlin/com/flowspeed/link/desktop/pages/home/sections/CardGrid.kt`
+  - [x] 7.1 Implement `LazyVerticalGrid` with `GridCells.Adaptive(minSize = 280.dp)`
+  - [x] 7.2 Wire up Ctrl+click for multi-select, Shift+click for range select
+  - [x] 7.3 Wire up double-click to open file or show properties, right-click for context menu
+  - [x] 7.4 Support Ctrl+A to select all and Escape to deselect
+  - [ ] 7.5 Support drag-and-drop of selected items (preserve existing behavior) — *deferred, need DragSource/DropTarget from existing DownloadList*
+  - [x] 7.6 Show empty state message when no downloads match filters
 
-- [ ] 8. Create Android `CardGrid` component at `android/app/src/main/kotlin/com/flowspeed/link/android/pages/home/CardGrid.kt`
-  - [ ] 8.1 Implement `LazyVerticalGrid` with `GridCells.Fixed(1)` for narrow screens and `GridCells.Fixed(2)` for wide (>600dp)
-  - [ ] 8.2 Wire up tap for item click, long-press for context menu / selection mode
-  - [ ] 8.3 Show empty state message when no downloads match filters
+### Android CardGrid (done)
+- [x] 8. Create Android `CardGrid` component at `android/app/src/main/kotlin/com/flowspeed/link/android/pages/home/CardGrid.kt`
+  - [x] 8.1 Implement `LazyVerticalGrid` with `GridCells.Fixed(1)` for narrow screens and `GridCells.Fixed(2)` for wide (>600dp)
+  - [x] 8.2 Wire up tap for item click, long-press for context menu / selection mode
+  - [x] 8.3 Show empty state message when no downloads match filters
 
-- [ ] 9. Rewrite Desktop `HomePage.kt` to use new layout
+### Desktop HomePage — partial rewrite
+- [x] 9. Rewrite Desktop `HomePage.kt` to use new layout
   - [ ] 9.1 Remove left sidebar Column (Categories, QueuesSection, Handle split pane, categoriesWidth state)
   - [ ] 9.2 Add CyberNavigationBar below title bar / menu bar area
   - [ ] 9.3 Add DashboardStatsHeader wired to `globalSpeedFlow`, `activeDownloadCountFlow`, `totalDiskUsageFlow`
   - [ ] 9.4 Add StatusFilterRow wired to `filterState.statusFilter`
-  - [ ] 9.5 Replace DownloadList table with CardGrid component, add CyberGridBackground behind it
-  - [ ] 9.6 Preserve search box, Add URL button, drag-and-drop overlay, dialog prompts, and menu bar merge behavior
+  - [x] 9.5 Replace DownloadList table with CardGrid component (CyberGridBackground deferred — needs shared component)
+  - [x] 9.6 Preserve search box, Add URL button, drag-and-drop overlay, dialog prompts, and menu bar merge behavior
   - [ ] 9.7 Remove Footer composable (stats now in DashboardStatsHeader)
 
-- [ ] 10. Rewrite Android `HomePage.kt` to use new layout
+### Android HomePage — partial rewrite
+- [x] 10. Rewrite Android `HomePage.kt` to use new layout
   - [ ] 10.1 Add CyberNavigationBar below PageHeader
   - [ ] 10.2 Add DashboardStatsHeader and StatusFilterRow
-  - [ ] 10.3 Replace existing DownloadList with CardGrid, add CyberGridBackground behind it
-  - [ ] 10.4 Preserve bottom navigation, selection actions footer, enter-new-URL dialog, and all prompts
+  - [x] 10.3 Replace existing DownloadList with CardGrid (CyberGridBackground deferred)
+  - [x] 10.4 Preserve bottom navigation, selection actions footer, enter-new-URL dialog, and all prompts
 
+### Cleanup & Polish
 - [ ] 11. Clean up removed files and references
   - [ ] 11.1 Remove or deprecate `desktop/.../home/sections/DownloadList.kt`, `TableDownloadItem.kt`, `Filters.kt`
   - [ ] 11.2 Remove or deprecate `desktop/.../home/sections/category/` directory
@@ -97,3 +103,12 @@ This plan implements the home page layout redesign from sidebar + table view to 
 - The `HomePersistedState` should be updated to remove sidebar-related persisted state
 - Keyboard shortcuts (Ctrl+A, Escape) must be re-wired to work with the grid layout in Task 7
 - The Android bottom navigation bar is preserved as-is; only the content area above it changes
+
+## Related Work Completed Outside This Spec
+
+The following were completed in the same session (Jul 2026) as preparation/release blockers:
+
+- **Inno installer**: Created `InnoSetupTask.kt` calling `ISCC.exe` with Handlebars template; replaced NSIS plugin (`InstallerPlugin.kt`, `InstallerPluginExtension.kt`); installer template at `installer/flow-setup.iss`. Run via `createReleaseFolderForCi`.
+- **Crash path fixes**: Removed `TODO()` runtime crashes in `FlowAppManager.kt` (TOGGLE_ACTION), `MainComponent.kt` (closeDownloadDialog/closeAddDownloadDialog), `PowerAction*.kt` (sleep/hibernate implemented real commands), `MacOSUtils.kt` (removed unused import).
+- **Test fixes**: `FileNameUtilTest.kt` (added `kotlinx.coroutines.flow.first` import), `IncompleteFileUtilTest.kt` (`.parent` → `.parentFile` for cross-platform).
+- **JDK 21**: `JAVA_HOME` set to `D:\Repos\jdk21\jdk-21.0.6+7`. Build target JVM 21.
