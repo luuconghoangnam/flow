@@ -172,7 +172,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update landing page download links
@@ -192,4 +192,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add landing/index.html
           git diff --cached --quiet || git commit -m "ci: auto-update landing download links to ${{ github.ref_name }}"
-          git push origin dev
+          git push origin main
