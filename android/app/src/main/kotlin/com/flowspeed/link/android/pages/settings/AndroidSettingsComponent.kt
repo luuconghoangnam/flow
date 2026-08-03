@@ -47,7 +47,6 @@ class AndroidSettingsComponent(
                 nestedConfigurable = listOf(
                     CommonSettings.languageConfig(languageManager, scope),
 //                            DesktopSettings.fontConfig(fontManager, scope),
-                    CommonSettings.uiScaleConfig(appSettings),
                 )
             ),
             ConfigurableGroup(
@@ -61,21 +60,9 @@ class AndroidSettingsComponent(
             ),
             ConfigurableGroup(
                 nestedConfigurable = listOf(
-                    CommonSettings.autoStartConfig(appSettings),
-//                            DesktopSettings.useSystemTray(appSettings),
-                )
-            ),
-            ConfigurableGroup(
-                nestedConfigurable = listOf(
                     CommonSettings.sizeUnit(appRepository, scope),
                     CommonSettings.speedUnit(appRepository, scope),
                     CommonSettings.useAverageSpeedConfig(appRepository),
-                )
-            ),
-            ConfigurableGroup(
-                nestedConfigurable = listOf(
-                    CommonSettings.autoShowDownloadProgressWindow(appSettings),
-                    CommonSettings.showDownloadFinishWindow(appSettings),
                 )
             ),
             // download engine
@@ -113,7 +100,6 @@ class AndroidSettingsComponent(
                     CommonSettings.trackDeletedFilesOnDisk(appRepository),
                     CommonSettings.appendExtensionToIncompleteDownloads(appRepository),
                     CommonSettings.deletePartialFileOnDownloadCancellation(appSettings),
-                    CommonSettings.useSparseFileAllocation(appRepository),
                 )
             ),
             ConfigurableGroup(
