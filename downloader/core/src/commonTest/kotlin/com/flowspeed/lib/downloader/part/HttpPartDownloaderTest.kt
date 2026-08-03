@@ -49,6 +49,45 @@ class HttpPartDownloaderTest {
     }
 
     @Test
+    fun `matching response length with wrong content range start fails and closes connection`() = runTest {
+        val fixture = fixture(
+            contentLength = 100,
+            responseHeaders = mapOf("content-range" to "bytes 100-199/1000"),
+        )
+
+        assertFailsWith<ServerPartIsNotTheSameAsWeExpectException> {
+            fixture.downloader.connectAndVerify()
+        }
+        assertTrue(fixture.source.closed)
+    }
+
+    @Test
+    fun `ranged request rejects full response and closes connection`() = runTest {
+        val fixture = fixture(
+            contentLength = 100,
+            statusCode = 200,
+        )
+
+        assertFailsWith<ServerPartIsNotTheSameAsWeExpectException> {
+            fixture.downloader.connectAndVerify()
+        }
+        assertTrue(fixture.source.closed)
+    }
+
+    @Test
+    fun `ranged response without content range fails and closes connection`() = runTest {
+        val fixture = fixture(
+            contentLength = 100,
+            responseHeaders = emptyMap(),
+        )
+
+        assertFailsWith<ServerPartIsNotTheSameAsWeExpectException> {
+            fixture.downloader.connectAndVerify()
+        }
+        assertTrue(fixture.source.closed)
+    }
+
+    @Test
     fun `short response with wrong start fails and closes connection`() = runTest {
         val fixture = fixture(
             contentLength = 50,
@@ -104,7 +143,7 @@ class HttpPartDownloaderTest {
 
     private fun fixture(
         contentLength: Long,
-        responseHeaders: Map<String, String> = emptyMap(),
+        responseHeaders: Map<String, String> = mapOf("content-range" to "bytes 0-99/100"),
         statusCode: Int = 206,
         strictMode: Boolean = true,
     ): Fixture {

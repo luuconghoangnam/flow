@@ -68,6 +68,13 @@ class HttpPartDownloader(
         synchronized(partSplitSupport) {
             if (part.isBlind) {
                 part.setBlindAsCompleted()
+            } else if (!part.isCompleted) {
+                onCanceled(
+                    CancellationException(
+                        "response ended before bounded part completed: $part"
+                    )
+                )
+                return
             }
         }
         super.onFinish()
@@ -106,35 +113,26 @@ class HttpPartDownloader(
                 it
             }
         }
-        if (contentLength != partCopy.remainingLength) {
-            var throwServerPartIsNotTheSameAsWeExpectException: Boolean
-            if (strictMode) {
-                throwServerPartIsNotTheSameAsWeExpectException = true
-                // allow pass through if the request range start and response range start are the same
-                conn.responseInfo.contentRange?.range?.let { range ->
-                    if (range.first == partCopy.current) {
-                        // if I request from 1..10 then I expect that server give me 1-X the X is not important
-                        // but the start should be the same as requested otherwise we can't trust the server response
-                        // X may be smaller/bigger than our requested range however we download it as much as we want if it wasn't enough we re request again later
-                        throwServerPartIsNotTheSameAsWeExpectException = false
-                    }
-                }
-            } else {
-                // just download it we don't want to validate anything here
-                throwServerPartIsNotTheSameAsWeExpectException = true
-            }
-            val serverPartIsNotTheSameAsWeExpectException = ServerPartIsNotTheSameAsWeExpectException(
+        val responseRange = conn.responseInfo.contentRange?.range
+        val isRangedRequest = partCopy.to != null
+        val hasValidResponseStart = responseRange?.first == partCopy.current
+        val hasUnexpectedFullResponse = isRangedRequest && !conn.responseInfo.isPartial
+        val hasMissingResponseRange = isRangedRequest && responseRange == null
+        val hasUnexpectedResponseStart = isRangedRequest && responseRange != null && !hasValidResponseStart
+        val hasUnexpectedLength = contentLength != null && partCopy.remainingLength != null &&
+                contentLength != partCopy.remainingLength
+        val mustReject = hasUnexpectedFullResponse || hasMissingResponseRange ||
+                hasUnexpectedResponseStart ||
+                (hasUnexpectedLength && (!strictMode || !hasValidResponseStart))
+        if (mustReject) {
+            val exception = ServerPartIsNotTheSameAsWeExpectException(
                 start = partCopy.current,
                 end = partCopy.to,
                 expectedLength = partCopy.remainingLength,
                 actualLength = contentLength
             )
-            if (throwServerPartIsNotTheSameAsWeExpectException) {
-                conn.close()
-                throw serverPartIsNotTheSameAsWeExpectException
-            } else {
-                println("WARNING: ${serverPartIsNotTheSameAsWeExpectException.message}")
-            }
+            conn.close()
+            throw exception
         }
         return conn
     }

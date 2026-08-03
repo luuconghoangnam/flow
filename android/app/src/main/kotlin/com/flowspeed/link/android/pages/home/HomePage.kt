@@ -222,6 +222,7 @@ fun HomePage(component: HomeComponent) {
                         .background(myColors.background),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(topPaddingInDp))
                     val filterMode by component.filterMode
                     // Cyber-Industrial navigation bar
                     val categories by component.categoryManager.categoriesFlow.collectAsState()
@@ -272,7 +273,12 @@ fun HomePage(component: HomeComponent) {
                             },
                             modifier = Modifier
                                 .fillMaxSize(),
-                            contentPadding = params.paddingValues,
+                            contentPadding = PaddingValues(
+                                top = 0.dp,
+                                bottom = params.paddingValues.calculateBottomPadding(),
+                                start = params.paddingValues.calculateLeftPadding(direction),
+                                end = params.paddingValues.calculateRightPadding(direction)
+                            ),
                             gridState = gridState,
                         )
                     }
